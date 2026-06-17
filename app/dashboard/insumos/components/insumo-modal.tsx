@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { X, ShoppingCart, ChevronDown, Clock, Pencil } from 'lucide-react'
+import { X, ShoppingCart, Clock, Pencil } from 'lucide-react'
 import {
   createInsumo,
   updateInsumo,
@@ -10,6 +10,7 @@ import {
 } from '../actions'
 import { parseDecimalBR, formatBRL, formatCustoUso } from '@/lib/format'
 import { SectionLabel } from '@/app/components/ui/section-label'
+import { UnidadeMedidaSelector } from '@/app/components/ui/unidade-medida-selector'
 import type { ActionResult, InsumoComCusto, InsumoPreco } from '../types'
 
 interface DecimalInputProps {
@@ -72,27 +73,6 @@ function ErrorBox({ message }: { message?: string }) {
   )
 }
 
-function SelectField({ name, label, value, defaultValue, onChange, children }: {
-  name: string; label: string; value?: string; defaultValue?: string
-  onChange?: (v: string) => void; children: React.ReactNode
-}) {
-  const controlled = value !== undefined && onChange !== undefined
-  return (
-    <div>
-      <label className="field-label">{label}</label>
-      <div className="relative">
-        <select
-          name={name}
-          {...(controlled ? { value, onChange: (e) => onChange(e.target.value) } : { defaultValue })}
-          className="input-field appearance-none pr-10"
-        >
-          {children}
-        </select>
-        <ChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9e9e9e]/50 pointer-events-none" />
-      </div>
-    </div>
-  )
-}
 
 function PrecoCampos({ unidade_uso, precoCompra, setPrecoCompra, qtdUso, setQtdUso, unidadeCompraDefault = '' }: {
   unidade_uso: string; precoCompra: string; setPrecoCompra: (v: string) => void
@@ -127,10 +107,10 @@ interface Props {
   onClose: () => void
 }
 
-const UNIDADES = [
-  { value: 'g', label: 'g — grama' },
-  { value: 'ml', label: 'ml — mililitro' },
-  { value: 'un', label: 'un — unidade' },
+const UNIDADES_INSUMO = [
+  { value: 'g',  label: 'g',  nome: 'grama' },
+  { value: 'ml', label: 'ml', nome: 'mililitro' },
+  { value: 'un', label: 'un', nome: 'unidade' },
 ]
 
 export function InsumoModal({ insumo, categorias, onClose }: Props) {
@@ -187,9 +167,15 @@ export function InsumoModal({ insumo, categorias, onClose }: Props) {
                   <input type="text" name="categoria" required placeholder="Farinhas, Gorduras, Laticínios…" list="categorias-create" className="input-field" />
                   <datalist id="categorias-create">{categorias.map((c) => <option key={c} value={c} />)}</datalist>
                 </div>
-                <SelectField name="unidade_uso" label="Unidade de uso" value={unidadeUso} onChange={setUnidadeUso}>
-                  {UNIDADES.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
-                </SelectField>
+                <div>
+                  <label className="field-label">Unidade de uso</label>
+                  <UnidadeMedidaSelector
+                    name="unidade_uso"
+                    options={UNIDADES_INSUMO}
+                    value={unidadeUso}
+                    onChange={setUnidadeUso}
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -227,9 +213,14 @@ export function InsumoModal({ insumo, categorias, onClose }: Props) {
                   <input type="text" name="categoria" defaultValue={insumo.categoria ?? ''} list="categorias-edit" className="input-field" />
                   <datalist id="categorias-edit">{categorias.map((c) => <option key={c} value={c} />)}</datalist>
                 </div>
-                <SelectField name="unidade_uso" label="Unidade de uso" defaultValue={insumo.unidade_uso}>
-                  {UNIDADES.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
-                </SelectField>
+                <div>
+                  <label className="field-label">Unidade de uso</label>
+                  <UnidadeMedidaSelector
+                    name="unidade_uso"
+                    options={UNIDADES_INSUMO}
+                    defaultValue={insumo.unidade_uso}
+                  />
+                </div>
                 <ErrorBox message={editState?.error} />
                 <div className="flex gap-3">
                   <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancelar</button>

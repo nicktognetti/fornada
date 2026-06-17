@@ -4,6 +4,7 @@ import { useActionState, useEffect } from 'react'
 import { X, ChevronDown, Pencil } from 'lucide-react'
 import { createReceita, updateReceita } from '../actions'
 import { SectionLabel } from '@/app/components/ui/section-label'
+import { UnidadeMedidaSelector } from '@/app/components/ui/unidade-medida-selector'
 import type { ActionResult, Receita } from '../types'
 
 interface Props {
@@ -14,14 +15,18 @@ interface Props {
 const TIPOS = [
   { value: 'final', label: 'Final — produto de venda' },
   { value: 'base', label: 'Base — sub-receita / preparação' },
+  { value: 'massa', label: 'Massa' },
+  { value: 'recheio', label: 'Recheio' },
+  { value: 'cobertura', label: 'Cobertura' },
+  { value: 'calda', label: 'Calda' },
 ]
 
-const UNIDADES = [
-  { value: 'g', label: 'g — grama' },
-  { value: 'kg', label: 'kg — quilograma' },
-  { value: 'ml', label: 'ml — mililitro' },
-  { value: 'l', label: 'l — litro' },
-  { value: 'un', label: 'un — unidade' },
+const UNIDADES_RECEITA = [
+  { value: 'g',  label: 'g',  nome: 'grama' },
+  { value: 'kg', label: 'kg', nome: 'quilograma' },
+  { value: 'ml', label: 'ml', nome: 'mililitro' },
+  { value: 'l',  label: 'l',  nome: 'litro' },
+  { value: 'un', label: 'un', nome: 'unidade' },
 ]
 
 export function ReceitaModal({ receita, onClose }: Props) {
@@ -94,12 +99,11 @@ export function ReceitaModal({ receita, onClose }: Props) {
               </div>
               <div>
                 <label className="field-label">Unidade</label>
-                <div className="relative">
-                  <select name="rendimento_unidade" defaultValue={receita?.rendimento_unidade ?? 'g'} className="input-field appearance-none pr-8">
-                    {UNIDADES.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                  </select>
-                  <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]/50 pointer-events-none" />
-                </div>
+                <UnidadeMedidaSelector
+                  name="rendimento_unidade"
+                  options={UNIDADES_RECEITA}
+                  defaultValue={receita?.rendimento_unidade ?? 'g'}
+                />
               </div>
             </div>
 

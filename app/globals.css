@@ -50,12 +50,69 @@
   --font-sacramento:'Sacramento', cursive;
 }
 
+/* ── Variáveis de tema (dark por padrão) ─────────────────────────────────── */
+
+:root {
+  --t-page-bg:     #1a1a1d;
+  --t-nav-bg:      #1a1a1d;
+  --t-nav-border:  rgba(255,255,255,0.06);
+  --t-card-bg:     #252528;
+  --t-card-border: rgba(255,255,255,0.06);
+  --t-card-shadow: 0 2px 12px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.2);
+  --t-card-hover:  #2e2e32;
+  --t-input-bg:    #2b2b30;
+  --t-input-border:rgba(255,255,255,0.08);
+  --t-input-opt:   #2b2b30;
+  --t-text-1:      #e8e6e3;
+  --t-text-2:      #9e9e9e;
+  --t-text-muted:  rgba(158,158,158,0.5);
+  --t-border-sub:  rgba(255,255,255,0.07);
+  --t-ghost-border:rgba(255,255,255,0.12);
+  --t-accent:      #d68a57;
+  --t-accent-hover:#e09a67;
+  --t-accent-press:#c07a47;
+  --t-modal-bg:    #252528;
+  --t-modal-border:rgba(255,255,255,0.08);
+  --t-row-hover:   rgba(255,255,255,0.02);
+  --t-table-head:  #1a1a1d;
+  --t-inset-bg:    #1e1e22;
+}
+
+/* ── Tema claro ───────────────────────────────────────────────────────────── */
+
+html.light {
+  --t-page-bg:     #ede9e1;
+  --t-nav-bg:      #f5f1ea;
+  --t-nav-border:  rgba(172,97,55,0.15);
+  --t-card-bg:     #ffffff;
+  --t-card-border: rgba(172,97,55,0.10);
+  --t-card-shadow: 0 2px 12px rgba(172,97,55,0.06), 0 1px 3px rgba(0,0,0,0.06);
+  --t-card-hover:  #faf8f4;
+  --t-input-bg:    #f5f1ea;
+  --t-input-border:rgba(172,97,55,0.18);
+  --t-input-opt:   #f5f1ea;
+  --t-text-1:      #1a1410;
+  --t-text-2:      #6b5f4f;
+  --t-text-muted:  rgba(107,95,79,0.55);
+  --t-border-sub:  rgba(172,97,55,0.10);
+  --t-ghost-border:rgba(172,97,55,0.20);
+  --t-accent:      #ac6137;
+  --t-accent-hover:#c07a47;
+  --t-accent-press:#8c4f2d;
+  --t-modal-bg:    #ffffff;
+  --t-modal-border:rgba(172,97,55,0.12);
+  --t-row-hover:   rgba(172,97,55,0.03);
+  --t-table-head:  #f5f1ea;
+  --t-inset-bg:    #f0ece4;
+}
+
 /* ── Tema escuro global ───────────────────────────────────────────────────── */
 
 body {
-  background-color: #1a1a1d;
-  color: #e8e6e3;
+  background-color: var(--t-page-bg);
+  color: var(--t-text-1);
   font-family: var(--font-outfit);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 *,
@@ -70,6 +127,8 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.12); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.2); }
+html.light ::-webkit-scrollbar-thumb { background-color: rgba(172,97,55,0.25); }
+html.light ::-webkit-scrollbar-thumb:hover { background-color: rgba(172,97,55,0.40); }
 
 /* ── Design system components ─────────────────────────────────────────────── */
 
@@ -78,24 +137,24 @@ body {
   /* Inputs */
   .input-field {
     width: 100%;
-    background-color: #2b2b30;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: var(--t-input-bg);
+    border: 1px solid var(--t-input-border);
     border-radius: 0.625rem;
     padding: 0.625rem 0.875rem;
-    color: #e8e6e3;
+    color: var(--t-text-1);
     font-size: 0.875rem;
     font-family: var(--font-outfit);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
     outline: none;
   }
 
   .input-field::placeholder {
-    color: rgba(158, 158, 158, 0.5);
+    color: var(--t-text-muted);
   }
 
   .input-field:focus {
-    border-color: #d68a57;
-    box-shadow: 0 0 0 3px rgba(214, 138, 87, 0.15);
+    border-color: var(--t-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 15%, transparent);
   }
 
   .input-field:disabled {
@@ -103,16 +162,15 @@ body {
     cursor: not-allowed;
   }
 
-  /* Select override — dark bg option */
   .input-field option {
-    background-color: #2b2b30;
-    color: #e8e6e3;
+    background-color: var(--t-input-opt);
+    color: var(--t-text-1);
   }
 
   /* Labels */
   .field-label {
     display: block;
-    color: #9e9e9e;
+    color: var(--t-text-2);
     font-size: 11px;
     font-family: var(--font-outfit);
     text-transform: uppercase;
@@ -121,12 +179,13 @@ body {
     margin-bottom: 0.375rem;
   }
 
-  /* Cards de superfície — escuro */
+  /* Cards de superfície */
   .card-surface {
-    background-color: #252528;
+    background-color: var(--t-card-bg);
     border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--t-card-border);
+    box-shadow: var(--t-card-shadow);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   /* Botão primário */
@@ -135,8 +194,8 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background-color: #d68a57;
-    color: #1a1a1d;
+    background-color: var(--t-accent);
+    color: #fff;
     font-family: var(--font-outfit);
     font-size: 0.875rem;
     font-weight: 600;
@@ -150,12 +209,12 @@ body {
   }
 
   .btn-primary:hover {
-    background-color: #e09a67;
-    box-shadow: 0 2px 10px rgba(214, 138, 87, 0.35);
+    background-color: var(--t-accent-hover);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--t-accent) 35%, transparent);
   }
 
   .btn-primary:active {
-    background-color: #c07a47;
+    background-color: var(--t-accent-press);
   }
 
   .btn-primary:disabled {
@@ -164,30 +223,30 @@ body {
     box-shadow: none;
   }
 
-  /* Botão ghost — contexto escuro */
+  /* Botão ghost */
   .btn-ghost {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     background-color: transparent;
-    color: #9e9e9e;
+    color: var(--t-text-2);
     font-family: var(--font-outfit);
     font-size: 0.875rem;
     font-weight: 400;
     border-radius: 0.75rem;
     padding: 0 1.25rem;
     min-height: 44px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--t-ghost-border);
     cursor: pointer;
     transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
     text-decoration: none;
   }
 
   .btn-ghost:hover {
-    color: #d68a57;
-    border-color: rgba(214, 138, 87, 0.3);
-    background-color: rgba(214, 138, 87, 0.06);
+    color: var(--t-accent);
+    border-color: color-mix(in srgb, var(--t-accent) 30%, transparent);
+    background-color: color-mix(in srgb, var(--t-accent) 6%, transparent);
   }
 
   .btn-ghost:disabled {
@@ -195,4 +254,24 @@ body {
     cursor: not-allowed;
   }
 
+  /* Nav principal */
+  .app-nav {
+    background-color: var(--t-nav-bg);
+    border-bottom: 1px solid var(--t-nav-border);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+}
+
+/* ── Overrides pontuais para tema claro ───────────────────────────────────── */
+
+/* Modais */
+html.light .modal-surface {
+  background-color: var(--t-modal-bg);
+  border-color: var(--t-modal-border);
+}
+
+/* Inset / cabeçalhos de tabela */
+html.light .inset-surface {
+  background-color: var(--t-inset-bg);
 }

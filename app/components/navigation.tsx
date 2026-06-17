@@ -3,7 +3,9 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { Sun, Moon } from 'lucide-react'
 import { logout } from '@/app/login/actions'
+import { useTheme } from '@/app/context/theme-provider'
 
 const navItems = [
   { href: '/dashboard', label: 'RESUMO', exact: true },
@@ -11,6 +13,7 @@ const navItems = [
   { href: '/dashboard/insumos', label: 'INSUMOS' },
   { href: '/dashboard/precos', label: 'PREÇOS' },
   { href: '/dashboard/painel', label: 'PAINEL' },
+  { href: '/dashboard/configuracoes', label: 'CONFIG' },
   { href: '/dashboard/simulador', label: 'SIMULADOR' },
 ]
 
@@ -20,9 +23,10 @@ interface NavigationProps {
 
 export function Navigation({ userEmail }: NavigationProps) {
   const pathname = usePathname()
+  const { theme, toggle } = useTheme()
 
   return (
-    <header className="bg-[#1a1a1d] border-b border-[rgba(255,255,255,0.06)] sticky top-0 z-40">
+    <header className="app-nav sticky top-0 z-40">
 
       {/* Linha 1 — Branding + usuário */}
       <div className="flex items-center justify-between px-6 pt-4 pb-2.5">
@@ -54,16 +58,27 @@ export function Navigation({ userEmail }: NavigationProps) {
             </p>
             <p className="text-[#9e9e9e] text-[10px] mt-0.5">DESDE 1948</p>
           </div>
-          <div className="text-right">
-            <p className="text-[#9e9e9e] text-[11px] hidden sm:block">{userEmail}</p>
-            <form action={logout}>
-              <button
-                type="submit"
-                className="text-[#9e9e9e] text-[11px] hover:text-[#d68a57] transition-colors"
-              >
-                sair →
-              </button>
-            </form>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggle}
+              title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9e9e9e] hover:text-[#d68a57] hover:bg-[rgba(214,138,87,0.10)] transition-all"
+            >
+              {theme === 'dark'
+                ? <Sun size={15} />
+                : <Moon size={15} />}
+            </button>
+            <div className="text-right">
+              <p className="text-[#9e9e9e] text-[11px] hidden sm:block">{userEmail}</p>
+              <form action={logout}>
+                <button
+                  type="submit"
+                  className="text-[#9e9e9e] text-[11px] hover:text-[#d68a57] transition-colors"
+                >
+                  sair →
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </div>

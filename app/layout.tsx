@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Outfit, Playfair_Display, Sacramento } from 'next/font/google'
 import './globals.css'
+import { ThemeProvider } from '@/app/context/theme-provider'
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -35,10 +36,11 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
+      suppressHydrationWarning
       className={`${outfit.variable} ${playfair.variable} ${sacramento.variable} h-full`}
     >
-      <body className="min-h-full bg-madrugada text-creme font-outfit antialiased">
-        {children}
+      <body className="min-h-full font-outfit antialiased">
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   )
