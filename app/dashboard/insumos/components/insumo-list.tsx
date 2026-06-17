@@ -152,6 +152,11 @@ export function InsumoList({ insumos, categorias }: Props) {
                       </span>
                     )}
                     <span className="text-[#9e9e9e] text-[12px]">{insumo.unidade_uso}</span>
+                    {insumo.fichasCount > 0 && (
+                      <span className="text-[#9e9e9e]/50 text-[12px]">
+                        · em {insumo.fichasCount} ficha{insumo.fichasCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
                 </div>
 

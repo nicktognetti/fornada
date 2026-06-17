@@ -11,9 +11,9 @@ interface Props {
   receitas: ReceitaComCusto[]
 }
 
-const TIPO_LABEL: Record<string, string> = {
-  final: 'Final',
-  base: 'Base',
+const TIPO_CONFIG: Record<string, { label: string; cls: string }> = {
+  final: { label: 'PRODUTO', cls: 'bg-[#d68a57]/15 text-[#d68a57] border-[#d68a57]/20' },
+  base: { label: 'BASE', cls: 'bg-blue-500/15 text-blue-400 border-blue-500/25' },
 }
 
 type TipoFiltro = '' | 'final' | 'base'
@@ -60,7 +60,7 @@ export function ReceitaList({ receitas }: Props) {
             className="input-field appearance-none pr-9"
           >
             <option value="">Todos os tipos</option>
-            <option value="final">Final</option>
+            <option value="final">Produto (final)</option>
             <option value="base">Base</option>
           </select>
           <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]/60 pointer-events-none" />
@@ -110,9 +110,18 @@ export function ReceitaList({ receitas }: Props) {
                     {receita.nome}
                   </p>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#d68a57]/15 text-[#d68a57] border border-[#d68a57]/20">
-                      {TIPO_LABEL[receita.tipo] ?? receita.tipo}
-                    </span>
+                    {(() => {
+                      const cfg = TIPO_CONFIG[receita.tipo]
+                      return cfg ? (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border tracking-wider ${cfg.cls}`}>
+                          {cfg.label}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#d68a57]/15 text-[#d68a57] border border-[#d68a57]/20">
+                          {receita.tipo}
+                        </span>
+                      )
+                    })()}
                     <span className="text-[#9e9e9e] text-[12px]">
                       {receita.rendimento} {receita.rendimento_unidade}
                     </span>

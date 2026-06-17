@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/app/login/actions'
 
@@ -24,19 +25,28 @@ export function Navigation({ userEmail }: NavigationProps) {
     <header className="bg-[#1a1a1d] border-b border-[rgba(255,255,255,0.06)] sticky top-0 z-40">
 
       {/* Linha 1 — Branding + usuário */}
-      <div className="flex items-end justify-between px-6 pt-4 pb-2.5">
-        <div>
-          <p className="font-playfair text-[#9e9e9e] text-[12px] leading-none mb-1">
-            flor do trigo
-          </p>
-          <p className="font-playfair text-[#e8e6e3] text-[20px] font-bold leading-none">
-            Fornada{' '}
-            <span className="text-[#9e9e9e] font-normal text-[14px]">
+      <div className="flex items-center justify-between px-6 pt-4 pb-2.5">
+        {/* Logo + nome */}
+        <div className="flex items-center gap-3">
+          <Image
+            src="/images/LOGO2claro.png"
+            alt="Flor do Trigo"
+            width={40}
+            height={40}
+            className="object-contain shrink-0"
+            unoptimized
+          />
+          <div>
+            <p className="font-playfair text-white/90 text-[18px] font-bold leading-tight">
+              Fornada
+            </p>
+            <p className="text-[10px] text-white/40 uppercase tracking-wider leading-none mt-0.5">
               · custos &amp; preços
-            </span>
-          </p>
+            </p>
+          </div>
         </div>
 
+        {/* Direita: branding padaria + usuário */}
         <div className="flex items-end gap-5">
           <div className="text-right hidden sm:block">
             <p className="text-[#e8e6e3] text-[10px] uppercase tracking-[0.15em] font-semibold leading-none">

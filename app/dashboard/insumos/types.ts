@@ -18,6 +18,7 @@ export interface CustoAtual {
 
 export interface InsumoComCusto extends Insumo {
   custo: CustoAtual | null
+  fichasCount: number
 }
 
 export interface InsumoPreco {

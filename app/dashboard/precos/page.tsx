@@ -1,45 +1,139 @@
-import { Tag, Construction } from 'lucide-react'
+import { Tag, ShoppingBag, BookOpen, AlertTriangle } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
+import { SectionLabel } from '@/app/components/ui/section-label'
 import { createClient } from '@/lib/supabase/server'
+import { formatBRL } from '@/lib/format'
+import Link from 'next/link'
 
 export default async function PrecosPage() {
   const supabase = await createClient()
-  const { count } = await supabase
-    .from('produto')
-    .select('*', { count: 'exact', head: true })
-    .eq('ativo', true)
 
-  const total = count ?? 0
+  const [produtosRes, custosRes, precosRes] = await Promise.all([
+    supabase.from('produto').select('id, nome, tipo, ativo, receita_id').eq('ativo', true).order('nome'),
+    supabase.from('vw_custo_receita').select('id, custo_unitario, rendimento_unidade'),
+    supabase.from('produto_preco').select('produto_id, preco_praticado').order('produto_id'),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const produtos: any[] = produtosRes.data ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const custoMap = new Map((custosRes.data ?? []).map((c: any) => [c.id, c]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const precoMap = new Map((precosRes.data ?? []).map((p: any) => [p.produto_id, p.preco_praticado as number | null]))
+
+  const comReceita = produtos.filter((p) => p.receita_id && custoMap.has(p.receita_id))
+  const semReceita = produtos.filter((p) => !p.receita_id || !custoMap.has(p.receita_id))
+
+  if (produtos.length === 0) {
+    return (
+      <div className="max-w-3xl">
+        <PageTitle icon={Tag} subtitle="Precificação de produtos">
+          Preços
+        </PageTitle>
+        <div className="card-surface p-8 flex flex-col items-center text-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#d68a57]/10 flex items-center justify-center">
+            <ShoppingBag size={28} className="text-[#d68a57]" />
+          </div>
+          <div>
+            <p className="text-[#e8e6e3] font-playfair text-xl font-semibold mb-2">Nenhum produto cadastrado</p>
+            <p className="text-[#9e9e9e] text-sm max-w-xs">
+              Produtos vinculados a fichas técnicas aparecerão aqui com custo de produção
+              e comparativo de preço praticado.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-3xl">
       <PageTitle icon={Tag} subtitle="Precificação de produtos">
         Preços
       </PageTitle>
 
-      <div className="card-surface p-8 flex flex-col items-center text-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-[#d68a57]/10 flex items-center justify-center">
-          <Construction size={28} className="text-[#d68a57]" />
+      {comReceita.length > 0 && (
+        <div className="space-y-3 mb-8">
+          <SectionLabel icon={BookOpen}>Com ficha técnica</SectionLabel>
+          <div className="space-y-2">
+            {comReceita.map((produto) => {
+              const custo = custoMap.get(produto.receita_id)
+              const custoUnitario: number | null = custo?.custo_unitario ?? null
+              const precoPraticado: number | null = precoMap.get(produto.id) ?? null
+              const margem = custoUnitario && precoPraticado
+                ? ((precoPraticado - custoUnitario) / precoPraticado) * 100
+                : null
+              const prejuizo = margem != null && margem < 0
+
+              return (
+                <div key={produto.id} className="card-surface px-5 py-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-playfair text-[#e8e6e3] text-[17px] font-semibold leading-tight truncate">
+                      {produto.nome}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                      <span className="text-[#9e9e9e] text-xs">
+                        custo: {custoUnitario != null
+                          ? `R$ ${formatBRL(custoUnitario)}/${custo?.rendimento_unidade ?? 'un'}`
+                          : '—'}
+                      </span>
+                      {precoPraticado != null && (
+                        <span className="text-[#9e9e9e] text-xs">
+                          preço: <span className="text-[#e8e6e3]">R$ {formatBRL(precoPraticado)}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {margem != null ? (
+                      <>
+                        <p className={`font-playfair text-[22px] font-bold leading-none ${prejuizo ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {margem.toFixed(1)}%
+                        </p>
+                        <p className={`text-[11px] mt-0.5 ${prejuizo ? 'text-red-400/70' : 'text-emerald-400/70'}`}>
+                          {prejuizo ? 'PREJUÍZO' : 'margem'}
+                        </p>
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                        sem preço
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
-        <div>
-          <p className="text-[#e8e6e3] font-playfair text-xl font-semibold mb-2">Em configuração</p>
-          <p className="text-[#9e9e9e] text-sm max-w-xs">
-            A tela de precificação mostrará produtos com markup, preço sugerido
-            e decomposição de custo. O banco registra{' '}
-            <span className="text-[#d68a57] font-semibold">{total} produto{total !== 1 ? 's' : ''}</span>{' '}
-            {total === 0 ? 'ainda sem configuração de preço.' : 'cadastrados — aguardando configuração de markup.'}
-          </p>
+      )}
+
+      {semReceita.length > 0 && (
+        <div className="space-y-3">
+          <SectionLabel icon={AlertTriangle}>Sem ficha técnica</SectionLabel>
+          <div className="space-y-2">
+            {semReceita.map((produto) => (
+              <div key={produto.id} className="card-surface px-5 py-4 flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="font-playfair text-[#e8e6e3] text-[17px] font-semibold leading-tight truncate">
+                    {produto.nome}
+                  </p>
+                  <p className="text-[#9e9e9e]/60 text-xs mt-1">custo de produção não calculado</p>
+                </div>
+                <Link
+                  href="/dashboard/receitas"
+                  className="shrink-0 text-[11px] text-[#d68a57] hover:text-[#d68a57]/80 transition-colors"
+                >
+                  vincular ficha →
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="bg-[#1e1e22] rounded-xl p-4 border border-[rgba(255,255,255,0.05)] w-full text-left mt-2">
-          <p className="text-[#9e9e9e]/60 text-[10px] uppercase tracking-wider mb-1">O que estará aqui</p>
-          <ul className="text-[#9e9e9e] text-sm space-y-1 mt-2">
-            <li>• Preço praticado vs. preço sugerido por markup</li>
-            <li>• Status: PREJUÍZO / PREÇO BOM por produto</li>
-            <li>• Decomposição do preço em custo + impostos + lucro</li>
-            <li>• Exportação de cardápio</li>
-          </ul>
-        </div>
-      </div>
+      )}
+
+      <p className="text-[#9e9e9e]/40 text-xs mt-6 text-right">
+        {produtos.length} produto{produtos.length !== 1 ? 's' : ''} cadastrado{produtos.length !== 1 ? 's' : ''}
+      </p>
     </div>
   )
 }
