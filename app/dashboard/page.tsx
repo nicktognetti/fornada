@@ -1,37 +1,34 @@
-import { createClient } from '@/lib/supabase/server'
-import { logout } from '@/app/login/actions'
+import { LayoutDashboard } from 'lucide-react'
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+export default function ResumPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-      <div className="text-center">
-        <p className="font-sacramento text-croissant text-5xl">Flor do Trigo</p>
-        <p className="font-playfair text-demerara text-sm tracking-widest uppercase mt-1">
-          Fornada
-        </p>
+    <div className="max-w-2xl">
+      <div className="flex items-center gap-2 mb-6">
+        <LayoutDashboard size={20} className="text-croissant" />
+        <h1 className="font-playfair text-creme text-2xl">Resumo</h1>
       </div>
 
-      <div className="bg-[#1e1e26] rounded-2xl p-8 text-center border border-white/5 max-w-sm w-full">
-        <p className="text-demerara text-sm mb-1">Logado como</p>
-        <p className="text-creme font-medium">{user?.email}</p>
-
-        <form action={logout} className="mt-6">
-          <button
-            type="submit"
-            className="w-full border border-croissant/40 text-croissant hover:bg-croissant/10 rounded-lg py-2.5 text-sm transition-colors min-h-[44px]"
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[
+          { label: 'Insumos cadastrados', value: '—' },
+          { label: 'Fichas de receita', value: '—' },
+          { label: 'Produtos ativos', value: '—' },
+          { label: 'Faturamento estimado', value: '—' },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className="bg-[#1e1e26] rounded-xl p-5 border border-white/5"
           >
-            Sair
-          </button>
-        </form>
+            <p className="text-demerara text-xs uppercase tracking-wider mb-2">
+              {card.label}
+            </p>
+            <p className="text-creme font-playfair text-3xl">{card.value}</p>
+          </div>
+        ))}
       </div>
 
-      <p className="text-demerara/60 text-xs">
-        Dashboard em construção — Etapa 2
+      <p className="text-demerara/50 text-xs mt-6">
+        Os dados aparecerão conforme você cadastrar insumos, fichas e preços.
       </p>
     </div>
   )

@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useActionState } from 'react'
 import { login } from './actions'
 
@@ -16,11 +17,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="text-center mb-10">
-          <p className="font-sacramento text-croissant text-5xl leading-tight">
-            Flor do Trigo
-          </p>
-          <p className="font-playfair text-demerara text-sm tracking-widest uppercase mt-1">
+        <div className="flex flex-col items-center mb-10 gap-3">
+          <Image
+            src="/images/LOGO2claro.png"
+            alt="Flor do Trigo — desde 1948"
+            width={560}
+            height={280}
+            className="w-[200px] sm:w-[280px] h-auto"
+            priority
+            unoptimized
+          />
+          <p className="font-sacramento text-croissant text-2xl leading-none">
             Fornada
           </p>
         </div>
