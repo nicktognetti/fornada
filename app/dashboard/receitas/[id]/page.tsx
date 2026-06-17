@@ -88,7 +88,7 @@ export default async function FichaPage({ params }: Props) {
     <div>
       <Link
         href="/dashboard/receitas"
-        className="inline-flex items-center gap-1.5 text-demerara hover:text-creme text-sm mb-6 transition-colors"
+        className="inline-flex items-center gap-1.5 text-[#9e9e9e] hover:text-[#d68a57] text-sm mb-6 transition-all hover:-translate-x-0.5"
       >
         <ArrowLeft size={15} />
         Fichas Técnicas

@@ -21,14 +21,19 @@ export function NavLink({ href, icon: Icon, label, exact = false, onClick }: Nav
       href={href}
       onClick={onClick}
       className={`
-        flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]
+        flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px] relative
+        border-l-[3px] pl-[calc(0.75rem-3px)]
         ${active
-          ? 'bg-croissant/15 text-croissant font-medium'
-          : 'text-demerara hover:text-creme hover:bg-white/5'
+          ? 'bg-marrom-500/[0.06] text-madrugada-800 font-semibold border-marrom-500'
+          : 'text-madrugada-800 hover:bg-creme-200 border-transparent'
         }
       `}
     >
-      <Icon size={18} strokeWidth={1.8} className="shrink-0" />
+      <Icon
+        size={18}
+        strokeWidth={1.8}
+        className={`shrink-0 ${active ? 'text-marrom-500' : 'text-demerara'}`}
+      />
       <span>{label}</span>
     </Link>
   )

@@ -1,19 +1,60 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── Cores base ── */
   --color-croissant: #ac6137;
   --color-madrugada: #16161d;
   --color-creme: #ede9e1;
   --color-demerara: #9f9383;
 
-  --font-outfit: 'Outfit', sans-serif;
-  --font-playfair: 'Playfair Display', serif;
-  --font-sacramento: 'Sacramento', cursive;
+  /* ── Escala Marrom Croissant ── */
+  --color-marrom-50:  #fdf5f0;
+  --color-marrom-100: #f7e6db;
+  --color-marrom-200: #eec9b5;
+  --color-marrom-300: #e0a88a;
+  --color-marrom-400: #cc8a66;
+  --color-marrom-500: #ac6137;
+  --color-marrom-600: #8c4f2d;
+  --color-marrom-700: #6e3d23;
+  --color-marrom-800: #542f1b;
+  --color-marrom-900: #3d2213;
+
+  /* ── Escala Creme ── */
+  --color-creme-50:  #faf8f4;
+  --color-creme-100: #f5f1ea;
+  --color-creme-200: #ede9e1;
+  --color-creme-300: #e0d9ce;
+  --color-creme-400: #c9c0b2;
+  --color-creme-500: #b0a494;
+
+  /* ── Escala Madrugada ── */
+  --color-madrugada-50:  #f0f0f1;
+  --color-madrugada-100: #d6d6da;
+  --color-madrugada-200: #b3b3ba;
+  --color-madrugada-300: #898a96;
+  --color-madrugada-400: #5e5f6e;
+  --color-madrugada-500: #3c3d4a;
+  --color-madrugada-600: #2a2b35;
+  --color-madrugada-700: #1e1e26;
+  --color-madrugada-800: #16161d;
+  --color-madrugada-900: #0e0e12;
+
+  /* ── Acentos ── */
+  --color-ouro:      #c9a94e;
+  --color-terracota: #c0392b;
+  --color-oliva:     #5a7d3a;
+
+  /* ── Fontes ── */
+  --font-outfit:    'Outfit', sans-serif;
+  --font-playfair:  'Playfair Display', serif;
+  --font-sacramento:'Sacramento', cursive;
 }
 
+/* ── Tema escuro global ───────────────────────────────────────────────────── */
+
 body {
-  background-color: #16161d;
-  color: #ede9e1;
+  background-color: #1a1a1d;
+  color: #e8e6e3;
   font-family: var(--font-outfit);
 }
 
@@ -23,16 +64,25 @@ body {
   box-sizing: border-box;
 }
 
-/* ─── Design system components ──────────────────────────────────────────────── */
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.2); }
+
+/* ── Design system components ─────────────────────────────────────────────── */
 
 @layer components {
+
+  /* Inputs */
   .input-field {
     width: 100%;
-    background-color: #0f0f14;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    color: var(--color-creme);
+    background-color: #2b2b30;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.625rem;
+    padding: 0.625rem 0.875rem;
+    color: #e8e6e3;
     font-size: 0.875rem;
     font-family: var(--font-outfit);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -40,12 +90,12 @@ body {
   }
 
   .input-field::placeholder {
-    color: rgba(159, 147, 131, 0.45);
+    color: rgba(158, 158, 158, 0.5);
   }
 
   .input-field:focus {
-    border-color: rgba(172, 97, 55, 0.65);
-    box-shadow: 0 0 0 3px rgba(172, 97, 55, 0.13);
+    border-color: #d68a57;
+    box-shadow: 0 0 0 3px rgba(214, 138, 87, 0.15);
   }
 
   .input-field:disabled {
@@ -53,63 +103,75 @@ body {
     cursor: not-allowed;
   }
 
+  /* Select override — dark bg option */
+  .input-field option {
+    background-color: #2b2b30;
+    color: #e8e6e3;
+  }
+
+  /* Labels */
   .field-label {
     display: block;
-    color: var(--color-demerara);
+    color: #9e9e9e;
     font-size: 11px;
     font-family: var(--font-outfit);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-weight: 500;
+    font-weight: 600;
     margin-bottom: 0.375rem;
   }
 
+  /* Cards de superfície — escuro */
   .card-surface {
-    background-color: #1e1e26;
+    background-color: #252528;
     border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 
+  /* Botão primário */
   .btn-primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background-color: var(--color-croissant);
-    color: var(--color-creme);
+    background-color: #d68a57;
+    color: #1a1a1d;
     font-family: var(--font-outfit);
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     border-radius: 0.75rem;
     padding: 0 1.25rem;
     min-height: 44px;
     border: none;
     cursor: pointer;
-    transition: background-color 0.15s ease, opacity 0.15s ease;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
     text-decoration: none;
   }
 
   .btn-primary:hover {
-    background-color: #9a5630;
+    background-color: #e09a67;
+    box-shadow: 0 2px 10px rgba(214, 138, 87, 0.35);
   }
 
   .btn-primary:active {
-    background-color: #8a4d2a;
+    background-color: #c07a47;
   }
 
   .btn-primary:disabled {
-    opacity: 0.55;
+    opacity: 0.45;
     cursor: not-allowed;
+    box-shadow: none;
   }
 
+  /* Botão ghost — contexto escuro */
   .btn-ghost {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     background-color: transparent;
-    color: var(--color-demerara);
+    color: #9e9e9e;
     font-family: var(--font-outfit);
     font-size: 0.875rem;
     font-weight: 400;
@@ -118,17 +180,19 @@ body {
     min-height: 44px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
     text-decoration: none;
   }
 
   .btn-ghost:hover {
-    color: var(--color-creme);
-    border-color: rgba(255, 255, 255, 0.22);
+    color: #d68a57;
+    border-color: rgba(214, 138, 87, 0.3);
+    background-color: rgba(214, 138, 87, 0.06);
   }
 
   .btn-ghost:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
+
 }

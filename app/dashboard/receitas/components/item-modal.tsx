@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { X, ChevronDown, ShoppingCart } from 'lucide-react'
+import { X, ShoppingCart } from 'lucide-react'
 import { addItem, updateItem, getInsumos, getReceitasParaSubReceita } from '../actions'
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { normalizeSearch } from '@/lib/format'
@@ -24,33 +24,22 @@ type TipoItem = 'insumo' | 'sub_receita'
 export function ItemModal({ receitaId, item, onClose }: Props) {
   const isEdit = !!item
 
-  const [addState, addAction, addPending] = useActionState<ActionResult | undefined, FormData>(
-    addItem, undefined
-  )
-  const [editState, editAction, editPending] = useActionState<ActionResult | undefined, FormData>(
-    updateItem, undefined
-  )
+  const [addState, addAction, addPending] = useActionState<ActionResult | undefined, FormData>(addItem, undefined)
+  const [editState, editAction, editPending] = useActionState<ActionResult | undefined, FormData>(updateItem, undefined)
 
   const state = isEdit ? editState : addState
   const action = isEdit ? editAction : addAction
   const pending = isEdit ? editPending : addPending
 
-  const [tipo, setTipo] = useState<TipoItem>(
-    item?.sub_receita_id ? 'sub_receita' : 'insumo'
-  )
+  const [tipo, setTipo] = useState<TipoItem>(item?.sub_receita_id ? 'sub_receita' : 'insumo')
   const [busca, setBusca] = useState('')
-  const [selectedId, setSelectedId] = useState<string>(
-    item?.insumo_id ?? item?.sub_receita_id ?? ''
-  )
+  const [selectedId, setSelectedId] = useState<string>(item?.insumo_id ?? item?.sub_receita_id ?? '')
   const [insumos, setInsumos] = useState<InsumoOpcao[]>([])
   const [subReceitas, setSubReceitas] = useState<SubReceitaOpcao[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      getInsumos(),
-      getReceitasParaSubReceita(receitaId),
-    ]).then(([ins, subs]) => {
+    Promise.all([getInsumos(), getReceitasParaSubReceita(receitaId)]).then(([ins, subs]) => {
       setInsumos(ins as InsumoOpcao[])
       setSubReceitas(subs as SubReceitaOpcao[])
       setLoading(false)
@@ -61,7 +50,6 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
     if (addState?.success || editState?.success) onClose()
   }, [addState?.success, editState?.success, onClose])
 
-  // Reset busca e seleção ao trocar tipo
   function handleTipoChange(t: TipoItem) {
     setTipo(t)
     setBusca('')
@@ -82,18 +70,18 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
     : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-      <div className="bg-[#1a1a22] rounded-2xl border border-white/10 shadow-[0_24px_64px_rgba(0,0,0,0.6)] w-full max-w-lg max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#252528] rounded-2xl border border-[rgba(255,255,255,0.08)] shadow-[0_8px_40px_rgba(0,0,0,0.5)] w-full max-w-lg max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/[0.07] shrink-0">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-[rgba(255,255,255,0.07)] shrink-0">
           <div>
-            <h2 className="font-playfair text-creme text-[22px] font-bold leading-tight">
+            <h2 className="font-playfair text-[#e8e6e3] text-[22px] font-bold leading-tight">
               {isEdit ? 'Editar Item' : 'Adicionar Item'}
             </h2>
-            {isEdit && <p className="text-demerara text-xs mt-0.5">{item.nome_display}</p>}
+            {isEdit && <p className="text-[#9e9e9e] text-xs mt-0.5">{item.nome_display}</p>}
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-demerara/50 hover:text-creme hover:bg-white/8 transition-all" aria-label="Fechar">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9e9e9e] hover:text-[#d68a57] hover:bg-[#d68a57]/10 transition-all" aria-label="Fechar">
             <X size={16} />
           </button>
         </div>
@@ -115,8 +103,8 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
                   onClick={() => handleTipoChange(t)}
                   className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
                     tipo === t
-                      ? 'bg-croissant/15 border-croissant/40 text-croissant'
-                      : 'bg-transparent border-white/10 text-demerara hover:text-creme hover:border-white/20'
+                      ? 'bg-[#d68a57]/15 border-[#d68a57]/30 text-[#d68a57]'
+                      : 'bg-transparent border-[rgba(255,255,255,0.1)] text-[#9e9e9e] hover:text-[#e8e6e3] hover:border-[rgba(255,255,255,0.18)]'
                   }`}
                 >
                   {t === 'insumo' ? 'Insumo' : 'Sub-receita'}
@@ -139,17 +127,15 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
             </div>
 
             {/* Lista de opções */}
-            <div className="max-h-52 overflow-y-auto rounded-xl border border-white/8 bg-[#0f0f14] divide-y divide-white/5">
+            <div className="max-h-52 overflow-y-auto rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#1e1e22] divide-y divide-[rgba(255,255,255,0.06)]">
               {loading ? (
-                <p className="text-demerara text-sm px-4 py-3">Carregando…</p>
+                <p className="text-[#9e9e9e] text-sm px-4 py-3">Carregando…</p>
               ) : opcoes.length === 0 ? (
-                <p className="text-demerara/50 text-sm px-4 py-3">Nenhum resultado</p>
+                <p className="text-[#9e9e9e]/60 text-sm px-4 py-3">Nenhum resultado</p>
               ) : (
                 opcoes.slice(0, 80).map(op => {
                   const isSelected = op.id === selectedId
-                  const sub = 'unidade_uso' in op
-                    ? op.categoria ?? op.unidade_uso
-                    : op.rendimento_unidade
+                  const sub = 'unidade_uso' in op ? op.categoria ?? op.unidade_uso : op.rendimento_unidade
                   return (
                     <button
                       key={op.id}
@@ -157,12 +143,12 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
                       onClick={() => setSelectedId(op.id)}
                       className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between gap-2 ${
                         isSelected
-                          ? 'bg-croissant/15 text-creme'
-                          : 'text-demerara hover:bg-white/5 hover:text-creme'
+                          ? 'bg-[#d68a57]/15 text-[#e8e6e3]'
+                          : 'text-[#9e9e9e] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e6e3]'
                       }`}
                     >
                       <span className="truncate">{op.nome}</span>
-                      <span className={`text-xs shrink-0 ${isSelected ? 'text-croissant' : 'text-demerara/50'}`}>
+                      <span className={`text-xs shrink-0 ${isSelected ? 'text-[#d68a57]' : 'text-[#9e9e9e]/60'}`}>
                         {sub}
                       </span>
                     </button>
@@ -173,11 +159,11 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
 
             {/* Selecionado */}
             {selected && (
-              <div className="rounded-xl border border-croissant/25 bg-croissant/[0.07] px-4 py-3 flex items-center gap-3">
+              <div className="rounded-xl border border-[#d68a57]/20 bg-[#d68a57]/[0.06] px-4 py-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-creme text-sm font-medium truncate">{selected.nome}</p>
-                  <p className="text-demerara text-xs mt-0.5">
-                    unidade: <span className="text-croissant">{unidadeDisplay}</span>
+                  <p className="text-[#e8e6e3] text-sm font-medium truncate">{selected.nome}</p>
+                  <p className="text-[#9e9e9e] text-xs mt-0.5">
+                    unidade: <span className="text-[#d68a57]">{unidadeDisplay}</span>
                   </p>
                 </div>
               </div>
@@ -193,32 +179,24 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
                 inputMode="decimal"
                 name="quantidade"
                 required
-                defaultValue={
-                  isEdit
-                    ? item.quantidade.toString().replace('.', ',')
-                    : ''
-                }
+                defaultValue={isEdit ? item.quantidade.toString().replace('.', ',') : ''}
                 placeholder={unidadeDisplay === 'g' ? '250' : unidadeDisplay === 'ml' ? '100' : '1'}
                 className="input-field"
                 disabled={!selectedId}
               />
-              {!selectedId && (
-                <p className="text-demerara/50 text-xs mt-1">Selecione um item acima primeiro</p>
-              )}
+              {!selectedId && <p className="text-[#9e9e9e]/50 text-xs mt-1">Selecione um item acima primeiro</p>}
             </div>
 
             {/* Erro */}
             {state?.error && (
-              <div className="rounded-xl border border-red-400/20 bg-red-400/8 px-4 py-3 text-red-400 text-sm">
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-red-400 text-sm">
                 {state.error}
               </div>
             )}
 
             {/* Botões */}
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={onClose} className="btn-ghost flex-1">
-                Cancelar
-              </button>
+              <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancelar</button>
               <button type="submit" disabled={pending || !selectedId} className="btn-primary flex-1">
                 {pending ? 'Salvando…' : isEdit ? 'Salvar' : 'Adicionar'}
               </button>

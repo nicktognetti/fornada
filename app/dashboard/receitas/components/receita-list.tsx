@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus, BookOpen, Search, ChevronRight } from 'lucide-react'
+import { Plus, BookOpen, Search, ChevronRight, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { normalizeSearch, formatBRL } from '@/lib/format'
 import type { ReceitaComCusto } from '../types'
@@ -16,16 +16,22 @@ const TIPO_LABEL: Record<string, string> = {
   base: 'Base',
 }
 
+type TipoFiltro = '' | 'final' | 'base'
+
 export function ReceitaList({ receitas }: Props) {
   const [busca, setBusca] = useState('')
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('')
   const [modalOpen, setModalOpen] = useState(false)
   const [modalKey, setModalKey] = useState(0)
 
   const filtered = useMemo(() => {
     const term = normalizeSearch(busca)
-    if (!term) return receitas
-    return receitas.filter(r => normalizeSearch(r.nome).includes(term))
-  }, [receitas, busca])
+    return receitas.filter(r => {
+      const matchBusca = !term || normalizeSearch(r.nome).includes(term)
+      const matchTipo = !tipoFiltro || r.tipo === tipoFiltro
+      return matchBusca && matchTipo
+    })
+  }, [receitas, busca, tipoFiltro])
 
   function openCreate() {
     setModalKey(Date.now())
@@ -37,7 +43,7 @@ export function ReceitaList({ receitas }: Props) {
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-demerara/50 pointer-events-none" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9e9e9e]/50 pointer-events-none" />
           <input
             type="text"
             placeholder="Buscar receita…"
@@ -46,6 +52,20 @@ export function ReceitaList({ receitas }: Props) {
             className="input-field pl-10"
           />
         </div>
+
+        <div className="relative sm:w-44">
+          <select
+            value={tipoFiltro}
+            onChange={(e) => setTipoFiltro(e.target.value as TipoFiltro)}
+            className="input-field appearance-none pr-9"
+          >
+            <option value="">Todos os tipos</option>
+            <option value="final">Final</option>
+            <option value="base">Base</option>
+          </select>
+          <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]/60 pointer-events-none" />
+        </div>
+
         <button onClick={openCreate} className="btn-primary shrink-0">
           <Plus size={16} />
           Nova Receita
@@ -55,16 +75,16 @@ export function ReceitaList({ receitas }: Props) {
       {/* Estado vazio */}
       {filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-4">
-            <BookOpen size={28} className="text-demerara/30" />
+          <div className="w-16 h-16 rounded-2xl bg-[#2b2b30] flex items-center justify-center mb-4">
+            <BookOpen size={28} className="text-[#9e9e9e]/50" />
           </div>
-          <p className="text-creme/70 text-base font-playfair mb-1">
+          <p className="text-[#e8e6e3] text-base font-playfair mb-1">
             {receitas.length === 0 ? 'Nenhuma receita ainda' : 'Nenhum resultado'}
           </p>
-          <p className="text-demerara text-sm max-w-xs">
+          <p className="text-[#9e9e9e] text-sm max-w-xs">
             {receitas.length === 0
               ? 'Cadastre a primeira ficha técnica e comece a calcular custos de produção.'
-              : 'Tente um termo diferente.'}
+              : 'Tente um termo diferente ou ajuste o filtro de tipo.'}
           </p>
           {receitas.length === 0 && (
             <button onClick={openCreate} className="btn-primary mt-6">
@@ -82,45 +102,42 @@ export function ReceitaList({ receitas }: Props) {
             <Link
               key={receita.id}
               href={`/dashboard/receitas/${receita.id}`}
-              className="card-surface flex items-center gap-4 px-5 py-4 group hover:bg-[#23232c] transition-colors block"
+              className="card-surface flex items-center gap-4 px-5 py-4 group hover:shadow-lg hover:bg-[#2e2e32] transition-all duration-150 block cursor-pointer"
             >
               <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-5">
-                {/* Nome + badges */}
                 <div className="min-w-0 flex-1">
-                  <p className="font-playfair text-creme text-[18px] font-semibold leading-tight truncate">
+                  <p className="font-playfair text-[#e8e6e3] text-[18px] font-semibold leading-tight truncate">
                     {receita.nome}
                   </p>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-croissant/12 text-croissant border border-croissant/20">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#d68a57]/15 text-[#d68a57] border border-[#d68a57]/20">
                       {TIPO_LABEL[receita.tipo] ?? receita.tipo}
                     </span>
-                    <span className="text-demerara text-[12px]">
+                    <span className="text-[#9e9e9e] text-[12px]">
                       {receita.rendimento} {receita.rendimento_unidade}
                     </span>
                   </div>
                 </div>
 
-                {/* Custo */}
                 <div className="shrink-0 sm:text-right">
                   {receita.custo_total != null && receita.custo_total > 0 ? (
                     <div>
-                      <p className="font-playfair text-croissant text-[22px] sm:text-[26px] font-bold leading-none">
+                      <p className="font-playfair text-[#d68a57] text-[22px] sm:text-[26px] font-bold leading-none">
                         R$ {formatBRL(receita.custo_total)}
                       </p>
                       {receita.custo_unitario != null && (
-                        <p className="text-demerara text-[12px] mt-0.5">
+                        <p className="text-[#9e9e9e] text-[12px] mt-0.5">
                           R$ {formatBRL(receita.custo_unitario)}/{receita.rendimento_unidade}
                         </p>
                       )}
                     </div>
                   ) : (
-                    <p className="text-demerara/40 text-xs italic">sem custo calculado</p>
+                    <p className="text-[#9e9e9e]/50 text-xs italic">sem custo calculado</p>
                   )}
                 </div>
               </div>
 
-              {/* Seta */}
-              <ChevronRight size={16} className="text-demerara/30 group-hover:text-demerara transition-colors shrink-0" />
+              <ChevronRight size={16} className="text-[#9e9e9e]/30 group-hover:text-[#d68a57] transition-colors shrink-0" />
             </Link>
           ))}
         </div>
@@ -128,20 +145,15 @@ export function ReceitaList({ receitas }: Props) {
 
       {/* Contagem */}
       {receitas.length > 0 && filtered.length > 0 && (
-        <p className="text-demerara/35 text-xs mt-4 text-right">
+        <p className="text-[#9e9e9e]/40 text-xs mt-4 text-right">
           {filtered.length === receitas.length
             ? `${receitas.length} receita${receitas.length !== 1 ? 's' : ''}`
             : `${filtered.length} de ${receitas.length} receitas`}
         </p>
       )}
 
-      {/* Modal */}
       {modalOpen && (
-        <ReceitaModal
-          key={modalKey}
-          receita={null}
-          onClose={() => setModalOpen(false)}
-        />
+        <ReceitaModal key={modalKey} receita={null} onClose={() => setModalOpen(false)} />
       )}
     </>
   )
