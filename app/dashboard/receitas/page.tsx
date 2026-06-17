@@ -1,13 +1,32 @@
+import { createClient } from '@/lib/supabase/server'
 import { BookOpen } from 'lucide-react'
+import { PageTitle } from '@/app/components/ui/page-title'
+import { ReceitaList } from './components/receita-list'
+import type { ReceitaComCusto } from './types'
 
-export default function ReceitasPage() {
+export default async function ReceitasPage() {
+  const supabase = await createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await supabase.from('vw_custo_receita').select('*').order('nome')
+
+  const receitas: ReceitaComCusto[] = (data ?? []).map((r: any) => ({
+    id: r.id,
+    empresa_id: r.empresa_id,
+    nome: r.nome,
+    tipo: r.tipo,
+    rendimento: r.rendimento,
+    rendimento_unidade: r.rendimento_unidade,
+    custo_total: r.custo_total,
+    custo_unitario: r.custo_unitario,
+    ativo: true,
+    observacao: null,
+  }))
+
   return (
     <div>
-      <div className="flex items-center gap-2 mb-6">
-        <BookOpen size={20} className="text-croissant" />
-        <h1 className="font-playfair text-creme text-2xl">Fichas de Receita</h1>
-      </div>
-      <p className="text-demerara">Em construção.</p>
+      <PageTitle icon={BookOpen}>Fichas Técnicas</PageTitle>
+      <ReceitaList receitas={receitas} />
     </div>
   )
 }
