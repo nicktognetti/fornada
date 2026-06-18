@@ -1,7 +1,6 @@
 import { PackageCheck, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { PageTitle } from '@/app/components/ui/page-title'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', {
@@ -53,14 +52,19 @@ export default async function ReceberPage() {
 
   return (
     <div>
-      <PageTitle icon={PackageCheck} subtitle="Transferências aguardando conferência">
-        Recebimentos pendentes
-      </PageTitle>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-8">
+        <PackageCheck size={22} className="text-[#d98d5f] shrink-0" />
+        <div>
+          <h1 className="text-2xl font-semibold text-[#f5f5f0]">Recebimentos pendentes</h1>
+          <p className="text-sm text-[#888888] mt-0.5">Transferências aguardando conferência</p>
+        </div>
+      </div>
 
       {!transferencias || transferencias.length === 0 ? (
-        <div className="bg-white border border-[#e5ddd3] rounded-lg shadow-md flex flex-col items-center py-16 text-[#78716c]">
-          <PackageCheck size={40} className="mb-4 text-[#c2410c]/25" />
-          <p className="font-medium text-[#1c1917] text-base">Nenhum recebimento pendente</p>
+        <div className="bg-[#222226] border border-[#333336] rounded-lg shadow-lg shadow-black/20 flex flex-col items-center py-16 text-[#888888]">
+          <PackageCheck size={40} className="mb-4 text-[#d98d5f]/25" />
+          <p className="font-medium text-[#f5f5f0] text-base">Nenhum recebimento pendente</p>
           <p className="text-sm mt-1">Todas as transferências foram conferidas.</p>
         </div>
       ) : (
@@ -71,30 +75,28 @@ export default async function ReceberPage() {
             return (
               <div
                 key={t.id}
-                className="bg-white border border-[#e5ddd3] rounded-lg shadow-md p-5 flex items-center justify-between gap-4"
+                className="bg-[#222226] border border-[#333336] rounded-lg shadow-lg shadow-black/20 p-5 flex items-center justify-between gap-4"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-mono text-[15px] font-bold text-[#1c1917]">
-                      {t.codigo}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ring-1 ring-inset bg-[#fef3c7] text-[#92400e] ring-[#92400e]/20">
+                    <span className="font-mono text-[15px] font-bold text-[#f5f5f0]">{t.codigo}</span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ring-1 ring-inset bg-[#2a2a1e] text-[#d9a05f] ring-[#d9a05f]/20">
                       Em Trânsito
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-[#78716c]">
-                    <span className="font-medium text-[#44403c]">{unidadeMap.get(t.unidade_origem_id) ?? '—'}</span>
-                    <ArrowRight size={11} className="text-[#c2410c]/40 shrink-0" />
-                    <span className="font-medium text-[#44403c]">{unidadeMap.get(t.unidade_destino_id) ?? '—'}</span>
-                    <span className="mx-1 text-[#e5ddd3]">·</span>
+                  <div className="flex items-center gap-1.5 text-xs text-[#888888]">
+                    <span className="font-medium text-[#d4d4d0]">{unidadeMap.get(t.unidade_origem_id) ?? '—'}</span>
+                    <ArrowRight size={11} className="text-[#d98d5f]/40 shrink-0" />
+                    <span className="font-medium text-[#d4d4d0]">{unidadeMap.get(t.unidade_destino_id) ?? '—'}</span>
+                    <span className="mx-1 text-[#333336]">·</span>
                     <span>{totalItens} {totalItens === 1 ? 'item' : 'itens'}</span>
-                    <span className="mx-1 text-[#e5ddd3]">·</span>
+                    <span className="mx-1 text-[#333336]">·</span>
                     <span>{formatDate(t.created_at)}</span>
                   </div>
                 </div>
                 <Link
                   href={`/dashboard/transferencias/${t.id}`}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#c2410c] hover:bg-[#d97747] text-white text-sm font-semibold shadow-sm transition-colors shrink-0"
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#d98d5f] hover:bg-[#e8a57a] text-white text-sm font-semibold shadow-sm transition-colors shrink-0"
                 >
                   <PackageCheck size={14} />
                   Conferir

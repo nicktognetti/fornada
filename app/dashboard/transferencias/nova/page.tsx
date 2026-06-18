@@ -1,17 +1,14 @@
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { PageTitle } from '@/app/components/ui/page-title'
 import { NovaTransferenciaForm } from '../components/nova-transferencia-form'
+import { getUnidadesDoUsuario } from '@/app/actions/transferencia'
 
 export default async function NovaTransferenciaPage() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Empresa do usuário
   const { data: ue } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
@@ -20,14 +17,6 @@ export default async function NovaTransferenciaPage() {
 
   const empresaId = ue?.empresa_id ?? ''
 
-  // Unidades da empresa
-  const { data: unidades } = await supabase
-    .from('unidade')
-    .select('id, nome')
-    .eq('empresa_id', empresaId)
-    .order('nome')
-
-  // Produtos ativos da empresa
   const { data: produtos } = await supabase
     .from('produto')
     .select('id, nome')
@@ -35,26 +24,52 @@ export default async function NovaTransferenciaPage() {
     .eq('ativo', true)
     .order('nome')
 
+  // Buscar unidades e determinar a unidade do usuário via server action
+  let unidades: Array<{ id: string; nome: string }> = []
+  let unidadeUsuarioId: string | null = null
+  let fetchError: string | null = null
+
+  try {
+    const result = await getUnidadesDoUsuario()
+    unidades = result.unidades
+    unidadeUsuarioId = result.unidadeUsuarioId
+  } catch {
+    fetchError = 'Não foi possível carregar as unidades. Os campos ficaram livres para seleção.'
+  }
+
   return (
     <div>
+      {/* Breadcrumb */}
       <div className="mb-6">
         <Link
           href="/dashboard/transferencias"
-          className="inline-flex items-center gap-1.5 text-sm text-demerara hover:text-marrom-500 transition-colors mb-6"
+          className="inline-flex items-center gap-1.5 text-sm text-[#888888] hover:text-[#d98d5f] transition-colors"
         >
           <ArrowLeft size={15} />
           Transferências
         </Link>
       </div>
 
-      <PageTitle icon={ArrowLeftRight} subtitle="Enviar produtos para outra unidade">
-        Nova transferência
-      </PageTitle>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-8">
+        <ArrowLeftRight size={22} className="text-[#d98d5f] shrink-0" />
+        <div>
+          <h1 className="text-2xl font-semibold text-[#f5f5f0]">Nova transferência</h1>
+          <p className="text-sm text-[#888888] mt-0.5">Enviar produtos para outra unidade</p>
+        </div>
+      </div>
+
+      {fetchError && (
+        <div className="mb-5 bg-[#2a1e1e] border border-[#c74a4a]/30 text-[#c74a4a] rounded-lg px-4 py-3 text-sm">
+          {fetchError}
+        </div>
+      )}
 
       <NovaTransferenciaForm
-        unidades={unidades ?? []}
+        unidades={unidades}
         produtos={produtos ?? []}
         empresaId={empresaId}
+        unidadeUsuarioId={unidadeUsuarioId}
       />
     </div>
   )

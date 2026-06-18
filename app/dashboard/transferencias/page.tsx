@@ -1,7 +1,6 @@
 import { ArrowLeftRight, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { PageTitle } from '@/app/components/ui/page-title'
 import { TransferenciaTable } from './components/transferencia-table'
 import type { TransferenciaRow } from './components/transferencia-table'
 
@@ -13,11 +12,8 @@ export default async function TransferenciasPage({
   const { criado } = await searchParams
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Empresa do usuário
   const { data: ue } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
@@ -26,7 +22,6 @@ export default async function TransferenciasPage({
 
   const empresaId = ue?.empresa_id
 
-  // Transferências (schema fornada)
   const { data: transferencias } = empresaId
     ? await supabase
         .schema('fornada')
@@ -37,7 +32,6 @@ export default async function TransferenciasPage({
         .limit(50)
     : { data: [] }
 
-  // Nomes das unidades (schema public)
   const { data: unidades } = await supabase.from('unidade').select('id, nome')
   const unidadeMap = new Map((unidades ?? []).map((u) => [u.id, u.nome]))
 
@@ -55,13 +49,18 @@ export default async function TransferenciasPage({
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-start justify-between mb-8 gap-4">
-        <PageTitle icon={ArrowLeftRight} subtitle="Movimentações entre unidades">
-          Transferências
-        </PageTitle>
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <ArrowLeftRight size={22} className="text-[#d98d5f] shrink-0" />
+            <h1 className="text-2xl font-semibold text-[#f5f5f0]">Transferências</h1>
+          </div>
+          <p className="text-sm text-[#888888] ml-9">Movimentações entre unidades</p>
+        </div>
         <Link
           href="/dashboard/transferencias/nova"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-marrom-500 text-creme-100 text-sm font-medium hover:bg-marrom-600 shadow-sm transition-colors shrink-0 mt-1"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#d98d5f] hover:bg-[#e8a57a] text-white text-sm font-semibold shadow-sm transition-colors shrink-0 mt-1"
         >
           <Plus size={15} />
           Nova transferência

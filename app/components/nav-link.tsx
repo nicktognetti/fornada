@@ -23,18 +23,18 @@ export function NavLink({ href, icon: Icon, label, exact = false, onClick }: Nav
       className={`
         flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] relative
         ${active
-          ? 'bg-madrugada-700 text-creme-100 font-semibold'
-          : 'text-white/50 hover:text-white/80 hover:bg-madrugada-700/50'
+          ? 'bg-[#2a2a2c] text-[#f5f5f0] font-semibold'
+          : 'text-[#d4d4d0] hover:text-[#f5f5f0] hover:bg-[#2a2a2c]/60'
         }
       `}
     >
       {active && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-marrom-500 rounded-r-full" />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#d98d5f] rounded-r-full" />
       )}
       <Icon
         size={17}
         strokeWidth={1.8}
-        className={`shrink-0 ml-0.5 ${active ? 'text-marrom-400' : 'text-white/40'}`}
+        className={`shrink-0 ml-0.5 ${active ? 'text-[#d98d5f]' : 'text-[#666666]'}`}
       />
       <span>{label}</span>
     </Link>

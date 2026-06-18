@@ -92,6 +92,42 @@ export async function createTransferenciaAction(data: {
   return { success: true, codigo, transferencia_id: transferencia.id }
 }
 
+export async function getUnidadesDoUsuario(): Promise<{
+  unidades: Array<{ id: string; nome: string }>
+  unidadeUsuarioId: string | null
+  email: string | undefined
+}> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Usuário não autenticado')
+
+  const empresaId = await getEmpresaId(user.id)
+
+  const { data: unidades } = await supabase
+    .from('unidade')
+    .select('id, nome')
+    .eq('empresa_id', empresaId ?? '')
+    .order('nome')
+
+  // Tentar determinar a unidade do usuário pelo metadata
+  let unidadeUsuarioId: string | null =
+    (user.user_metadata?.unidade_id as string | undefined) ?? null
+
+  // Fallback: com exatamente 2 unidades, assumir a primeira como unidade do usuário
+  if (!unidadeUsuarioId && unidades && unidades.length === 2) {
+    unidadeUsuarioId = unidades[0].id
+  }
+
+  return {
+    unidades: unidades ?? [],
+    unidadeUsuarioId,
+    email: user.email,
+  }
+}
+
 export async function confirmarRecebimentoAction(data: {
   transferencia_id: string
   responsavel_destino_id: string
