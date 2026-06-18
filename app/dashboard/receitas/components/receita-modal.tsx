@@ -44,18 +44,18 @@ export function ReceitaModal({ receita, onClose }: Props) {
   }, [createState?.success, editState?.success, onClose])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#252528] rounded-2xl border border-[rgba(255,255,255,0.08)] shadow-[0_8px_40px_rgba(0,0,0,0.5)] w-full max-w-md max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl border border-marrom-500/12 shadow-[0_8px_40px_rgba(0,0,0,0.12)] w-full max-w-md max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-[rgba(255,255,255,0.07)] shrink-0">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-marrom-500/10 shrink-0">
           <div>
-            <h2 className="font-playfair text-[#e8e6e3] text-[22px] font-bold leading-tight">
+            <h2 className="font-playfair text-madrugada-800 text-[22px] font-bold leading-tight">
               {isEdit ? receita.nome : 'Nova Receita'}
             </h2>
-            {isEdit && <p className="text-[#9e9e9e] text-xs mt-0.5">editar ficha técnica</p>}
+            {isEdit && <p className="text-demerara text-xs mt-0.5">editar ficha técnica</p>}
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9e9e9e] hover:text-[#d68a57] hover:bg-[#d68a57]/10 transition-all" aria-label="Fechar">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-demerara hover:text-marrom-500 hover:bg-marrom-500/10 transition-all" aria-label="Fechar">
             <X size={16} />
           </button>
         </div>
@@ -83,7 +83,7 @@ export function ReceitaModal({ receita, onClose }: Props) {
                 <select name="tipo" defaultValue={receita?.tipo ?? 'final'} className="input-field appearance-none pr-10">
                   {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
-                <ChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9e9e9e]/50 pointer-events-none" />
+                <ChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-demerara/50 pointer-events-none" />
               </div>
             </div>
 
@@ -119,7 +119,7 @@ export function ReceitaModal({ receita, onClose }: Props) {
             </div>
 
             {state?.error && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-red-400 text-sm">
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-red-600 text-sm">
                 {state.error}
               </div>
             )}

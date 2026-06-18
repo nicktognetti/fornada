@@ -50,40 +50,10 @@
   --font-sacramento:'Sacramento', cursive;
 }
 
-/* ── Variáveis de tema (dark por padrão) ─────────────────────────────────── */
+/* ── Variáveis de tema — Creme Clássico (padrão) ─────────────────────────── */
 
 :root {
-  --t-page-bg:     #1a1a1d;
-  --t-nav-bg:      #1a1a1d;
-  --t-nav-border:  rgba(255,255,255,0.06);
-  --t-card-bg:     #252528;
-  --t-card-border: rgba(255,255,255,0.06);
-  --t-card-shadow: 0 2px 12px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.2);
-  --t-card-hover:  #2e2e32;
-  --t-input-bg:    #2b2b30;
-  --t-input-border:rgba(255,255,255,0.08);
-  --t-input-opt:   #2b2b30;
-  --t-text-1:      #e8e6e3;
-  --t-text-2:      #9e9e9e;
-  --t-text-muted:  rgba(158,158,158,0.5);
-  --t-border-sub:  rgba(255,255,255,0.07);
-  --t-ghost-border:rgba(255,255,255,0.12);
-  --t-accent:      #d68a57;
-  --t-accent-hover:#e09a67;
-  --t-accent-press:#c07a47;
-  --t-modal-bg:    #252528;
-  --t-modal-border:rgba(255,255,255,0.08);
-  --t-row-hover:   rgba(255,255,255,0.02);
-  --t-table-head:  #1a1a1d;
-  --t-inset-bg:    #1e1e22;
-}
-
-/* ── Tema claro ───────────────────────────────────────────────────────────── */
-
-html.light {
   --t-page-bg:     #ede9e1;
-  --t-nav-bg:      #f5f1ea;
-  --t-nav-border:  rgba(172,97,55,0.15);
   --t-card-bg:     #ffffff;
   --t-card-border: rgba(172,97,55,0.10);
   --t-card-shadow: 0 2px 12px rgba(172,97,55,0.06), 0 1px 3px rgba(0,0,0,0.06);
@@ -106,6 +76,14 @@ html.light {
   --t-inset-bg:    #f0ece4;
 }
 
+/* ── Creme Quente — variante mais saturada ────────────────────────────────── */
+
+html.creme-quente {
+  --t-page-bg:     #f0e6d8;
+  --t-input-bg:    #ebe0d4;
+  --t-inset-bg:    #e8ddd0;
+}
+
 /* ── Tema escuro global ───────────────────────────────────────────────────── */
 
 body {
@@ -125,10 +103,8 @@ body {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.12); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.2); }
-html.light ::-webkit-scrollbar-thumb { background-color: rgba(172,97,55,0.25); }
-html.light ::-webkit-scrollbar-thumb:hover { background-color: rgba(172,97,55,0.40); }
+::-webkit-scrollbar-thumb { background-color: rgba(172,97,55,0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(172,97,55,0.40); }
 
 /* ── Design system components ─────────────────────────────────────────────── */
 
@@ -263,15 +239,7 @@ html.light ::-webkit-scrollbar-thumb:hover { background-color: rgba(172,97,55,0.
 
 }
 
-/* ── Overrides pontuais para tema claro ───────────────────────────────────── */
+/* ── Sidebar dark scrollbar ───────────────────────────────────────────────── */
 
-/* Modais */
-html.light .modal-surface {
-  background-color: var(--t-modal-bg);
-  border-color: var(--t-modal-border);
-}
-
-/* Inset / cabeçalhos de tabela */
-html.light .inset-surface {
-  background-color: var(--t-inset-bg);
-}
+aside ::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.12); }
+aside ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.22); }

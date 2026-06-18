@@ -2,28 +2,28 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
-type Theme = 'dark' | 'light'
+type Theme = 'classico' | 'quente'
 
 const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
-  theme: 'dark',
+  theme: 'classico',
   toggle: () => {},
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark')
+  const [theme, setTheme] = useState<Theme>('classico')
 
   useEffect(() => {
-    const saved = localStorage.getItem('fornada-theme') as Theme | null
-    const t = saved ?? 'dark'
+    const saved = localStorage.getItem('fornada-tom') as Theme | null
+    const t = saved === 'quente' ? 'quente' : 'classico'
     setTheme(t)
-    document.documentElement.classList.toggle('light', t === 'light')
+    document.documentElement.classList.toggle('creme-quente', t === 'quente')
   }, [])
 
   function toggle() {
     setTheme((t) => {
-      const next = t === 'dark' ? 'light' : 'dark'
-      document.documentElement.classList.toggle('light', next === 'light')
-      localStorage.setItem('fornada-theme', next)
+      const next = t === 'classico' ? 'quente' : 'classico'
+      document.documentElement.classList.toggle('creme-quente', next === 'quente')
+      localStorage.setItem('fornada-tom', next)
       return next
     })
   }

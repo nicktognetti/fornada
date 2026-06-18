@@ -64,7 +64,7 @@ export function InsumoList({ insumos, categorias }: Props) {
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9e9e9e]/50 pointer-events-none" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-demerara/50 pointer-events-none" />
           <input
             type="text"
             placeholder="Buscar insumo…"
@@ -85,7 +85,7 @@ export function InsumoList({ insumos, categorias }: Props) {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-          <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]/60 pointer-events-none" />
+          <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-demerara/60 pointer-events-none" />
         </div>
 
         <div className="relative sm:w-40">
@@ -98,7 +98,7 @@ export function InsumoList({ insumos, categorias }: Props) {
             <option value="pendentes">Pendentes</option>
             <option value="com_preco">Com preço</option>
           </select>
-          <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]/60 pointer-events-none" />
+          <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-demerara/60 pointer-events-none" />
         </div>
 
         <button onClick={openCreate} className="btn-primary shrink-0">
@@ -110,13 +110,13 @@ export function InsumoList({ insumos, categorias }: Props) {
       {/* Estado vazio */}
       {filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-[#2b2b30] flex items-center justify-center mb-4">
-            <Package size={28} className="text-[#9e9e9e]/50" />
+          <div className="w-16 h-16 rounded-2xl bg-creme-100 flex items-center justify-center mb-4">
+            <Package size={28} className="text-demerara/50" />
           </div>
-          <p className="text-[#e8e6e3] text-base font-playfair mb-1">
+          <p className="text-madrugada-800 text-base font-playfair mb-1">
             {insumos.length === 0 ? 'Nenhum insumo ainda' : 'Nenhum resultado'}
           </p>
-          <p className="text-[#9e9e9e] text-sm max-w-xs">
+          <p className="text-demerara text-sm max-w-xs">
             {insumos.length === 0
               ? 'Cadastre seu primeiro insumo para começar a calcular custos com precisão.'
               : 'Tente um termo diferente ou ajuste os filtros.'}
@@ -137,23 +137,23 @@ export function InsumoList({ insumos, categorias }: Props) {
             <div
               key={insumo.id}
               onClick={() => openEdit(insumo)}
-              className="card-surface flex items-center gap-4 px-5 py-4 group hover:shadow-lg hover:bg-[#2e2e32] transition-all cursor-pointer"
+              className="card-surface flex items-center gap-4 px-5 py-4 group hover:shadow-md hover:bg-creme-50 transition-all cursor-pointer"
             >
               <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-5">
                 {/* Nome + tag */}
                 <div className="min-w-0 flex-1">
-                  <p className="font-playfair text-[#e8e6e3] text-[18px] font-semibold leading-tight truncate">
+                  <p className="font-playfair text-madrugada-800 text-[18px] font-semibold leading-tight truncate">
                     {insumo.nome}
                   </p>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     {insumo.categoria && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#d68a57]/15 text-[#d68a57] border border-[#d68a57]/20">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-marrom-500/15 text-marrom-500 border border-marrom-500/20">
                         {insumo.categoria}
                       </span>
                     )}
-                    <span className="text-[#9e9e9e] text-[12px]">{insumo.unidade_uso}</span>
+                    <span className="text-demerara text-[12px]">{insumo.unidade_uso}</span>
                     {insumo.fichasCount > 0 && (
-                      <span className="text-[#9e9e9e]/50 text-[12px]">
+                      <span className="text-demerara/50 text-[12px]">
                         · em {insumo.fichasCount} ficha{insumo.fichasCount !== 1 ? 's' : ''}
                       </span>
                     )}
@@ -163,16 +163,16 @@ export function InsumoList({ insumos, categorias }: Props) {
                 {/* Custo + badges */}
                 <div className="shrink-0 sm:text-right flex sm:flex-col items-center sm:items-end gap-2">
                   {insumo.custo?.custo_uso != null && insumo.custo.custo_uso > 0 ? (
-                    <p className="font-playfair text-[#d68a57] text-[22px] sm:text-[26px] font-bold leading-none">
+                    <p className="font-playfair text-marrom-500 text-[22px] sm:text-[26px] font-bold leading-none">
                       {formatCustoUso(insumo.custo.custo_uso, insumo.unidade_uso)}
                     </p>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-600 border border-amber-500/25">
                       Sem preço
                     </span>
                   )}
                   {insumo.nome.toLowerCase().includes('pendente') && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-600 border border-amber-500/25">
                       Pendente
                     </span>
                   )}
@@ -182,7 +182,7 @@ export function InsumoList({ insumos, categorias }: Props) {
               {/* Lápis — hover-only */}
               <button
                 onClick={(e) => { e.stopPropagation(); openEdit(insumo) }}
-                className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-[#9e9e9e]/40 hover:text-[#d68a57] hover:bg-[#d68a57]/10 border border-transparent hover:border-[#d68a57]/20 transition-all opacity-0 group-hover:opacity-100"
+                className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-demerara/40 hover:text-marrom-500 hover:bg-marrom-500/10 border border-transparent hover:border-marrom-500/20 transition-all opacity-0 group-hover:opacity-100"
                 aria-label={`Editar ${insumo.nome}`}
               >
                 <Pencil size={15} />
@@ -194,7 +194,7 @@ export function InsumoList({ insumos, categorias }: Props) {
 
       {/* Contagem */}
       {insumos.length > 0 && filtered.length > 0 && (
-        <p className="text-[#9e9e9e]/40 text-xs mt-4 text-right">
+        <p className="text-demerara/40 text-xs mt-4 text-right">
           {filtered.length === insumos.length
             ? `${insumos.length} insumo${insumos.length !== 1 ? 's' : ''}`
             : `${filtered.length} de ${insumos.length} insumos`}

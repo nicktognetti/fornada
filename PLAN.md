@@ -5,7 +5,7 @@
 >
 > Marca exibida no app: **Flor do Trigo**. Nome do sistema/produto: **Fornada**. Responsável: **Nicholas Tognetti**.
 
-**Última atualização:** 17/06/2026
+**Última atualização:** 18/06/2026
 
 ---
 
@@ -61,7 +61,7 @@
 | M14 | Simulador "e se" + cálculo reverso | [x] | protótipo v6 |
 | M15 | IA: OCR de nota fiscal + consulta em linguagem natural | [ ] | atualizar custo via nota; perguntas da Natali |
 | M16 | Preço separado por unidade (Centro × Morada) | [x] | protótipo v6 + schema v2 (`produto_preco`) |
-| M17 | Transferência Morada → Centro | [ ] | registro de transferência |
+| M17 | Transferência Morada → Centro | [~] | registro de transferência |
 | M18 | Multi-usuário leve (perfis) | [ ] | Natali + equipe consultando |
 
 ---
@@ -76,6 +76,42 @@ Rodar os 4 antes de comitar:
 4. **Exclusão bloqueada** — tentar excluir uma receita que é sub-receita de outra (deve bloquear com aviso) + tentar criar referência circular (deve dar "Referência circular detectada").
 
 Quando os 4 baterem → virar Etapa 4 para ✅ e comitar.
+
+---
+
+## Módulo Transferência entre Unidades — EM ANDAMENTO
+
+**Status:** `[~]` Etapa 1 (banco) em implementação — 18/06/2026
+
+Rastreia movimentações de **produtos finais** entre as unidades Morada do Sol (produção) e Centro (PDV), incluindo devoluções. Projetado como módulo reutilizável (multi-empresa — ex: Freshmania).
+
+### Tabelas
+
+| Tabela | Descrição |
+|---|---|
+| `fornada.transferencia` | Registro principal: tipo (TRANSFERENCIA / DEVOLUCAO), código único, status do ciclo de vida, responsável origem e destino |
+| `fornada.transferencia_item` | Itens da transferência: produto, qtd enviada, qtd recebida, status do item (PENDENTE / RECEBIDO / DIFERENCA / AUSENTE) |
+
+### Views
+
+| View | Descrição |
+|---|---|
+| `vw_transferencias_pendentes` | Transferências em trânsito aguardando recebimento (status = EM_TRANSITO) |
+| `vw_transferencias_recentes` | Últimas 50 transferências com totais de itens e divergências |
+| `vw_dashboard_transferencias` | Totalizadores por empresa: hoje, pendentes, divergências (últimos 7 dias), volume do dia |
+
+### Funções
+
+| Função | Descrição |
+|---|---|
+| `fn_gerar_codigo_transferencia(p_tipo)` | Gera código sequencial anual: TRF-NNN/AAAA ou DEV-NNN/AAAA; cria a sequence do ano automaticamente |
+| `fn_validar_estoque(p_produto_id, p_quantidade, p_unidade_id)` | Placeholder — retorna `true` até o módulo de estoque ser implementado |
+
+### Etapas de implementação
+
+1. **Banco (18/06/2026)** — Migration `supabase/migrations/20260618_transferencia_unidades.sql`: tabelas, funções, views, 6 índices, RLS por empresa_id `[~]`
+2. **UI** — Tela de nova transferência (selecionar produto + qtd), listagem com filtros, tela de recebimento item a item com registro de divergências `[ ]`
+3. **WhatsApp** — Notificação automática ao responsável destino quando status muda para EM_TRANSITO `[ ]`
 
 ---
 
@@ -94,6 +130,7 @@ Quando os 4 baterem → virar Etapa 4 para ✅ e comitar.
 | `Revisao_71_Insumos_Suspeitos.xlsx` | **Com a Natali** — 71 casos de preço disperso/nome genérico pra ela esclarecer |
 | `extracao_bruta_receitas.json` | Extração crua das 48 abas de receitas (2.182 blocos) |
 | `PLAN.md` | Este documento — fonte de verdade, salvo na raiz da pasta `fornada` |
+| `supabase/migrations/20260618_transferencia_unidades.sql` | **Pendente execução** — tabelas, funções, views e RLS do módulo de transferência entre unidades |
 
 ---
 

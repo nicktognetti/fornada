@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Sun, Moon } from 'lucide-react'
+import { Palette } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 import { useTheme } from '@/app/context/theme-provider'
 
@@ -61,12 +61,10 @@ export function Navigation({ userEmail }: NavigationProps) {
           <div className="flex items-center gap-3">
             <button
               onClick={toggle}
-              title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+              title="Alternar tom"
               className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9e9e9e] hover:text-[#d68a57] hover:bg-[rgba(214,138,87,0.10)] transition-all"
             >
-              {theme === 'dark'
-                ? <Sun size={15} />
-                : <Moon size={15} />}
+              <Palette size={15} />
             </button>
             <div className="text-right">
               <p className="text-[#9e9e9e] text-[11px] hidden sm:block">{userEmail}</p>

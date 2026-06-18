@@ -15,7 +15,7 @@ export function PageTitle({ icon: Icon, children, subtitle }: Props) {
             <Icon size={20} className="text-marrom-500" />
           </div>
         )}
-        <h1 className="font-playfair text-[#e8e6e3] text-[30px] font-bold leading-tight tracking-tight">
+        <h1 className="font-playfair text-madrugada-800 text-[30px] font-bold leading-tight tracking-tight">
           {children}
         </h1>
       </div>
