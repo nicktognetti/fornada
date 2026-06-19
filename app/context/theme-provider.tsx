@@ -9,20 +9,22 @@ const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
   toggle: () => {},
 })
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('classico')
+function readStoredTheme(): Theme {
+  if (typeof window === 'undefined') return 'classico'
+  return localStorage.getItem('fornada-tom') === 'quente' ? 'quente' : 'classico'
+}
 
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setTheme] = useState<Theme>(readStoredTheme)
+
+  // Aplica classe no <html> sempre que theme mudar
   useEffect(() => {
-    const saved = localStorage.getItem('fornada-tom') as Theme | null
-    const t = saved === 'quente' ? 'quente' : 'classico'
-    setTheme(t)
-    document.documentElement.classList.toggle('creme-quente', t === 'quente')
-  }, [])
+    document.documentElement.classList.toggle('creme-quente', theme === 'quente')
+  }, [theme])
 
   function toggle() {
     setTheme((t) => {
       const next = t === 'classico' ? 'quente' : 'classico'
-      document.documentElement.classList.toggle('creme-quente', next === 'quente')
       localStorage.setItem('fornada-tom', next)
       return next
     })

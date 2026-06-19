@@ -2,21 +2,29 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { X, Menu, LayoutDashboard, Package, BookOpen, Tag, BarChart3, Settings, Calculator, ArrowLeftRight, PackageCheck } from 'lucide-react'
+import {
+  X, Menu, LayoutDashboard, Package, BookOpen, Tag,
+  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield,
+} from 'lucide-react'
 import { NavLink } from './nav-link'
 import { logout } from '@/app/login/actions'
+import { usePermissions } from '@/app/context/permissions-context'
 
-const navItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Resumo', exact: true },
-  { href: '/dashboard/receitas', icon: BookOpen, label: 'Fichas' },
-  { href: '/dashboard/insumos', icon: Package, label: 'Insumos' },
-  { href: '/dashboard/precos', icon: Tag, label: 'Preços' },
-  { href: '/dashboard/painel', icon: BarChart3, label: 'Painel' },
-  { href: '/dashboard/configuracoes', icon: Settings, label: 'Configurações' },
-  { href: '/dashboard/simulador', icon: Calculator, label: 'Simulador' },
-  { href: '/dashboard/transferencias', icon: ArrowLeftRight, label: 'Transferências' },
-  { href: '/dashboard/transferencias/receber', icon: PackageCheck, label: 'Receber' },
+const ALL_NAV_ITEMS = [
+  { href: '/dashboard',                           icon: LayoutDashboard, label: 'Resumo',          tela: 'resumo',          exact: true },
+  { href: '/dashboard/receitas',                  icon: BookOpen,        label: 'Fichas',           tela: 'receitas'         },
+  { href: '/dashboard/insumos',                   icon: Package,         label: 'Insumos',          tela: 'insumos'          },
+  { href: '/dashboard/precos',                    icon: Tag,             label: 'Preços',           tela: 'precos'           },
+  { href: '/dashboard/painel',                    icon: BarChart3,       label: 'Painel',           tela: 'painel'           },
+  { href: '/dashboard/cadastros',                 icon: LayoutGrid,      label: 'Cadastros',        tela: 'cadastros'        },
+  { href: '/dashboard/simulador',                 icon: Calculator,      label: 'Simulador',        tela: 'simulador'        },
+  { href: '/dashboard/transferencias',            icon: ArrowLeftRight,  label: 'Transferências',   tela: 'transferencias'   },
+  { href: '/dashboard/transferencias/receber',    icon: PackageCheck,    label: 'Receber',          tela: 'receber'          },
+  { href: '/dashboard/configuracoes',             icon: Shield,          label: 'Configurações',    tela: 'configuracoes'    },
 ]
+
+// Tela sempre visível como fallback
+const FALLBACK_TELAS = new Set(['resumo'])
 
 interface SidebarProps {
   userEmail: string
@@ -24,6 +32,12 @@ interface SidebarProps {
 
 export function Sidebar({ userEmail }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { canAccess, isLoading } = usePermissions()
+
+  // Durante carregamento mostra todos (otimista); após carregamento filtra
+  const navItems = isLoading
+    ? ALL_NAV_ITEMS
+    : ALL_NAV_ITEMS.filter((item) => FALLBACK_TELAS.has(item.tela) || canAccess(item.tela))
 
   const panel = (
     <aside className="flex flex-col h-full w-[260px] bg-canvas">

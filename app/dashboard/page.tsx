@@ -84,28 +84,34 @@ export default async function ResumePage({
   const receitaCount = receitaRes.count ?? 0
   const produtoCount = produtoRes.error ? null : (produtoRes.count ?? 0)
 
+  type CustoUsoRow    = { insumo_id: string; custo_uso: number | null }
+  type CustoRRow      = { id: string; custo_unitario: number | null; rendimento_unidade: string }
+  type PrecoProdRow   = { produto_id: string; preco_praticado: number | null }
+  type ProdutoRow     = { id: string; nome: string; receita_id: string | null }
+  type NomeRow        = { id: string; nome: string }
+  type ItemRow        = { insumo_id: string | null; quantidade: number }
+
   // ── Atenção: insumos sem preço ─────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const comCusto = new Set(
-    (custosRes.data ?? []).filter((c: any) => c.custo_uso && c.custo_uso > 0).map((c: any) => c.insumo_id)
+    (custosRes.data as CustoUsoRow[] ?? [])
+      .filter((c) => c.custo_uso && c.custo_uso > 0)
+      .map((c) => c.insumo_id)
   )
   const insumosSemPreco = (insumoIdsRes.data ?? []).filter((i) => !comCusto.has(i.id)).length
 
   // ── Atenção: produtos no prejuízo ──────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const custoReceitaMap = new Map<string, { custo_unitario: number; rendimento_unidade: string }>(
-    (custosReceitaRes.data ?? [])
-      .filter((r: any) => r.custo_unitario != null)
-      .map((r: any) => [r.id, { custo_unitario: r.custo_unitario, rendimento_unidade: r.rendimento_unidade }])
+    (custosReceitaRes.data as CustoRRow[] ?? [])
+      .filter((r) => r.custo_unitario != null)
+      .map((r) => [r.id, { custo_unitario: r.custo_unitario as number, rendimento_unidade: r.rendimento_unidade }])
   )
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const precoProdutoMap = new Map<string, number>()
-  for (const pp of (precoProdutoRes.data ?? []) as any[]) {
+  for (const pp of (precoProdutoRes.data as PrecoProdRow[] ?? [])) {
     if (pp.preco_praticado != null && !precoProdutoMap.has(pp.produto_id))
       precoProdutoMap.set(pp.produto_id, pp.preco_praticado)
   }
   const prejuizoItems: PrejuizoItem[] = []
-  for (const p of (produtosRes.data ?? []) as any[]) {
+  for (const p of (produtosRes.data as ProdutoRow[] ?? [])) {
     if (!p.receita_id) continue
     const receita = custoReceitaMap.get(p.receita_id)
     if (!receita) continue
@@ -118,15 +124,14 @@ export default async function ResumePage({
   const hasAtencao = insumosSemPreco > 0 || prejuizoItems.length > 0
 
   // ── Curva ABC ──────────────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const custoUsoMap = new Map<string, number>(
-    (custosRes.data ?? []).map((c: any) => [c.insumo_id, c.custo_uso as number])
+    (custosRes.data as CustoUsoRow[] ?? []).map((c) => [c.insumo_id, c.custo_uso ?? 0])
   )
   const nomeMap = new Map<string, string>(
-    (nomesRes.data ?? []).map((i: any) => [i.id, i.nome as string])
+    (nomesRes.data as NomeRow[] ?? []).map((i) => [i.id, i.nome])
   )
   const custoAcum = new Map<string, number>()
-  for (const item of (itensRes.data ?? []) as any[]) {
+  for (const item of (itensRes.data as ItemRow[] ?? [])) {
     if (!item.insumo_id) continue
     const custo = custoUsoMap.get(item.insumo_id)
     if (!custo || custo <= 0) continue
@@ -141,10 +146,9 @@ export default async function ResumePage({
     .slice(0, 5)
 
   // ── Últimas fichas modificadas ─────────────────────────────────────────────
-  // A query falha silenciosamente se updated_at não existir no schema
   const ultimasFichas: UltimaFicha[] = ultimasFichasRes.error
     ? []
-    : (ultimasFichasRes.data ?? []).filter((f: any) => f.updated_at) as UltimaFicha[]
+    : (ultimasFichasRes.data ?? []).filter((f): f is UltimaFicha => !!(f as UltimaFicha).updated_at)
 
   // ── Cards ──────────────────────────────────────────────────────────────────
   const cards = [

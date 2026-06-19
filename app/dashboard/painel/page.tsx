@@ -31,23 +31,24 @@ export default async function PainelPage({
     supabase.from('produto_preco').select('produto_id, preco_praticado'),
   ])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type CustoRow = { id: string; custo_unitario: number | null }
+  type PrecoRow = { produto_id: string; preco_praticado: number | null }
+  type ProdRow  = { id: string; nome: string; receita_id: string | null }
+
   const custoMap = new Map<string, number>(
-    (custoRes.data ?? [])
-      .filter((r: any) => r.custo_unitario != null)
-      .map((r: any) => [r.id as string, r.custo_unitario as number])
+    (custoRes.data as CustoRow[] ?? [])
+      .filter((r) => r.custo_unitario != null)
+      .map((r) => [r.id, r.custo_unitario as number])
   )
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const precoMap = new Map<string, number>(
-    (precoRes.data ?? [])
-      .filter((r: any) => r.preco_praticado != null)
-      .map((r: any) => [r.produto_id as string, r.preco_praticado as number])
+    (precoRes.data as PrecoRow[] ?? [])
+      .filter((r) => r.preco_praticado != null)
+      .map((r) => [r.produto_id, r.preco_praticado as number])
   )
 
   const produtos: ProdutoRentabilidade[] = []
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const p of (prodRes.data ?? []) as any[]) {
+  for (const p of (prodRes.data as ProdRow[] ?? [])) {
     const custo = p.receita_id ? (custoMap.get(p.receita_id) ?? 0) : 0
     const preco = precoMap.get(p.id) ?? 0
     if (custo <= 0 || preco <= 0) continue

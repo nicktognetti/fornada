@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { ReceberHub } from './components/receber-hub'
-import type { TransferenciaReceber, Compra } from './types'
+import type { TransferenciaReceber, Compra, StatusFinanceiro } from './types'
 
 export default async function ReceberPage() {
   const supabase = await createClient()
@@ -63,8 +63,12 @@ export default async function ReceberPage() {
         countMap.set(r.transferencia_id, (countMap.get(r.transferencia_id) ?? 0) + 1)
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      transferencias = (tList as any[]).map((t) => ({
+      type TRec = {
+        id: string; codigo: string; tipo: 'TRANSFERENCIA' | 'DEVOLUCAO'; status: string
+        status_financeiro: StatusFinanceiro | null; valor_total: number | null
+        unidade_origem_id: string; unidade_destino_id: string; created_at: string
+      }
+      transferencias = (tList as TRec[]).map((t) => ({
         id:                  t.id,
         codigo:              t.codigo,
         tipo:                t.tipo,

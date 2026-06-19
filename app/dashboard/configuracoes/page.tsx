@@ -1,32 +1,22 @@
-import { Settings } from 'lucide-react'
+import { Shield } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { createClient } from '@/lib/supabase/server'
-import { ConfigPanel } from './components/config-panel'
+import { listUsersWithPermissionsAction } from '@/app/actions/permissoes'
+import { PermissoesTab } from './components/permissoes-tab'
 
 export default async function ConfiguracoesPage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Busca categorias reais já usadas nos insumos
-  const { data: insumos } = await supabase
-    .from('insumo')
-    .select('categoria')
-    .eq('ativo', true)
-    .not('categoria', 'is', null)
-
-  const dbCategorias = [
-    ...new Set(
-      (insumos ?? [])
-        .map((i: { categoria: string | null }) => i.categoria)
-        .filter((c): c is string => Boolean(c))
-    ),
-  ]
+  const usuariosResult = await listUsersWithPermissionsAction()
+  const usuarios = usuariosResult.data ?? []
 
   return (
-    <div>
-      <PageTitle icon={Settings} subtitle="Tipos, unidades e categorias">
-        Configurações
+    <div className="max-w-3xl">
+      <PageTitle icon={Shield} subtitle="Controle de acesso por usuário">
+        Permissões
       </PageTitle>
-      <ConfigPanel dbCategorias={dbCategorias} />
+      <PermissoesTab usuarios={usuarios} currentUserId={user?.id ?? ''} />
     </div>
   )
 }

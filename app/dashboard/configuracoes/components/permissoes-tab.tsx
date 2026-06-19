@@ -1,0 +1,569 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import {
+  Shield, Loader2, Check, X, Plus, UserPlus,
+  Pencil, KeyRound, UserX, ChevronLeft,
+} from 'lucide-react'
+import {
+  savePermissionsAction,
+  deletePermissionAction,
+  createUserAction,
+  disableUserAction,
+  resetPasswordAction,
+} from '@/app/actions/permissoes'
+import { TELAS, TELA_LABEL } from '@/app/lib/permissions'
+import type { UsuarioComPermissoes, PermissaoInicialInput } from '@/app/actions/permissoes'
+import type { NivelAcesso } from '@/app/lib/permissions'
+
+interface Props {
+  usuarios: UsuarioComPermissoes[]
+  currentUserId: string
+}
+
+const ACESSO_OPTS: { value: NivelAcesso; label: string }[] = [
+  { value: 'leitura', label: 'Leitura' },
+  { value: 'escrita', label: 'Escrita' },
+  { value: 'admin',   label: 'Admin'   },
+]
+
+// ── Subcomponente: grade de permissões ───────────────────────────────────────
+function PermissaoGrade({
+  permissoes,
+  onChange,
+}: {
+  permissoes: Record<string, NivelAcesso | 'none'>
+  onChange: (tela: string, valor: NivelAcesso | 'none') => void
+}) {
+  return (
+    <div className="rounded-xl overflow-hidden border border-subtle">
+      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-2.5 bg-canvas border-b border-subtle">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Tela</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-16 text-center">Sem acesso</span>
+        {ACESSO_OPTS.map((o) => (
+          <span key={o.value} className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-16 text-center">{o.label}</span>
+        ))}
+      </div>
+      <div className="divide-y divide-subtle">
+        {(['*', ...TELAS] as const).map((tela) => {
+          const label = tela === '*' ? '★ Admin global (todas as telas)' : TELA_LABEL[tela]
+          const efetivo = permissoes[tela] ?? 'none'
+          return (
+            <div key={tela} className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2 px-4 py-2.5 ${tela === '*' ? 'bg-accent-primary/5' : 'hover:bg-input/40'}`}>
+              <span className={`text-sm ${tela === '*' ? 'font-semibold text-accent-primary' : 'text-primary'}`}>{label}</span>
+              <div className="w-16 flex justify-center">
+                <button onClick={() => onChange(tela, 'none')} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${efetivo === 'none' ? 'border-danger bg-danger/20 text-danger' : 'border-subtle text-faint hover:border-subtle/80'}`}>
+                  {efetivo === 'none' && <X size={9} />}
+                </button>
+              </div>
+              {ACESSO_OPTS.map((opt) => (
+                <div key={opt.value} className="w-16 flex justify-center">
+                  <button onClick={() => onChange(tela, opt.value)} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${efetivo === opt.value ? opt.value === 'admin' ? 'border-accent-primary bg-accent-primary/20 text-accent-primary' : 'border-success bg-success/20 text-success' : 'border-subtle text-faint hover:border-subtle/80'}`}>
+                    {efetivo === opt.value && <Check size={9} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Componente principal ─────────────────────────────────────────────────────
+export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Props) {
+  const [usuarios, setUsuarios] = useState(usuariosIniciais)
+
+  // Vista: 'lista' | 'editar' | 'novo' | 'reset' | 'desabilitar'
+  type Vista = 'lista' | 'editar' | 'novo' | 'reset' | 'desabilitar'
+  const [vista, setVista] = useState<Vista>('lista')
+  const [targetUser, setTargetUser] = useState<UsuarioComPermissoes | null>(null)
+
+  // Edição de permissões
+  const [pendente, setPendente] = useState<Record<string, NivelAcesso | 'none'>>({})
+  const [isPending, startTransition] = useTransition()
+  const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  // Modal novo usuário
+  const [novoEmail, setNovoEmail] = useState('')
+  const [novoNome, setNovoNome] = useState('')
+  const [novaSenha, setNovaSenha] = useState('')
+  const [novoTipoAcesso, setNovoTipoAcesso] = useState<'admin_global' | 'personalizado'>('admin_global')
+  const [novoPerms, setNovoPerms] = useState<Record<string, NivelAcesso | 'none'>>({})
+  const [criando, setCriando] = useState(false)
+  const [erroModal, setErroModal] = useState('')
+
+  // Reset senha
+  const [novaSenhaReset, setNovaSenhaReset] = useState('')
+  const [resetando, setResetando] = useState(false)
+  const [erroReset, setErroReset] = useState('')
+
+  // Desabilitar
+  const [desabilitando, setDesabilitando] = useState(false)
+  const [erroDesabilitar, setErroDesabilitar] = useState('')
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  function abrirEditar(u: UsuarioComPermissoes) {
+    const mapa: Record<string, NivelAcesso | 'none'> = {}
+    for (const p of u.permissoes) {
+      if (p.unidade_id === null) mapa[p.tela] = p.acesso
+    }
+    setTargetUser(u)
+    setPendente(mapa)
+    setFeedback(null)
+    setVista('editar')
+  }
+
+  function voltar() {
+    setVista('lista')
+    setTargetUser(null)
+    setPendente({})
+    setFeedback(null)
+    setNovaSenhaReset('')
+    setErroReset('')
+    setErroDesabilitar('')
+  }
+
+  function abrirNovo() {
+    setNovoEmail('')
+    setNovoNome('')
+    setNovaSenha('')
+    setNovoTipoAcesso('admin_global')
+    setNovoPerms({})
+    setErroModal('')
+    setVista('novo')
+  }
+
+  // ── salvar permissões ────────────────────────────────────────────────────
+
+  function handleSalvar() {
+    if (!targetUser) return
+    setFeedback(null)
+    startTransition(async () => {
+      const toUpsert: Parameters<typeof savePermissionsAction>[0] = []
+      const toDelete: string[] = []
+
+      for (const [tela, acesso] of Object.entries(pendente)) {
+        if (acesso === 'none') toDelete.push(tela)
+        else toUpsert.push({ usuario_id: targetUser.id, tela, acesso, unidade_id: null })
+      }
+
+      if (toUpsert.length > 0) {
+        const r = await savePermissionsAction(toUpsert)
+        if (r.error) { setFeedback({ ok: false, msg: r.error }); return }
+      }
+
+      for (const tela of toDelete) {
+        const r = await deletePermissionAction(targetUser.id, tela, null)
+        if (r.error) { setFeedback({ ok: false, msg: r.error }); return }
+      }
+
+      // Atualiza lista local
+      setUsuarios((prev) => prev.map((u) => {
+        if (u.id !== targetUser.id) return u
+        const permsAtualizadas = u.permissoes
+          .filter((p) => p.unidade_id !== null) // mantém específicas de unidade
+          .filter((p) => !toDelete.includes(p.tela)) // remove deletadas
+        for (const up of toUpsert) {
+          const idx = permsAtualizadas.findIndex((p) => p.tela === up.tela)
+          if (idx >= 0) permsAtualizadas[idx] = { tela: up.tela, acesso: up.acesso, unidade_id: null }
+          else permsAtualizadas.push({ tela: up.tela, acesso: up.acesso, unidade_id: null })
+        }
+        const isAdminGlobal = permsAtualizadas.some((p) => p.tela === '*' && p.acesso === 'admin' && p.unidade_id === null)
+        return { ...u, permissoes: permsAtualizadas, isAdminGlobal }
+      }))
+
+      setPendente({})
+      setFeedback({ ok: true, msg: 'Permissões salvas.' })
+    })
+  }
+
+  // ── criar usuário ────────────────────────────────────────────────────────
+
+  async function handleCriarUsuario() {
+    if (!novoEmail.trim() || !novaSenha || !novoNome.trim()) {
+      setErroModal('Preencha todos os campos.')
+      return
+    }
+    if (novaSenha.length < 6) {
+      setErroModal('Senha deve ter pelo menos 6 caracteres.')
+      return
+    }
+    setCriando(true)
+    setErroModal('')
+
+    const permissaoInicial: PermissaoInicialInput =
+      novoTipoAcesso === 'admin_global'
+        ? { tipo: 'admin_global' }
+        : {
+            tipo: 'personalizado',
+            permissoes: Object.entries(novoPerms)
+              .filter(([, v]) => v !== 'none')
+              .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso })),
+          }
+
+    const result = await createUserAction(novoEmail.trim(), novaSenha, novoNome.trim(), permissaoInicial)
+    setCriando(false)
+
+    if (result.error) { setErroModal(result.error); return }
+
+    if (result.data) {
+      const permsNovo =
+        novoTipoAcesso === 'admin_global'
+          ? [{ tela: '*', acesso: 'admin' as NivelAcesso, unidade_id: null }]
+          : Object.entries(novoPerms)
+              .filter(([, v]) => v !== 'none')
+              .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso, unidade_id: null }))
+
+      const novo: UsuarioComPermissoes = {
+        id: result.data.id,
+        email: result.data.email,
+        nome: novoNome.trim(),
+        isAdminGlobal: novoTipoAcesso === 'admin_global',
+        permissoes: permsNovo,
+        criadoEm: new Date().toISOString(),
+      }
+      setUsuarios((prev) => [...prev, novo])
+    }
+    voltar()
+  }
+
+  // ── resetar senha ─────────────────────────────────────────────────────────
+
+  async function handleResetSenha() {
+    if (!targetUser) return
+    if (novaSenhaReset.length < 6) { setErroReset('Mínimo 6 caracteres.'); return }
+    setResetando(true)
+    setErroReset('')
+    const r = await resetPasswordAction(targetUser.id, novaSenhaReset)
+    setResetando(false)
+    if (r.error) { setErroReset(r.error); return }
+    setNovaSenhaReset('')
+    setFeedback({ ok: true, msg: `Senha de ${targetUser.email} redefinida.` })
+    voltar()
+  }
+
+  // ── desabilitar usuário ───────────────────────────────────────────────────
+
+  async function handleDesabilitar() {
+    if (!targetUser) return
+    setDesabilitando(true)
+    setErroDesabilitar('')
+    const r = await disableUserAction(targetUser.id)
+    setDesabilitando(false)
+    if (r.error) { setErroDesabilitar(r.error); return }
+    setUsuarios((prev) => prev.map((u) =>
+      u.id === targetUser.id ? { ...u, permissoes: [], isAdminGlobal: false } : u
+    ))
+    voltar()
+  }
+
+  // ── RENDER: lista de usuários ─────────────────────────────────────────────
+
+  if (vista === 'lista') {
+    return (
+      <div className="space-y-4">
+        {feedback && (
+          <p className={`text-sm ${feedback.ok ? 'text-success' : 'text-danger'}`}>{feedback.msg}</p>
+        )}
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-secondary">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''}</p>
+          <button
+            onClick={abrirNovo}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-sm font-semibold shadow-sm transition-colors"
+          >
+            <UserPlus size={14} />
+            Novo Usuário
+          </button>
+        </div>
+
+        <div className="rounded-xl overflow-hidden border border-subtle">
+          {/* Cabeçalho */}
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-5 py-3 bg-canvas border-b border-subtle">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Usuário</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-28 text-center">Acesso</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-8" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-8" />
+          </div>
+
+          <div className="divide-y divide-subtle">
+            {usuarios.map((u) => {
+              const ehVoce = u.id === currentUserId
+              const desabilitado = u.permissoes.length === 0
+              return (
+                <div key={u.id} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-5 py-3.5 hover:bg-input/40 transition-colors">
+                  <div className="min-w-0">
+                    <p className={`text-sm font-medium truncate ${desabilitado ? 'text-faint line-through' : 'text-primary'}`}>
+                      {u.nome || u.email}
+                      {ehVoce && <span className="ml-2 text-[10px] text-accent-primary font-semibold">(você)</span>}
+                    </p>
+                    <p className="text-xs text-secondary truncate">{u.email}</p>
+                  </div>
+
+                  <div className="w-28 flex justify-center">
+                    {desabilitado ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-danger-tint text-danger border border-danger/20">
+                        Desabilitado
+                      </span>
+                    ) : u.isAdminGlobal ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-primary/15 text-accent-primary border border-accent-primary/25">
+                        Admin Global
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-success-tint text-success border border-success/20">
+                        {u.permissoes.length} tela{u.permissoes.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Editar permissões */}
+                  <button
+                    onClick={() => abrirEditar(u)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-accent-primary hover:bg-accent-primary/10 transition-all"
+                    title="Editar permissões"
+                  >
+                    <Pencil size={14} />
+                  </button>
+
+                  {/* Mais ações */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { setTargetUser(u); setVista('reset') }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-amber-400 hover:bg-amber-500/10 transition-all"
+                      title="Resetar senha"
+                    >
+                      <KeyRound size={14} />
+                    </button>
+                    {!ehVoce && (
+                      <button
+                        onClick={() => { setTargetUser(u); setVista('desabilitar') }}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-danger hover:bg-danger-tint transition-all"
+                        title="Desabilitar acesso"
+                      >
+                        <UserX size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <p className="text-xs text-faint">
+          Admin global (★) tem acesso a todas as telas. Desabilitar remove todas as permissões sem excluir o usuário.
+        </p>
+      </div>
+    )
+  }
+
+  // ── RENDER: editar permissões ─────────────────────────────────────────────
+
+  if (vista === 'editar' && targetUser) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={voltar} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-input transition-all">
+            <ChevronLeft size={16} />
+          </button>
+          <div>
+            <p className="text-sm font-semibold text-primary">{targetUser.nome || targetUser.email}</p>
+            <p className="text-xs text-secondary">{targetUser.email}</p>
+          </div>
+        </div>
+
+        <PermissaoGrade permissoes={pendente} onChange={(tela, valor) => { setPendente((p) => ({ ...p, [tela]: valor })); setFeedback(null) }} />
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSalvar}
+            disabled={Object.keys(pendente).length === 0 || isPending}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-sm font-semibold shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isPending ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+            {isPending ? 'Salvando...' : 'Salvar Permissões'}
+          </button>
+          {feedback && <p className={`text-sm ${feedback.ok ? 'text-success' : 'text-danger'}`}>{feedback.msg}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  // ── RENDER: novo usuário ──────────────────────────────────────────────────
+
+  if (vista === 'novo') {
+    return (
+      <div className="space-y-5 max-w-lg">
+        <div className="flex items-center gap-3">
+          <button onClick={voltar} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-input transition-all">
+            <ChevronLeft size={16} />
+          </button>
+          <div className="flex items-center gap-2">
+            <UserPlus size={18} className="text-accent-primary" />
+            <h2 className="font-playfair text-primary text-lg font-bold">Novo Usuário</h2>
+          </div>
+        </div>
+
+        {/* Dados básicos */}
+        <div className="card-surface px-5 py-4 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-accent-primary">Dados</p>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-1">Nome</label>
+            <input type="text" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} placeholder="Ex: Natali Tognetti" className="input-field w-full" autoFocus />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-1">E-mail</label>
+            <input type="email" value={novoEmail} onChange={(e) => setNovoEmail(e.target.value)} placeholder="usuario@empresa.com.br" className="input-field w-full" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-1">Senha inicial</label>
+            <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} placeholder="Mínimo 6 caracteres" className="input-field w-full" />
+          </div>
+        </div>
+
+        {/* Permissões iniciais */}
+        <div className="card-surface px-5 py-4 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-accent-primary">Permissões Iniciais</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setNovoTipoAcesso('admin_global')}
+              className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-semibold text-left transition-all ${novoTipoAcesso === 'admin_global' ? 'border-accent-primary bg-accent-primary/10 text-accent-primary' : 'border-subtle text-secondary hover:border-subtle/70'}`}
+            >
+              <p className="font-bold">★ Admin Global</p>
+              <p className="text-xs font-normal mt-0.5 opacity-70">Acesso completo a todas as telas</p>
+            </button>
+            <button
+              onClick={() => setNovoTipoAcesso('personalizado')}
+              className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-semibold text-left transition-all ${novoTipoAcesso === 'personalizado' ? 'border-accent-primary bg-accent-primary/10 text-accent-primary' : 'border-subtle text-secondary hover:border-subtle/70'}`}
+            >
+              <p className="font-bold">Personalizado</p>
+              <p className="text-xs font-normal mt-0.5 opacity-70">Definir tela por tela</p>
+            </button>
+          </div>
+
+          {novoTipoAcesso === 'personalizado' && (
+            <PermissaoGrade
+              permissoes={novoPerms}
+              onChange={(tela, valor) => setNovoPerms((p) => ({ ...p, [tela]: valor }))}
+            />
+          )}
+        </div>
+
+        {erroModal && <p className="text-danger text-sm">{erroModal}</p>}
+
+        <div className="flex gap-2">
+          <button onClick={voltar} className="flex-1 px-4 py-2.5 rounded-lg border border-subtle text-secondary hover:text-primary hover:bg-input text-sm font-semibold transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleCriarUsuario}
+            disabled={criando}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-sm font-semibold shadow-sm transition-colors disabled:opacity-50"
+          >
+            {criando ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            {criando ? 'Criando...' : 'Criar Usuário'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── RENDER: resetar senha ─────────────────────────────────────────────────
+
+  if (vista === 'reset' && targetUser) {
+    return (
+      <div className="space-y-5 max-w-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={voltar} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-input transition-all">
+            <ChevronLeft size={16} />
+          </button>
+          <div className="flex items-center gap-2">
+            <KeyRound size={18} className="text-amber-400" />
+            <h2 className="font-playfair text-primary text-lg font-bold">Redefinir Senha</h2>
+          </div>
+        </div>
+
+        <div className="card-surface px-5 py-4 space-y-3">
+          <p className="text-sm text-secondary">
+            Definir nova senha para <span className="text-primary font-medium">{targetUser.email}</span>
+          </p>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-1">Nova Senha</label>
+            <input
+              type="password"
+              value={novaSenhaReset}
+              onChange={(e) => setNovaSenhaReset(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              className="input-field w-full"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleResetSenha()}
+            />
+          </div>
+          {erroReset && <p className="text-danger text-sm">{erroReset}</p>}
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={voltar} className="flex-1 px-4 py-2.5 rounded-lg border border-subtle text-secondary hover:text-primary hover:bg-input text-sm font-semibold transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleResetSenha}
+            disabled={resetando}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold shadow-sm transition-colors disabled:opacity-50"
+          >
+            {resetando ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+            {resetando ? 'Redefinindo...' : 'Redefinir Senha'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── RENDER: confirmar desabilitar ─────────────────────────────────────────
+
+  if (vista === 'desabilitar' && targetUser) {
+    return (
+      <div className="space-y-5 max-w-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={voltar} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-input transition-all">
+            <ChevronLeft size={16} />
+          </button>
+          <div className="flex items-center gap-2">
+            <UserX size={18} className="text-danger" />
+            <h2 className="font-playfair text-primary text-lg font-bold">Desabilitar Acesso</h2>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-danger/30 bg-danger-tint px-5 py-4 space-y-2">
+          <p className="text-sm text-danger font-medium">
+            Tem certeza que deseja remover o acesso de <span className="font-bold">{targetUser.email}</span>?
+          </p>
+          <p className="text-xs text-danger/70">
+            O usuário perderá acesso a todas as telas do sistema. A conta no Supabase Auth não será excluída — é possível reabilitar atribuindo novas permissões.
+          </p>
+        </div>
+
+        {erroDesabilitar && <p className="text-danger text-sm">{erroDesabilitar}</p>}
+
+        <div className="flex gap-2">
+          <button onClick={voltar} className="flex-1 px-4 py-2.5 rounded-lg border border-subtle text-secondary hover:text-primary hover:bg-input text-sm font-semibold transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleDesabilitar}
+            disabled={desabilitando}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-danger hover:bg-danger/80 text-white text-sm font-semibold shadow-sm transition-colors disabled:opacity-50"
+          >
+            {desabilitando ? <Loader2 size={14} className="animate-spin" /> : <UserX size={14} />}
+            {desabilitando ? 'Desabilitando...' : 'Confirmar'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}

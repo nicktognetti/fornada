@@ -58,6 +58,23 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [x] **Modais e diálogos** — todos com fundo escuro `bg-surface` (antes `bg-white`)
 - [x] **Contraste do accent** corrigido para WCAG AA + **token `bg-canvas`** para o fundo de página
 
+#### 🔐 RBAC & Limpeza (FASE 5) — CONCLUÍDO
+- [x] Tabela `permissao` no banco (usuario_id, tela, acesso, unidade_id) — migration `20260619000000_rbac_permissoes.sql`
+- [x] `fn_is_global_admin(uuid)` SECURITY DEFINER — resolve loop infinito 42P17 do RLS — migration `20260619010000_fix_permissao_rls.sql`
+- [x] `lib/supabase/admin.ts` — client Supabase com service_role, somente server-side, sem auto-refresh
+- [x] Server Actions em `app/actions/permissoes.ts`: `getUserPermissionsAction`, `savePermissionsAction`, `deletePermissionAction`, `createUserAction`, `disableUserAction`, `resetPasswordAction`, `listUsersWithPermissionsAction`
+- [x] `createUserAction` com rollback: se inserção de permissões falhar, faz `deleteUser` para não deixar órfão
+- [x] `PermissionsContext` (`app/context/permissions-context.tsx`) com `reload()` via tick counter (sem setState dentro de effect)
+- [x] `canAccess()` com fallback: mapa vazio = acesso total (antes do primeiro carregamento / banco sem registros)
+- [x] UI de gerenciamento de usuários em `app/dashboard/configuracoes/` — máquina de estados: `lista | editar | novo | reset | desabilitar`
+- [x] Admin Global (★) vs Permissões Personalizadas (grade tela-a-tela: Sem acesso / Leitura / Escrita / Admin)
+- [x] Modal "+ Novo Usuário" com seção "Permissões Iniciais" — Admin Global ou grade personalizada inline
+- [x] Proteção: não pode desabilitar a si mesmo; desabilitar remove permissões (não deleta `auth.users`)
+- [x] Separação Cadastros / Configurações: `app/dashboard/cadastros/` (Tipos/Unidades/Categorias) vs `app/dashboard/configuracoes/` (apenas Permissões)
+- [x] Sidebar atualizada: 10 itens — Resumo, Fichas, Insumos, Preços, Painel, Cadastros, Simulador, Transferências, Receber, Configurações
+- [x] `app/lib/permissions.ts` com `TELAS`, `TELA_LABEL`, `getAcesso()`, `isGlobalAdmin()`, `PermissaoMap`
+- [x] Lint: 0 erros, 0 warnings. Build: clean.
+
 #### 💰 Parsing decimal (R$) — CONCLUÍDO
 - [x] `parseDecimalBR` (`lib/format.ts`) reescrita: convenção BR (vírgula decimal, ponto milhar), tolerante a
   ruído ("R$", espaços), inválidos → `NaN`. Corrigido o bug que transformava `"10.00"` em `1000`.
@@ -67,20 +84,20 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 
 ## 🚧 Pendências reais
 
-### Funcionalidade (não é tema — telas dark prontas, mas sem lógica)
+### Funcionalidade (telas dark prontas, mas sem lógica)
 - [ ] **Painel Financeiro** — stub "Em configuração" (ponto de equilíbrio, margem média, markup, despesa fixa não implementados).
 - [ ] **Simulador** — stub "Em breve" (impacto de alta/baixa de insumo, comparar cenários).
-- [ ] **Configurações** — edição só em memória de sessão; **não persiste** (faltam tabelas de configuração no banco).
+- [ ] **Estoque Simplificado (FASE 3)** — entradas manuais por unidade, baixa automática pelas fichas, relatório de consumo. Ainda não iniciado.
 
-### Dados por unidade (decisão já tomada, falta implementar)
-- [ ] `UnidadeSelector` ainda é **decorativo** (useState local, unidades hardcoded, não filtra nada).
-- [ ] Implementar de verdade: `unidade_id` em insumo/preço + RLS por unidade + ligar o seletor a dados reais (mudança de schema/migração).
+### Configurações persistentes
+- [ ] **Cadastros** (`app/dashboard/cadastros/`) — edição de tipos/unidades/categorias só em memória de sessão; **não persiste** (faltam mutations em `cadastros-panel.tsx`).
 
-### Limpeza (rollout de tokens — concluído no que renderiza; resta o inerte)
-- [ ] **Código morto:** `app/components/navigation.tsx` e `app/components/header.tsx` (ninguém importa; ainda na paleta clara).
+### Dados por unidade (decisão tomada, falta implementar completo)
+- [ ] `UnidadeSelector` — filtra por permissão do usuário, mas insumos/preços/receitas ainda não filtram por `unidade_id` na query (mudança de schema + RLS por unidade pendente).
+
+### Limpeza (código inerte)
 - [ ] **Paleta clara do `@theme`** (`marrom-*`, `creme-*`, `madrugada-*`, `croissant`, `demerara`) — agora sem uso; pode ser removida para enxugar o CSS.
 - [ ] **ThemeProvider** (`app/context/theme-provider.tsx`) e o bloco `html.creme-quente` — inertes após remoção do toggle.
-- [ ] **Lint:** 17 erros pré-existentes (`@typescript-eslint/no-explicit-any` + `Date.now()` no render em `ficha-view.tsx`).
 
 ### Decisões de produto em aberto (confirmar antes de implementar)
 - [ ] **Resumo** deve filtrar pela unidade selecionada? (hoje agrega a empresa inteira)
@@ -98,3 +115,4 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - Rodar `npm run build` após cada sessão e parar se houver erro; rodar `npm test` ao mexer em cálculo/parsing.
 - NÃO quebrar lógica de negócio (APIs, hooks, mutations, queries Supabase).
 - NÃO modificar tipos compartilhados sem verificar dependências.
+- `lib/supabase/admin.ts` usa `SUPABASE_SERVICE_ROLE_KEY` — **nunca expor no client**; usar apenas em server actions.

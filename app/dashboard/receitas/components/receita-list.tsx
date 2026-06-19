@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Plus, BookOpen, Search, ChevronRight, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { normalizeSearch, formatBRL } from '@/lib/format'
@@ -23,6 +23,7 @@ export function ReceitaList({ receitas }: Props) {
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('')
   const [modalOpen, setModalOpen] = useState(false)
   const [modalKey, setModalKey] = useState(0)
+  const keyRef = useRef(0)
 
   const filtered = useMemo(() => {
     const term = normalizeSearch(busca)
@@ -34,7 +35,7 @@ export function ReceitaList({ receitas }: Props) {
   }, [receitas, busca, tipoFiltro])
 
   function openCreate() {
-    setModalKey(Date.now())
+    setModalKey(keyRef.current += 1)
     setModalOpen(true)
   }
 

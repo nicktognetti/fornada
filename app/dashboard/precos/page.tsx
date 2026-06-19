@@ -22,12 +22,13 @@ export default async function PrecosPage({
     supabase.from('produto_preco').select('produto_id, preco_praticado').order('produto_id'),
   ])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const produtos: any[] = produtosRes.data ?? []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const custoMap = new Map((custosRes.data ?? []).map((c: any) => [c.id, c]))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const precoMap = new Map((precosRes.data ?? []).map((p: any) => [p.produto_id, p.preco_praticado as number | null]))
+  type ProdRow2  = { id: string; nome: string; tipo: string; ativo: boolean; receita_id: string | null }
+  type CustoRow2 = { id: string; custo_unitario: number | null; rendimento_unidade: string }
+  type PrecoRow2 = { produto_id: string; preco_praticado: number | null }
+
+  const produtos: ProdRow2[] = (produtosRes.data as ProdRow2[]) ?? []
+  const custoMap = new Map<string, CustoRow2>((custosRes.data as CustoRow2[] ?? []).map((c) => [c.id, c]))
+  const precoMap = new Map<string, number | null>((precosRes.data as PrecoRow2[] ?? []).map((p) => [p.produto_id, p.preco_praticado]))
 
   const comReceita = produtos.filter((p) => p.receita_id && custoMap.has(p.receita_id))
   const semReceita = produtos.filter((p) => !p.receita_id || !custoMap.has(p.receita_id))
@@ -65,7 +66,7 @@ export default async function PrecosPage({
           <SectionLabel icon={BookOpen}>Com ficha técnica</SectionLabel>
           <div className="space-y-2">
             {comReceita.map((produto) => {
-              const custo = custoMap.get(produto.receita_id)
+              const custo = custoMap.get(produto.receita_id ?? '')
               const custoUnitario: number | null = custo?.custo_unitario ?? null
               const precoPraticado: number | null = precoMap.get(produto.id) ?? null
               const margem = custoUnitario && precoPraticado

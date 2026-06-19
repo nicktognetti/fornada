@@ -1,11 +1,21 @@
 'use client'
 
 import { useUnidade } from '@/app/context/unidade-context'
+import { usePermissions } from '@/app/context/permissions-context'
 
 export function UnidadeSelector() {
   const { unidades, unidadeAtual, setUnidade } = useUnidade()
+  const { unidadesPermitidas, isLoading } = usePermissions()
 
   if (unidades.length === 0) return null
+
+  // Filtra unidades conforme permissões (null = todas; array = só as listadas)
+  const visíveis = (!isLoading && unidadesPermitidas !== null)
+    ? unidades.filter((u) => unidadesPermitidas.includes(u.id))
+    : unidades
+
+  // Se só há uma unidade visível, oculta o seletor (não há escolha)
+  if (visíveis.length <= 1) return null
 
   return (
     <div className="flex items-center gap-5 mb-6">
@@ -13,7 +23,7 @@ export function UnidadeSelector() {
         UNIDADE
       </span>
       <div className="flex items-center gap-3 flex-wrap">
-        {unidades.map((u) => {
+        {visíveis.map((u) => {
           const ativa = u.id === unidadeAtual?.id
           return (
             <button

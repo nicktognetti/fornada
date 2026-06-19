@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useOptimistic } from 'react'
+import { useState } from 'react'
 import { Plus, X, ShoppingCart, Loader2, FileText, Paperclip } from 'lucide-react'
 import { criarCompraAction } from '@/app/actions/compra'
 import { parseDecimalBR, formatBRL } from '@/lib/format'

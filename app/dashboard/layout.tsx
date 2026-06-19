@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DashboardShell } from '@/app/components/dashboard-shell'
 import { UnidadeProviderWrapper } from '@/app/components/unidade-provider-wrapper'
+import { PermissionsProvider } from '@/app/context/permissions-context'
 import type { UnidadeOption } from '@/app/context/unidade-context'
 
 async function getUnidadesDoUsuario(userId: string): Promise<UnidadeOption[]> {
@@ -42,10 +43,12 @@ export default async function DashboardLayout({
   const unidades = await getUnidadesDoUsuario(user.id)
 
   return (
-    <UnidadeProviderWrapper unidades={unidades}>
-      <DashboardShell userEmail={user.email ?? ''}>
-        {children}
-      </DashboardShell>
-    </UnidadeProviderWrapper>
+    <PermissionsProvider>
+      <UnidadeProviderWrapper unidades={unidades}>
+        <DashboardShell userEmail={user.email ?? ''}>
+          {children}
+        </DashboardShell>
+      </UnidadeProviderWrapper>
+    </PermissionsProvider>
   )
 }

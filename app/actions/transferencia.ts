@@ -10,15 +10,6 @@ export type ActionResult = {
   transferencia_id?: string
 }
 
-async function getEmpresaId(userId: string): Promise<string | null> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('usuario_empresa')
-    .select('empresa_id')
-    .eq('usuario_id', userId)
-    .single()
-  return data?.empresa_id ?? null
-}
 
 export async function createTransferenciaAction(data: {
   empresa_id: string

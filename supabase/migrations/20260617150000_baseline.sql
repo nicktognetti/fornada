@@ -1,0 +1,3 @@
+-- Baseline migration: schema inicial aplicado manualmente em 17/06/2026.
+-- Este arquivo existe apenas para sincronizar o histórico do Supabase CLI.
+-- O schema real foi criado diretamente no banco via SQL Editor.

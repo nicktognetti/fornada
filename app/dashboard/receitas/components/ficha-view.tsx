@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, AlertTriangle, BookOpen } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { deleteReceita, removeItem } from '../actions'
@@ -27,10 +27,11 @@ export function FichaView({ receita, custo, itens }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
+  const keyRef = useRef(0)
 
-  function openEditReceita() { setEditReceitaKey(Date.now()); setEditReceitaOpen(true) }
-  function openAddItem() { setItemModal({ open: true, item: null, key: Date.now() }) }
-  function openEditItem(item: ReceitaItemComCusto) { setItemModal({ open: true, item, key: Date.now() }) }
+  function openEditReceita() { setEditReceitaKey(keyRef.current += 1); setEditReceitaOpen(true) }
+  function openAddItem() { setItemModal({ open: true, item: null, key: (keyRef.current += 1) }) }
+  function openEditItem(item: ReceitaItemComCusto) { setItemModal({ open: true, item, key: (keyRef.current += 1) }) }
 
   async function handleDeleteReceita() {
     setDeleteError('')

@@ -3,7 +3,7 @@ import { Package } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { InsumoList } from './components/insumo-list'
 import { UnidadeSelector } from '@/app/components/unidade-selector'
-import type { CustoAtual, InsumoComCusto } from './types'
+import type { Insumo, CustoAtual, InsumoComCusto } from './types'
 
 export default async function InsumosPage({
   searchParams,
@@ -23,14 +23,17 @@ export default async function InsumosPage({
     supabase.from('receita_item').select('insumo_id, receita_id').not('insumo_id', 'is', null),
   ])
 
+  type CustoUso2 = { insumo_id: string; custo_uso: number | null }
+  type PrecoRow3 = { insumo_id: string; unidade_compra: string; preco_compra: number; qtd_uso_por_compra: number; vigente_desde: string }
+
   // Build custo_uso map from view
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const custoUsoMap = new Map<string, number>((custosRes.data ?? []).map((c: any) => [c.insumo_id, c.custo_uso]))
+  const custoUsoMap = new Map<string, number>(
+    (custosRes.data as CustoUso2[] ?? []).map((c) => [c.insumo_id, c.custo_uso ?? 0])
+  )
 
   // Get latest insumo_preco per insumo (already ordered DESC)
   const latestPrecoMap = new Map<string, CustoAtual>()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const p of (precosRes.data ?? []) as any[]) {
+  for (const p of (precosRes.data as PrecoRow3[] ?? [])) {
     if (!latestPrecoMap.has(p.insumo_id)) {
       latestPrecoMap.set(p.insumo_id, {
         insumo_id: p.insumo_id,
@@ -51,8 +54,7 @@ export default async function InsumosPage({
     fichasPerInsumo.get(row.insumo_id)!.add(row.receita_id)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const insumos: InsumoComCusto[] = (insumosRes.data ?? []).map((i: any) => ({
+  const insumos: InsumoComCusto[] = (insumosRes.data as Insumo[] ?? []).map((i) => ({
     ...i,
     custo: latestPrecoMap.get(i.id) ?? null,
     fichasCount: fichasPerInsumo.get(i.id)?.size ?? 0,

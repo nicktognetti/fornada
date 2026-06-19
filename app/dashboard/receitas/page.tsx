@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { BookOpen } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { ReceitaList } from './components/receita-list'
-import type { ReceitaComCusto } from './types'
+import type { ReceitaComCusto, ReceitaTipo } from './types'
 
 export default async function ReceitasPage({
   searchParams,
@@ -15,10 +15,14 @@ export default async function ReceitasPage({
   let query = supabase.from('vw_custo_receita').select('*').order('nome')
   if (unidadeId) query = query.eq('unidade_id', unidadeId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await query
 
-  const receitas: ReceitaComCusto[] = (data ?? []).map((r: any) => ({
+  type ViewRow = {
+    id: string; empresa_id: string; unidade_id: string; nome: string; tipo: ReceitaTipo
+    rendimento: number; rendimento_unidade: string
+    custo_total: number | null; custo_unitario: number | null
+  }
+  const receitas: ReceitaComCusto[] = ((data as ViewRow[]) ?? []).map((r) => ({
     id: r.id,
     empresa_id: r.empresa_id,
     unidade_id: r.unidade_id,

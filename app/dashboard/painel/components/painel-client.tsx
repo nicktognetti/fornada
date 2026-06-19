@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, TrendingDown, Award, AlertTriangle, Calculator, DollarSign, BarChart3 } from 'lucide-react'
+import { TrendingUp, Award, AlertTriangle, Calculator, DollarSign, BarChart3 } from 'lucide-react'
 import { PrecificadorModal } from './precificador-modal'
 import { formatBRL } from '@/lib/format'
 import type { ProdutoRentabilidade, PainelResumo } from '../types'

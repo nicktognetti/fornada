@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { TransferenciaTable } from './components/transferencia-table'
 import type { TransferenciaRow } from './components/transferencia-table'
+import type { StatusTransferencia } from './components/status-badge'
 
 export default async function TransferenciasPage({
   searchParams,
@@ -35,8 +36,13 @@ export default async function TransferenciasPage({
   const { data: unidades } = await supabase.from('unidade').select('id, nome')
   const unidadeMap = new Map((unidades ?? []).map((u) => [u.id, u.nome]))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows: TransferenciaRow[] = (transferencias ?? []).map((t: any) => ({
+  type TRow = {
+    id: string; codigo: string; tipo: 'TRANSFERENCIA' | 'DEVOLUCAO'
+    status: StatusTransferencia
+    unidade_origem_id: string; unidade_destino_id: string
+    responsavel_origem_id: string; created_at: string
+  }
+  const rows: TransferenciaRow[] = (transferencias as TRow[] ?? []).map((t) => ({
     id: t.id,
     codigo: t.codigo,
     tipo: t.tipo,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Plus, Pencil, Package, Search, ChevronDown } from 'lucide-react'
 import { normalizeSearch, formatCustoUso } from '@/lib/format'
 import type { InsumoComCusto } from '../types'
@@ -37,6 +37,7 @@ export function InsumoList({ insumos, categorias }: Props) {
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('')
   const [modal, setModal] = useState<ModalState>({ open: false, insumo: null, key: 0 })
+  const keyRef = useRef(0)
 
   const filtered = useMemo(() => {
     const term = normalizeSearch(busca)
@@ -55,8 +56,8 @@ export function InsumoList({ insumos, categorias }: Props) {
     })
   }, [insumos, busca, categoriaFiltro, statusFiltro])
 
-  function openCreate() { setModal({ open: true, insumo: null, key: Date.now() }) }
-  function openEdit(insumo: InsumoComCusto) { setModal({ open: true, insumo, key: Date.now() }) }
+  function openCreate() { setModal({ open: true, insumo: null, key: (keyRef.current += 1) }) }
+  function openEdit(insumo: InsumoComCusto) { setModal({ open: true, insumo, key: (keyRef.current += 1) }) }
   function closeModal() { setModal((m) => ({ ...m, open: false })) }
 
   return (
