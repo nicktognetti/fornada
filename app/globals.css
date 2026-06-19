@@ -44,6 +44,30 @@
   --color-terracota: #c0392b;
   --color-oliva:     #5a7d3a;
 
+  /* ── Tema escuro — tokens semânticos (módulo Transferências) ──────────────
+     Geram utilitários Tailwind (bg-canvas, bg-surface, text-primary…).
+     O fundo de página tem token próprio (`bg-canvas`), evitando a colisão
+     `bg-primary`/`text-primary` do Tailwind v4. */
+  --color-canvas:            #1a1a1a;  /* bg-canvas      — fundo de página (DashboardShell) */
+  --color-primary:           #f5f5f0;  /* text-primary   — texto principal        */
+  --color-secondary:         #888888;  /* text-secondary — texto secundário/labels*/
+  --color-surface:           #222226;  /* bg-surface     — cards e painéis         */
+  --color-surface-2:         #1e1e22;  /* bg-surface-2   — zebra de tabela / 2ª sup.*/
+  --color-input:             #2a2a2e;  /* bg-input/border-input — campos e hovers  */
+  --color-subtle:            #333336;  /* border-subtle  — bordas e divisores      */
+  --color-accent-primary:    #d98d5f;  /* accent-primary — botões e destaques      */
+  --color-accent-hover:      #e8a57a;  /* accent-hover   — hover do accent         */
+  --color-ink-soft:          #d4d4d0;  /* text-ink-soft  — itens e valores         */
+  --color-faint:             #666666;  /* text-faint     — placeholders/ícones     */
+  --color-accent-tint:       #2a2a1e;  /* bg-accent-tint — chips de accent         */
+  --color-accent-tint-hover: #333320;  /* hover do chip accent                     */
+  --color-neutral-tint:      #2a2a2a;  /* bg-neutral-tint — chip neutro (Pendente/Devolução) */
+  --color-accent-ink:        #1a1a1a;  /* text-accent-ink — texto escuro SOBRE accent-primary (AA ~6,6:1) */
+  --color-success:           #5f9a5f;  /* recebido/sucesso                         */
+  --color-success-tint:      #1e2a1e;
+  --color-danger:            #c74a4a;  /* divergência/erro                         */
+  --color-danger-tint:       #2a1e1e;
+
   /* ── Fontes ── */
   --font-outfit:    'Outfit', sans-serif;
   --font-playfair:  'Playfair Display', serif;
@@ -53,35 +77,35 @@
 /* ── Variáveis de tema — Creme Clássico (padrão) ─────────────────────────── */
 
 :root {
-  --t-page-bg:     #ede9e1;
-  --t-card-bg:     #ffffff;
-  --t-card-border: rgba(172,97,55,0.10);
-  --t-card-shadow: 0 2px 12px rgba(172,97,55,0.06), 0 1px 3px rgba(0,0,0,0.06);
-  --t-card-hover:  #faf8f4;
-  --t-input-bg:    #f5f1ea;
-  --t-input-border:rgba(172,97,55,0.18);
-  --t-input-opt:   #f5f1ea;
-  --t-text-1:      #1a1410;
-  --t-text-2:      #6b5f4f;
-  --t-text-muted:  rgba(107,95,79,0.55);
-  --t-border-sub:  rgba(172,97,55,0.10);
-  --t-ghost-border:rgba(172,97,55,0.20);
-  --t-accent:      #ac6137;
-  --t-accent-hover:#c07a47;
-  --t-accent-press:#8c4f2d;
-  --t-modal-bg:    #ffffff;
-  --t-modal-border:rgba(172,97,55,0.12);
-  --t-row-hover:   rgba(172,97,55,0.03);
-  --t-table-head:  #f5f1ea;
-  --t-inset-bg:    #f0ece4;
+  --t-page-bg:     #1a1a1a;
+  --t-card-bg:     #222226;
+  --t-card-border: #333336;
+  --t-card-shadow: 0 2px 12px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.30);
+  --t-card-hover:  #2a2a2e;
+  --t-input-bg:    #2a2a2e;
+  --t-input-border:#3a3a3a;
+  --t-input-opt:   #222226;
+  --t-text-1:      #f5f5f0;
+  --t-text-2:      #888888;
+  --t-text-muted:  rgba(245,245,240,0.40);
+  --t-border-sub:  #333336;
+  --t-ghost-border:#3a3a3a;
+  --t-accent:      #d98d5f;
+  --t-accent-hover:#e8a57a;
+  --t-accent-press:#c77843;
+  --t-modal-bg:    #222226;
+  --t-modal-border:#333336;
+  --t-row-hover:   rgba(255,255,255,0.04);
+  --t-table-head:  #1e1e22;
+  --t-inset-bg:    #1e1e22;
 }
 
 /* ── Creme Quente — variante mais saturada ────────────────────────────────── */
 
 html.creme-quente {
-  --t-page-bg:     #f0e6d8;
-  --t-input-bg:    #ebe0d4;
-  --t-inset-bg:    #e8ddd0;
+  --t-page-bg:     #1a1a1a;
+  --t-input-bg:    #2a2a2e;
+  --t-inset-bg:    #1e1e22;
 }
 
 /* ── Tema escuro global ───────────────────────────────────────────────────── */
@@ -171,7 +195,7 @@ body {
     justify-content: center;
     gap: 0.5rem;
     background-color: var(--t-accent);
-    color: #fff;
+    color: #1a1a1a;
     font-family: var(--font-outfit);
     font-size: 0.875rem;
     font-weight: 600;

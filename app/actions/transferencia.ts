@@ -26,7 +26,7 @@ export async function createTransferenciaAction(data: {
   unidade_destino_id: string
   tipo: 'TRANSFERENCIA' | 'DEVOLUCAO'
   observacao?: string
-  itens: Array<{ produto_id: string; quantidade_enviada: number }>
+  itens: Array<{ produto_id: string; quantidade_enviada: number; preco_unitario: number }>
 }): Promise<ActionResult> {
   const supabase = await createClient()
   const {
@@ -50,6 +50,11 @@ export async function createTransferenciaAction(data: {
   }
   const codigo = codigoData as string
 
+  const valorTotal = data.itens.reduce(
+    (acc, item) => acc + item.quantidade_enviada * item.preco_unitario,
+    0
+  )
+
   // Inserir transferência já com status EM_TRANSITO
   const { data: transferencia, error: tErr } = await supabase
     .schema('fornada')
@@ -63,6 +68,8 @@ export async function createTransferenciaAction(data: {
       status: 'EM_TRANSITO',
       responsavel_origem_id: user.id,
       observacao: data.observacao?.trim() || null,
+      valor_total: valorTotal,
+      status_financeiro: 'pendente',
     })
     .select('id')
     .single()
@@ -76,6 +83,7 @@ export async function createTransferenciaAction(data: {
     transferencia_id: transferencia.id,
     produto_id: item.produto_id,
     quantidade_enviada: item.quantidade_enviada,
+    preco_unitario: item.preco_unitario,
     status_item: 'PENDENTE',
   }))
 
@@ -92,39 +100,31 @@ export async function createTransferenciaAction(data: {
   return { success: true, codigo, transferencia_id: transferencia.id }
 }
 
-export async function getUnidadesDoUsuario(): Promise<{
-  unidades: Array<{ id: string; nome: string }>
-  unidadeUsuarioId: string | null
-  email: string | undefined
-}> {
+type UnidadeInfo = { id: string; nome: string }
+type GetUnidadeResult =
+  | { success: true; unidade: UnidadeInfo }
+  | { success: false; error: string }
+
+export async function getUserUnidadeAction(): Promise<GetUnidadeResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) throw new Error('Usuário não autenticado')
-
-  const empresaId = await getEmpresaId(user.id)
-
-  const { data: unidades } = await supabase
-    .from('unidade')
-    .select('id, nome')
-    .eq('empresa_id', empresaId ?? '')
-    .order('nome')
-
-  // Tentar determinar a unidade do usuário pelo metadata
-  let unidadeUsuarioId: string | null =
-    (user.user_metadata?.unidade_id as string | undefined) ?? null
-
-  // Fallback: com exatamente 2 unidades, assumir a primeira como unidade do usuário
-  if (!unidadeUsuarioId && unidades && unidades.length === 2) {
-    unidadeUsuarioId = unidades[0].id
+  if (!user?.id) {
+    return { success: false, error: 'Usuário não autenticado' }
   }
 
+  const { data, error } = await supabase
+    .rpc('fn_get_user_unidade', { p_user_id: user.id })
+
+  if (error || !data) {
+    return { success: false, error: 'Vínculo com unidade não encontrado' }
+  }
+
+  const unidade = data as UnidadeInfo
+
   return {
-    unidades: unidades ?? [],
-    unidadeUsuarioId,
-    email: user.email,
+    success: true,
+    unidade,
   }
 }
 
@@ -172,6 +172,7 @@ export async function confirmarRecebimentoAction(data: {
       status: statusFinal,
       confirmed_at: new Date().toISOString(),
       responsavel_destino_id: data.responsavel_destino_id,
+      status_financeiro: 'a_receber',
     })
     .eq('id', data.transferencia_id)
 

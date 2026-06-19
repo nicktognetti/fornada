@@ -14,31 +14,31 @@ type BadgeConfig = { label: string; cls: string; icon: LucideIcon }
 const STATUS_CONFIG: Record<StatusTransferencia, BadgeConfig> = {
   PENDENTE: {
     label: 'Pendente',
-    cls: 'bg-[#2a2a2a] text-[#888888] ring-[#888888]/20',
+    cls: 'bg-neutral-tint text-secondary ring-secondary/20',
     icon: Clock,
   },
   EM_TRANSITO: {
     label: 'Em Trânsito',
-    cls: 'bg-[#2a2a1e] text-[#d9a05f] ring-[#d9a05f]/20',
+    cls: 'bg-accent-tint text-accent-primary ring-accent-primary/20',
     icon: Truck,
   },
   RECEBIDO: {
     label: 'Recebido',
-    cls: 'bg-[#1e2a1e] text-[#5f9a5f] ring-[#5f9a5f]/20',
+    cls: 'bg-success-tint text-success ring-success/20',
     icon: CheckCircle2,
   },
   RECEBIDO_COM_DIVERGENCIA: {
     label: 'Com Divergência',
-    cls: 'bg-[#2a1e1e] text-[#c74a4a] ring-[#c74a4a]/20',
+    cls: 'bg-danger-tint text-danger ring-danger/20',
     icon: AlertTriangle,
   },
 }
 
 const ITEM_CONFIG: Record<StatusItem, BadgeConfig> = {
-  PENDENTE:  { label: 'Pendente',  cls: 'bg-[#2a2a2a] text-[#888888] ring-[#888888]/20',   icon: Clock },
-  RECEBIDO:  { label: 'Recebido',  cls: 'bg-[#1e2a1e] text-[#5f9a5f] ring-[#5f9a5f]/20',   icon: CheckCircle2 },
-  DIFERENCA: { label: 'Diferença', cls: 'bg-[#2a1e1e] text-[#c74a4a] ring-[#c74a4a]/20',   icon: AlertTriangle },
-  AUSENTE:   { label: 'Ausente',   cls: 'bg-[#2a2a1e] text-[#d9a05f] ring-[#d9a05f]/20',   icon: MinusCircle },
+  PENDENTE:  { label: 'Pendente',  cls: 'bg-neutral-tint text-secondary ring-secondary/20',     icon: Clock },
+  RECEBIDO:  { label: 'Recebido',  cls: 'bg-success-tint text-success ring-success/20',         icon: CheckCircle2 },
+  DIFERENCA: { label: 'Diferença', cls: 'bg-danger-tint text-danger ring-danger/20',            icon: AlertTriangle },
+  AUSENTE:   { label: 'Ausente',   cls: 'bg-accent-tint text-accent-primary ring-accent-primary/20', icon: MinusCircle },
 }
 
 interface BadgeProps {

@@ -27,14 +27,14 @@ export default function LoginPage() {
             priority
             unoptimized
           />
-          <p className="font-sacramento text-croissant text-2xl leading-none">
+          <p className="font-sacramento text-accent-primary text-2xl leading-none">
             Fornada
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-[#1e1e26] rounded-2xl p-8 shadow-xl border border-white/5">
-          <h1 className="font-playfair text-creme text-xl mb-6 text-center">
+        <div className="bg-surface rounded-2xl p-8 shadow-xl border border-subtle">
+          <h1 className="font-playfair text-primary text-xl mb-6 text-center">
             Entrar no sistema
           </h1>
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-demerara text-sm mb-1.5"
+                className="block text-secondary text-sm mb-1.5"
               >
                 E-mail
               </label>
@@ -52,7 +52,7 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="w-full bg-madrugada border border-white/10 rounded-lg px-4 py-3 text-creme placeholder-demerara/50 focus:outline-none focus:ring-2 focus:ring-croissant/50 focus:border-croissant transition-colors"
+                className="w-full bg-input border border-subtle rounded-lg px-4 py-3 text-primary placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-colors"
                 placeholder="seu@email.com"
               />
             </div>
@@ -60,7 +60,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-demerara text-sm mb-1.5"
+                className="block text-secondary text-sm mb-1.5"
               >
                 Senha
               </label>
@@ -70,7 +70,7 @@ export default function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="w-full bg-madrugada border border-white/10 rounded-lg px-4 py-3 text-creme placeholder-demerara/50 focus:outline-none focus:ring-2 focus:ring-croissant/50 focus:border-croissant transition-colors"
+                className="w-full bg-input border border-subtle rounded-lg px-4 py-3 text-primary placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-colors"
                 placeholder="••••••••"
               />
             </div>
@@ -82,7 +82,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full bg-croissant hover:bg-croissant/90 disabled:opacity-60 text-creme font-outfit font-medium rounded-lg py-3 mt-2 transition-colors cursor-pointer min-h-[44px]"
+              className="w-full bg-accent-primary hover:bg-accent-hover disabled:opacity-60 text-accent-ink font-outfit font-medium rounded-lg py-3 mt-2 transition-colors cursor-pointer min-h-[44px]"
             >
               {pending ? 'Entrando…' : 'Entrar'}
             </button>

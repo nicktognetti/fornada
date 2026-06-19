@@ -5,11 +5,19 @@ import { InsumoList } from './components/insumo-list'
 import { UnidadeSelector } from '@/app/components/unidade-selector'
 import type { CustoAtual, InsumoComCusto } from './types'
 
-export default async function InsumosPage() {
+export default async function InsumosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ unidade?: string }>
+}) {
+  const { unidade: unidadeId } = await searchParams
   const supabase = await createClient()
 
+  let insumosQuery = supabase.from('insumo').select('*').eq('ativo', true).order('nome')
+  if (unidadeId) insumosQuery = insumosQuery.eq('unidade_id', unidadeId)
+
   const [insumosRes, custosRes, precosRes, usosRes] = await Promise.all([
-    supabase.from('insumo').select('*').eq('ativo', true).order('nome'),
+    insumosQuery,
     supabase.from('vw_insumo_custo_atual').select('insumo_id, custo_uso'),
     supabase.from('insumo_preco').select('insumo_id, unidade_compra, preco_compra, qtd_uso_por_compra, vigente_desde').order('vigente_desde', { ascending: false }),
     supabase.from('receita_item').select('insumo_id, receita_id').not('insumo_id', 'is', null),

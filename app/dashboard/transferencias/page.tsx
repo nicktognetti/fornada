@@ -53,14 +53,14 @@ export default async function TransferenciasPage({
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <ArrowLeftRight size={22} className="text-[#d98d5f] shrink-0" />
-            <h1 className="text-2xl font-semibold text-[#f5f5f0]">Transferências</h1>
+            <ArrowLeftRight size={22} className="text-accent-primary shrink-0" />
+            <h1 className="text-2xl font-semibold text-primary">Transferências</h1>
           </div>
-          <p className="text-sm text-[#888888] ml-9">Movimentações entre unidades</p>
+          <p className="text-sm text-secondary ml-9">Movimentações entre unidades</p>
         </div>
         <Link
           href="/dashboard/transferencias/nova"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#d98d5f] hover:bg-[#e8a57a] text-white text-sm font-semibold shadow-sm transition-colors shrink-0 mt-1"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-sm font-semibold shadow-sm transition-colors shrink-0 mt-1"
         >
           <Plus size={15} />
           Nova transferência

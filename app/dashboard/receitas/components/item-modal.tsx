@@ -71,17 +71,17 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-marrom-500/12 shadow-[0_8px_40px_rgba(0,0,0,0.12)] w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div className="bg-surface rounded-2xl border border-accent-primary/12 shadow-[0_8px_40px_rgba(0,0,0,0.12)] w-full max-w-lg max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-marrom-500/10 shrink-0">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-accent-primary/10 shrink-0">
           <div>
-            <h2 className="font-playfair text-madrugada-800 text-[22px] font-bold leading-tight">
+            <h2 className="font-playfair text-primary text-[22px] font-bold leading-tight">
               {isEdit ? 'Editar Item' : 'Adicionar Item'}
             </h2>
-            {isEdit && <p className="text-demerara text-xs mt-0.5">{item.nome_display}</p>}
+            {isEdit && <p className="text-secondary text-xs mt-0.5">{item.nome_display}</p>}
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-demerara hover:text-marrom-500 hover:bg-marrom-500/10 transition-all" aria-label="Fechar">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-accent-primary hover:bg-accent-primary/10 transition-all" aria-label="Fechar">
             <X size={16} />
           </button>
         </div>
@@ -103,8 +103,8 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
                   onClick={() => handleTipoChange(t)}
                   className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
                     tipo === t
-                      ? 'bg-marrom-500/15 border-marrom-500/30 text-marrom-500'
-                      : 'bg-transparent border-marrom-500/15 text-demerara hover:text-madrugada-800 hover:border-marrom-500/25'
+                      ? 'bg-accent-primary/15 border-accent-primary/30 text-accent-primary'
+                      : 'bg-transparent border-accent-primary/15 text-secondary hover:text-primary hover:border-accent-primary/25'
                   }`}
                 >
                   {t === 'insumo' ? 'Insumo' : 'Sub-receita'}
@@ -127,11 +127,11 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
             </div>
 
             {/* Lista de opções */}
-            <div className="max-h-52 overflow-y-auto rounded-xl border border-marrom-500/12 bg-creme-50 divide-y divide-marrom-500/8">
+            <div className="max-h-52 overflow-y-auto rounded-xl border border-accent-primary/12 bg-input divide-y divide-accent-primary/8">
               {loading ? (
-                <p className="text-demerara text-sm px-4 py-3">Carregando…</p>
+                <p className="text-secondary text-sm px-4 py-3">Carregando…</p>
               ) : opcoes.length === 0 ? (
-                <p className="text-demerara/60 text-sm px-4 py-3">Nenhum resultado</p>
+                <p className="text-secondary/60 text-sm px-4 py-3">Nenhum resultado</p>
               ) : (
                 opcoes.slice(0, 80).map(op => {
                   const isSelected = op.id === selectedId
@@ -143,12 +143,12 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
                       onClick={() => setSelectedId(op.id)}
                       className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between gap-2 ${
                         isSelected
-                          ? 'bg-marrom-500/15 text-madrugada-800'
-                          : 'text-demerara hover:bg-creme-100 hover:text-madrugada-800'
+                          ? 'bg-accent-primary/15 text-primary'
+                          : 'text-secondary hover:bg-input hover:text-primary'
                       }`}
                     >
                       <span className="truncate">{op.nome}</span>
-                      <span className={`text-xs shrink-0 ${isSelected ? 'text-marrom-500' : 'text-demerara/60'}`}>
+                      <span className={`text-xs shrink-0 ${isSelected ? 'text-accent-primary' : 'text-secondary/60'}`}>
                         {sub}
                       </span>
                     </button>
@@ -159,11 +159,11 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
 
             {/* Selecionado */}
             {selected && (
-              <div className="rounded-xl border border-marrom-500/20 bg-marrom-500/6 px-4 py-3 flex items-center gap-3">
+              <div className="rounded-xl border border-accent-primary/20 bg-accent-primary/6 px-4 py-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-madrugada-800 text-sm font-medium truncate">{selected.nome}</p>
-                  <p className="text-demerara text-xs mt-0.5">
-                    unidade: <span className="text-marrom-500">{unidadeDisplay}</span>
+                  <p className="text-primary text-sm font-medium truncate">{selected.nome}</p>
+                  <p className="text-secondary text-xs mt-0.5">
+                    unidade: <span className="text-accent-primary">{unidadeDisplay}</span>
                   </p>
                 </div>
               </div>
@@ -184,12 +184,12 @@ export function ItemModal({ receitaId, item, onClose }: Props) {
                 className="input-field"
                 disabled={!selectedId}
               />
-              {!selectedId && <p className="text-demerara/50 text-xs mt-1">Selecione um item acima primeiro</p>}
+              {!selectedId && <p className="text-secondary/50 text-xs mt-1">Selecione um item acima primeiro</p>}
             </div>
 
             {/* Erro */}
             {state?.error && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-red-600 text-sm">
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-red-400 text-sm">
                 {state.error}
               </div>
             )}

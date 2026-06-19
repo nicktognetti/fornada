@@ -1,6 +1,7 @@
 export interface Insumo {
   id: string
   empresa_id: string
+  unidade_id: string
   nome: string
   categoria: string | null
   unidade_uso: string

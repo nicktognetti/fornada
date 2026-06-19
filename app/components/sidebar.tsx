@@ -2,10 +2,9 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { X, Menu, LayoutDashboard, Package, BookOpen, Tag, BarChart3, Settings, Calculator, Palette, Droplet, ArrowLeftRight, PackageCheck } from 'lucide-react'
+import { X, Menu, LayoutDashboard, Package, BookOpen, Tag, BarChart3, Settings, Calculator, ArrowLeftRight, PackageCheck } from 'lucide-react'
 import { NavLink } from './nav-link'
 import { logout } from '@/app/login/actions'
-import { useTheme } from '@/app/context/theme-provider'
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Resumo', exact: true },
@@ -25,14 +24,11 @@ interface SidebarProps {
 
 export function Sidebar({ userEmail }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { theme, toggle } = useTheme()
-  const ThemeIcon = theme === 'classico' ? Palette : Droplet
-  const themeLabel = theme === 'classico' ? 'Creme Clássico' : 'Creme Quente'
 
   const panel = (
-    <aside className="flex flex-col h-full w-[260px] bg-[#1a1a1c]">
+    <aside className="flex flex-col h-full w-[260px] bg-canvas">
       {/* Branding */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-[#333336]">
+      <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-subtle">
         <div className="flex items-center gap-3 min-w-0">
           <Image
             src="/images/LOGO2claro.png"
@@ -43,13 +39,13 @@ export function Sidebar({ userEmail }: SidebarProps) {
             unoptimized
           />
           <div className="min-w-0">
-            <p className="font-playfair text-[#f5f5f0] text-[17px] font-bold leading-tight">Fornada</p>
-            <p className="text-[10px] text-[#888888] uppercase tracking-wider leading-none mt-0.5">custos &amp; preços</p>
+            <p className="font-playfair text-primary text-[17px] font-bold leading-tight">Fornada</p>
+            <p className="text-[10px] text-secondary uppercase tracking-wider leading-none mt-0.5">custos &amp; preços</p>
           </div>
         </div>
         <button
           onClick={() => setMobileOpen(false)}
-          className="lg:hidden text-[#888888] hover:text-[#d4d4d0] p-1.5 rounded transition-colors shrink-0 ml-2"
+          className="lg:hidden text-secondary hover:text-ink-soft p-1.5 rounded transition-colors shrink-0 ml-2"
           aria-label="Fechar menu"
         >
           <X size={16} />
@@ -71,31 +67,22 @@ export function Sidebar({ userEmail }: SidebarProps) {
       </nav>
 
       {/* Rodapé */}
-      <div className="px-3 pb-4 pt-3 border-t border-[#333336] space-y-0.5">
+      <div className="px-3 pb-4 pt-3 border-t border-subtle space-y-0.5">
         <div className="px-3 py-2">
-          <p className="text-[#888888] text-[11px] truncate">{userEmail}</p>
+          <p className="text-secondary text-[11px] truncate">{userEmail}</p>
         </div>
-
-        <button
-          onClick={toggle}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#888888] hover:text-[#d4d4d0] hover:bg-[#2a2a2c] transition-all text-left"
-          title={themeLabel}
-        >
-          <ThemeIcon size={15} className="shrink-0" />
-          <span className="text-xs">{themeLabel}</span>
-        </button>
 
         <form action={logout}>
           <button
             type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#888888] hover:text-[#d4d4d0] hover:bg-[#2a2a2c] transition-all text-left"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-secondary hover:text-ink-soft hover:bg-input transition-all text-left"
           >
             <span className="text-xs">Sair →</span>
           </button>
         </form>
 
         <div className="px-3 pt-2">
-          <p className="text-[#444448] text-[10px]">v0.5 · Flor do Trigo · desde 1948</p>
+          <p className="text-faint text-[10px]">v0.5 · Flor do Trigo · desde 1948</p>
         </div>
       </div>
     </aside>
@@ -111,7 +98,7 @@ export function Sidebar({ userEmail }: SidebarProps) {
       {/* Mobile: botão hamburger flutuante */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-40 w-10 h-10 rounded-xl bg-[#1a1a1c] shadow-lg flex items-center justify-center text-[#888888] hover:text-[#d4d4d0] transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-40 w-10 h-10 rounded-xl bg-canvas shadow-lg flex items-center justify-center text-secondary hover:text-ink-soft transition-colors"
         aria-label="Abrir menu"
       >
         <Menu size={18} />

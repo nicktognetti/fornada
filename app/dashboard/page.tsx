@@ -33,8 +33,31 @@ function tempoAtras(dateStr: string): string {
   return `há ${Math.floor(d / 365)} ano${Math.floor(d / 365) > 1 ? 's' : ''}`
 }
 
-export default async function ResumePage() {
+export default async function ResumePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ unidade?: string }>
+}) {
+  const { unidade: unidadeId } = await searchParams
   const supabase = await createClient()
+
+  let insumoCountQ = supabase.from('insumo').select('*', { count: 'exact', head: true }).eq('ativo', true)
+  let receitaCountQ = supabase.from('receita').select('*', { count: 'exact', head: true }).eq('ativo', true)
+  let produtoCountQ = supabase.from('produto').select('*', { count: 'exact', head: true }).eq('ativo', true)
+  let insumoIdsQ = supabase.from('insumo').select('id').eq('ativo', true)
+  let nomesQ = supabase.from('insumo').select('id, nome').eq('ativo', true)
+  let produtosQ = supabase.from('produto').select('id, nome, receita_id').eq('ativo', true)
+  let ultimasFichasQ = supabase.from('receita').select('id, nome, updated_at').eq('ativo', true).order('updated_at', { ascending: false }).limit(5)
+
+  if (unidadeId) {
+    insumoCountQ = insumoCountQ.eq('unidade_id', unidadeId)
+    receitaCountQ = receitaCountQ.eq('unidade_id', unidadeId)
+    produtoCountQ = produtoCountQ.eq('unidade_id', unidadeId)
+    insumoIdsQ = insumoIdsQ.eq('unidade_id', unidadeId)
+    nomesQ = nomesQ.eq('unidade_id', unidadeId)
+    produtosQ = produtosQ.eq('unidade_id', unidadeId)
+    ultimasFichasQ = ultimasFichasQ.eq('unidade_id', unidadeId)
+  }
 
   const [
     insumoRes, receitaRes, produtoRes,
@@ -43,19 +66,18 @@ export default async function ResumePage() {
     produtosRes, precoProdutoRes, custosReceitaRes,
     ultimasFichasRes,
   ] = await Promise.all([
-    supabase.from('insumo').select('*', { count: 'exact', head: true }).eq('ativo', true),
-    supabase.from('receita').select('*', { count: 'exact', head: true }).eq('ativo', true),
-    supabase.from('produto').select('*', { count: 'exact', head: true }).eq('ativo', true),
-    supabase.from('insumo').select('id').eq('ativo', true),
+    insumoCountQ,
+    receitaCountQ,
+    produtoCountQ,
+    insumoIdsQ,
     supabase.from('vw_insumo_custo_atual').select('insumo_id, custo_uso'),
     supabase.from('receita_item').select('insumo_id, quantidade').not('insumo_id', 'is', null),
-    supabase.from('insumo').select('id, nome').eq('ativo', true),
-    supabase.from('produto').select('id, nome, receita_id').eq('ativo', true),
+    nomesQ,
+    produtosQ,
     supabase.from('produto_preco').select('produto_id, preco_praticado'),
     supabase.from('vw_custo_receita').select('id, custo_unitario, rendimento_unidade'),
     // Tenta buscar com updated_at — silencia erro se coluna não existir
-    supabase.from('receita').select('id, nome, updated_at').eq('ativo', true)
-      .order('updated_at', { ascending: false }).limit(5),
+    ultimasFichasQ,
   ])
 
   const insumoCount = insumoRes.count ?? 0
@@ -272,9 +294,9 @@ export default async function ResumePage() {
                       className="h-2 rounded-full"
                       style={{
                         width: `${Math.min(item.percentual, 100)}%`,
-                        background: idx === 0 ? 'linear-gradient(to right, #d68a57, #c97a4a)'
-                          : idx === 1 ? 'linear-gradient(to right, #c97a4a, #b86a3a)'
-                          : 'linear-gradient(to right, #b07050, #9a6040)',
+                        background: idx === 0
+                          ? 'linear-gradient(to right, var(--color-accent-hover), var(--color-accent-primary))'
+                          : 'var(--color-accent-primary)',
                       }}
                     />
                   </div>

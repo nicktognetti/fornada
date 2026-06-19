@@ -3,6 +3,7 @@ export type ReceitaTipo = 'final' | 'base'
 export interface Receita {
   id: string
   empresa_id: string
+  unidade_id: string
   nome: string
   tipo: ReceitaTipo
   rendimento: number

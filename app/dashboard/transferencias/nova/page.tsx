@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowLeftRight } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { NovaTransferenciaForm } from '../components/nova-transferencia-form'
-import { getUnidadesDoUsuario } from '@/app/actions/transferencia'
+import { getUserUnidadeAction } from '@/app/actions/transferencia'
 
 export default async function NovaTransferenciaPage() {
   const supabase = await createClient()
@@ -17,25 +17,32 @@ export default async function NovaTransferenciaPage() {
 
   const empresaId = ue?.empresa_id ?? ''
 
-  const { data: produtos } = await supabase
-    .from('produto')
-    .select('id, nome')
-    .eq('empresa_id', empresaId)
-    .eq('ativo', true)
-    .order('nome')
+  // Todas as unidades da empresa + produtos em paralelo
+  const [unidadesResult, produtosResult] = await Promise.all([
+    supabase.from('unidade').select('id, nome').eq('empresa_id', empresaId).order('nome'),
+    supabase.from('produto').select('id, nome').eq('empresa_id', empresaId).eq('ativo', true).order('nome'),
+  ])
 
-  // Buscar unidades e determinar a unidade do usuário via server action
-  let unidades: Array<{ id: string; nome: string }> = []
-  let unidadeUsuarioId: string | null = null
+  const todasUnidades = unidadesResult.data ?? []
+  const produtos = produtosResult.data ?? []
+
+  // Buscar a unidade do usuário via tabela fornada.usuario_unidade
+  let minhaUnidade: { id: string; nome: string } | null = null
   let fetchError: string | null = null
 
-  try {
-    const result = await getUnidadesDoUsuario()
-    unidades = result.unidades
-    unidadeUsuarioId = result.unidadeUsuarioId
-  } catch {
-    fetchError = 'Não foi possível carregar as unidades. Os campos ficaram livres para seleção.'
+  const unidadeResult = await getUserUnidadeAction()
+  if (unidadeResult.success) {
+    // Confirma que a unidade retornada pertence à empresa atual
+    const encontrada = todasUnidades.find((u) => u.id === unidadeResult.unidade.id)
+    minhaUnidade = encontrada ?? null
+  } else {
+    fetchError = unidadeResult.error
   }
+
+  // Unidades possíveis de destino = todas exceto a do usuário
+  const unidadesDestino = minhaUnidade
+    ? todasUnidades.filter((u) => u.id !== minhaUnidade!.id)
+    : todasUnidades
 
   return (
     <div>
@@ -43,7 +50,7 @@ export default async function NovaTransferenciaPage() {
       <div className="mb-6">
         <Link
           href="/dashboard/transferencias"
-          className="inline-flex items-center gap-1.5 text-sm text-[#888888] hover:text-[#d98d5f] transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-accent-primary transition-colors"
         >
           <ArrowLeft size={15} />
           Transferências
@@ -52,24 +59,25 @@ export default async function NovaTransferenciaPage() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
-        <ArrowLeftRight size={22} className="text-[#d98d5f] shrink-0" />
+        <ArrowLeftRight size={22} className="text-accent-primary shrink-0" />
         <div>
-          <h1 className="text-2xl font-semibold text-[#f5f5f0]">Nova transferência</h1>
-          <p className="text-sm text-[#888888] mt-0.5">Enviar produtos para outra unidade</p>
+          <h1 className="text-2xl font-semibold text-primary">Nova transferência</h1>
+          <p className="text-sm text-secondary mt-0.5">Enviar produtos para outra unidade</p>
         </div>
       </div>
 
+      {/* Banner de aviso quando vínculo não encontrado */}
       {fetchError && (
-        <div className="mb-5 bg-[#2a1e1e] border border-[#c74a4a]/30 text-[#c74a4a] rounded-lg px-4 py-3 text-sm">
-          {fetchError}
+        <div className="mb-5 bg-danger-tint border border-danger/30 text-danger rounded-lg px-4 py-3 text-sm">
+          Unidade não configurada: selecione origem e destino manualmente.
         </div>
       )}
 
       <NovaTransferenciaForm
-        unidades={unidades}
-        produtos={produtos ?? []}
+        minhaUnidade={minhaUnidade}
+        unidadesDestino={unidadesDestino}
+        produtos={produtos}
         empresaId={empresaId}
-        unidadeUsuarioId={unidadeUsuarioId}
       />
     </div>
   )

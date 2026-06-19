@@ -4,15 +4,24 @@ import { PageTitle } from '@/app/components/ui/page-title'
 import { ReceitaList } from './components/receita-list'
 import type { ReceitaComCusto } from './types'
 
-export default async function ReceitasPage() {
+export default async function ReceitasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ unidade?: string }>
+}) {
+  const { unidade: unidadeId } = await searchParams
   const supabase = await createClient()
 
+  let query = supabase.from('vw_custo_receita').select('*').order('nome')
+  if (unidadeId) query = query.eq('unidade_id', unidadeId)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await supabase.from('vw_custo_receita').select('*').order('nome')
+  const { data } = await query
 
   const receitas: ReceitaComCusto[] = (data ?? []).map((r: any) => ({
     id: r.id,
     empresa_id: r.empresa_id,
+    unidade_id: r.unidade_id,
     nome: r.nome,
     tipo: r.tipo,
     rendimento: r.rendimento,
