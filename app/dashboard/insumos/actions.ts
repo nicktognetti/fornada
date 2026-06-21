@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import type { ActionResult, InsumoPreco } from './types'
 
 function parseNum(val: unknown): number {
@@ -37,9 +38,27 @@ async function getEmpresaId(userId: string): Promise<string | null> {
   const { data } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
-    .eq('usuario_id', userId)
+    .eq('user_id', userId)
     .single()
   return data?.empresa_id ?? null
+}
+
+// Unidade a usar ao criar registros: a preferida (cookie) se válida para a
+// empresa, senão a primeira unidade ativa da empresa.
+async function getUnidadeEscrita(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  empresaId: string
+): Promise<string | null> {
+  const pref = await getUnidadePreferida()
+  if (pref) {
+    const { data } = await supabase
+      .from('unidade').select('id').eq('id', pref).eq('empresa_id', empresaId).maybeSingle()
+    if (data) return data.id
+  }
+  const { data } = await supabase
+    .from('unidade').select('id')
+    .eq('empresa_id', empresaId).eq('ativa', true).order('nome').limit(1).maybeSingle()
+  return data?.id ?? null
 }
 
 function getFormFields(formData: FormData, keys: string[]) {
@@ -61,6 +80,8 @@ export async function createInsumo(
   const empresaId = await getEmpresaId(user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
+  const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+
   const raw = getFormFields(formData, [
     'nome',
     'categoria',
@@ -78,7 +99,7 @@ export async function createInsumo(
 
   const { data: insumo, error: e1 } = await supabase
     .from('insumo')
-    .insert({ ...insumoR.data, empresa_id: empresaId, ativo: true })
+    .insert({ ...insumoR.data, empresa_id: empresaId, unidade_id: unidadeId, ativo: true })
     .select('id')
     .single()
 

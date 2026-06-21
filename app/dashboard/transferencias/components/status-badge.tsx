@@ -6,6 +6,7 @@ export type StatusTransferencia =
   | 'EM_TRANSITO'
   | 'RECEBIDO'
   | 'RECEBIDO_COM_DIVERGENCIA'
+  | 'CANCELADA'
 
 export type StatusItem = 'PENDENTE' | 'RECEBIDO' | 'DIFERENCA' | 'AUSENTE'
 
@@ -31,6 +32,11 @@ const STATUS_CONFIG: Record<StatusTransferencia, BadgeConfig> = {
     label: 'Com Divergência',
     cls: 'bg-danger-tint text-danger ring-danger/20',
     icon: AlertTriangle,
+  },
+  CANCELADA: {
+    label: 'Cancelada',
+    cls: 'bg-neutral-tint text-secondary ring-secondary/20',
+    icon: MinusCircle,
   },
 }
 

@@ -11,8 +11,8 @@ type ActionResult<T = void> = T extends void
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-async function assertAdmin(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<boolean> {
-  const { data } = await supabase
+async function assertAdmin(userId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
     .from('permissao')
     .select('id')
     .eq('usuario_id', userId)
@@ -59,7 +59,7 @@ export async function savePermissionsAction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await assertAdmin(supabase, user.id))) return { error: 'Acesso negado' }
+  if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
   if (permissoes.length === 0) return { success: true }
 
   // Usa admin client para bypassar RLS na escrita
@@ -83,7 +83,7 @@ export async function deletePermissionAction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await assertAdmin(supabase, user.id))) return { error: 'Acesso negado' }
+  if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
 
   let q = supabaseAdmin
     .from('permissao')
@@ -107,7 +107,7 @@ export async function disableUserAction(targetUserId: string): Promise<ActionRes
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   if (targetUserId === user.id) return { error: 'Você não pode desabilitar a si mesmo' }
-  if (!(await assertAdmin(supabase, user.id))) return { error: 'Acesso negado' }
+  if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
 
   const { error } = await supabaseAdmin
     .from('permissao')
@@ -129,7 +129,7 @@ export async function resetPasswordAction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await assertAdmin(supabase, user.id))) return { error: 'Acesso negado' }
+  if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
   if (newPassword.length < 6) return { error: 'Senha deve ter pelo menos 6 caracteres' }
 
   const { error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
@@ -155,7 +155,7 @@ export async function createUserAction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await assertAdmin(supabase, user.id))) return { error: 'Acesso negado' }
+  if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
 
   // 1. Criar usuário via service_role (bypassa RLS)
   const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -174,13 +174,13 @@ export async function createUserAction(
     const { data: ue } = await supabase
       .from('usuario_empresa')
       .select('empresa_id')
-      .eq('usuario_id', user.id)
+      .eq('user_id', user.id)
       .single()
 
     if (ue?.empresa_id) {
       await supabaseAdmin
         .from('usuario_empresa')
-        .insert({ usuario_id: newUserId, empresa_id: ue.empresa_id })
+        .insert({ user_id: newUserId, empresa_id: ue.empresa_id })
     }
 
     // 3. Inserir permissões iniciais
@@ -226,13 +226,13 @@ export async function listUsersWithPermissionsAction(): Promise<
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await assertAdmin(supabase, user.id))) return { error: 'Acesso negado' }
+  if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
 
   // Busca empresa do admin logado
   const { data: ue } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
-    .eq('usuario_id', user.id)
+    .eq('user_id', user.id)
     .single()
 
   const empresaId = ue?.empresa_id
@@ -242,10 +242,10 @@ export async function listUsersWithPermissionsAction(): Promise<
   if (empresaId) {
     const { data: ueRows } = await supabaseAdmin
       .from('usuario_empresa')
-      .select('usuario_id')
+      .select('user_id')
       .eq('empresa_id', empresaId)
 
-    userIds = (ueRows ?? []).map((r: { usuario_id: string }) => r.usuario_id)
+    userIds = (ueRows ?? []).map((r: { user_id: string }) => r.user_id)
   }
 
   if (userIds.length === 0) return { data: [] }

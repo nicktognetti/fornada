@@ -88,8 +88,10 @@ export function usePermission(tela: string) {
   return {
     acesso,
     isLoading,
-    canRead:  isLoading || canAccess(tela),
-    canWrite: isLoading || acesso === 'escrita' || acesso === 'admin',
-    isAdmin:  isLoading || acesso === 'admin',
+    // Durante loading: leitura liberada (não bloqueia renderização da página),
+    // escrita desabilitada (evita que botões de edição apareçam prematuramente).
+    canRead:  isLoading ? true : canAccess(tela),
+    canWrite: isLoading ? false : (acesso === 'escrita' || acesso === 'admin'),
+    isAdmin:  isLoading ? false : acesso === 'admin',
   }
 }

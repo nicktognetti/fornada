@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { NovaTransferenciaForm } from '../components/nova-transferencia-form'
 import { getUserUnidadeAction } from '@/app/actions/transferencia'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 
 export default async function NovaTransferenciaPage() {
   const supabase = await createClient()
@@ -12,37 +13,38 @@ export default async function NovaTransferenciaPage() {
   const { data: ue } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
-    .eq('usuario_id', user?.id ?? '')
+    .eq('user_id', user?.id ?? '')
     .single()
 
   const empresaId = ue?.empresa_id ?? ''
 
-  // Todas as unidades da empresa + produtos em paralelo
-  const [unidadesResult, produtosResult] = await Promise.all([
-    supabase.from('unidade').select('id, nome').eq('empresa_id', empresaId).order('nome'),
+  // Todas as unidades da empresa + produtos + cookie em paralelo
+  const [unidadesResult, produtosResult, unidadeCookieId] = await Promise.all([
+    supabase.from('unidade').select('id, nome').eq('empresa_id', empresaId).order('created_at'),
     supabase.from('produto').select('id, nome').eq('empresa_id', empresaId).eq('ativo', true).order('nome'),
+    getUnidadePreferida(),
   ])
 
   const todasUnidades = unidadesResult.data ?? []
   const produtos = produtosResult.data ?? []
 
-  // Buscar a unidade do usuário via tabela fornada.usuario_unidade
+  // 1ª fonte: RPC fn_get_user_unidade (vínculo fixo do operador)
   let minhaUnidade: { id: string; nome: string } | null = null
-  let fetchError: string | null = null
 
   const unidadeResult = await getUserUnidadeAction()
   if (unidadeResult.success) {
-    // Confirma que a unidade retornada pertence à empresa atual
     const encontrada = todasUnidades.find((u) => u.id === unidadeResult.unidade.id)
     minhaUnidade = encontrada ?? null
-  } else {
-    fetchError = unidadeResult.error
   }
 
-  // Unidades possíveis de destino = todas exceto a do usuário
-  const unidadesDestino = minhaUnidade
-    ? todasUnidades.filter((u) => u.id !== minhaUnidade!.id)
-    : todasUnidades
+  // 2ª fonte (fallback): cookie unidade_preferida do UnidadeSelector
+  if (!minhaUnidade && unidadeCookieId) {
+    const encontrada = todasUnidades.find((u) => u.id === unidadeCookieId)
+    minhaUnidade = encontrada ?? null
+  }
+
+  // Só exibe alerta se não há qualquer referência de unidade
+  const semUnidade = !minhaUnidade && todasUnidades.length >= 2
 
   return (
     <div>
@@ -66,16 +68,17 @@ export default async function NovaTransferenciaPage() {
         </div>
       </div>
 
-      {/* Banner de aviso quando vínculo não encontrado */}
-      {fetchError && (
-        <div className="mb-5 bg-danger-tint border border-danger/30 text-danger rounded-lg px-4 py-3 text-sm">
-          Unidade não configurada: selecione origem e destino manualmente.
+      {/* Banner de aviso: só quando não há unidade de origem identificada */}
+      {semUnidade && (
+        <div className="mb-5 bg-amber-500/8 border border-amber-500/25 text-amber-400 rounded-lg px-4 py-3 text-sm">
+          Selecione a unidade de origem e destino para continuar.
         </div>
       )}
 
       <NovaTransferenciaForm
         minhaUnidade={minhaUnidade}
-        unidadesDestino={unidadesDestino}
+        origemViaVinculo={unidadeResult.success}
+        todasUnidades={todasUnidades}
         produtos={produtos}
         empresaId={empresaId}
       />

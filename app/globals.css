@@ -48,23 +48,25 @@
      Geram utilitários Tailwind (bg-canvas, bg-surface, text-primary…).
      O fundo de página tem token próprio (`bg-canvas`), evitando a colisão
      `bg-primary`/`text-primary` do Tailwind v4. */
-  --color-canvas:            #1a1a1a;  /* bg-canvas      — fundo de página (DashboardShell) */
-  --color-primary:           #f5f5f0;  /* text-primary   — texto principal        */
-  --color-secondary:         #888888;  /* text-secondary — texto secundário/labels*/
+  --color-canvas:            #1a1a1d;  /* bg-canvas      — fundo de página (DashboardShell) */
+  --color-primary:           #e8e8e8;  /* text-primary   — texto principal        */
+  --color-secondary:         #9ca3af;  /* text-secondary — texto secundário/labels*/
   --color-surface:           #222226;  /* bg-surface     — cards e painéis         */
-  --color-surface-2:         #1e1e22;  /* bg-surface-2   — zebra de tabela / 2ª sup.*/
+  --color-surface-2:         #1e1e26;  /* bg-surface-2   — zebra de tabela / 2ª sup.*/
   --color-input:             #2a2a2e;  /* bg-input/border-input — campos e hovers  */
-  --color-subtle:            #333336;  /* border-subtle  — bordas e divisores      */
+  --color-subtle:            #2a2a2e;  /* border-subtle  — bordas e divisores      */
   --color-accent-primary:    #d98d5f;  /* accent-primary — botões e destaques      */
   --color-accent-hover:      #e8a57a;  /* accent-hover   — hover do accent         */
-  --color-ink-soft:          #d4d4d0;  /* text-ink-soft  — itens e valores         */
-  --color-faint:             #666666;  /* text-faint     — placeholders/ícones     */
+  --color-ink-soft:          #d0d0cc;  /* text-ink-soft  — itens e valores         */
+  --color-faint:             #6b7280;  /* text-faint     — placeholders/ícones     */
   --color-accent-tint:       #2a2a1e;  /* bg-accent-tint — chips de accent         */
   --color-accent-tint-hover: #333320;  /* hover do chip accent                     */
   --color-neutral-tint:      #2a2a2a;  /* bg-neutral-tint — chip neutro (Pendente/Devolução) */
   --color-accent-ink:        #1a1a1a;  /* text-accent-ink — texto escuro SOBRE accent-primary (AA ~6,6:1) */
   --color-success:           #5f9a5f;  /* recebido/sucesso                         */
   --color-success-tint:      #1e2a1e;
+  --color-warning:           #d9a441;  /* atenção/alerta (AA sobre fundo escuro)  */
+  --color-warning-tint:      #2a2416;
   --color-danger:            #c74a4a;  /* divergência/erro                         */
   --color-danger-tint:       #2a1e1e;
 
@@ -74,38 +76,42 @@
   --font-sacramento:'Sacramento', cursive;
 }
 
-/* ── Variáveis de tema — Creme Clássico (padrão) ─────────────────────────── */
+/* ── Variáveis de tema — Escuro definitivo ────────────────────────────────── */
 
 :root {
-  --t-page-bg:     #1a1a1a;
+  --t-page-bg:     #1a1a1d;
   --t-card-bg:     #222226;
-  --t-card-border: #333336;
-  --t-card-shadow: 0 2px 12px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.30);
+  --t-card-border: #2a2a2e;
+  --t-card-shadow: 0 2px 12px rgba(0,0,0,0.40), 0 1px 3px rgba(0,0,0,0.32);
   --t-card-hover:  #2a2a2e;
   --t-input-bg:    #2a2a2e;
-  --t-input-border:#3a3a3a;
+  --t-input-border:#3a3a3e;
   --t-input-opt:   #222226;
-  --t-text-1:      #f5f5f0;
-  --t-text-2:      #888888;
-  --t-text-muted:  rgba(245,245,240,0.40);
-  --t-border-sub:  #333336;
-  --t-ghost-border:#3a3a3a;
+  --t-text-1:      #e8e8e8;
+  --t-text-2:      #9ca3af;
+  --t-text-muted:  rgba(232,232,232,0.38);
+  --t-border-sub:  #2a2a2e;
+  --t-ghost-border:#3a3a3e;
   --t-accent:      #d98d5f;
   --t-accent-hover:#e8a57a;
   --t-accent-press:#c77843;
   --t-modal-bg:    #222226;
-  --t-modal-border:#333336;
+  --t-modal-border:#2a2a2e;
   --t-row-hover:   rgba(255,255,255,0.04);
-  --t-table-head:  #1e1e22;
-  --t-inset-bg:    #1e1e22;
+  --t-table-head:  #1e1e26;
+  --t-inset-bg:    #1e1e26;
+  --t-success:     #5f9a5f;
+  --t-warning:     #d9a441;
+  --t-error:       #c74a4a;
 }
 
-/* ── Creme Quente — variante mais saturada ────────────────────────────────── */
+/* ── Creme Quente — variante levemente mais quente (mantém escuro) ──────────── */
 
 html.creme-quente {
-  --t-page-bg:     #1a1a1a;
-  --t-input-bg:    #2a2a2e;
-  --t-inset-bg:    #1e1e22;
+  --t-page-bg:     #1c1a1d;
+  --t-card-bg:     #252226;
+  --t-inset-bg:    #1e1c26;
+  --t-input-bg:    #2c292e;
 }
 
 /* ── Tema escuro global ───────────────────────────────────────────────────── */

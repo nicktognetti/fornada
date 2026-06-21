@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Eye, ArrowLeftRight } from 'lucide-react'
+import { ArrowRight, Eye, ArrowLeftRight, Trash2, Loader2 } from 'lucide-react'
 import { StatusBadgeTransferencia } from './status-badge'
+import { excluirTransferenciaAction } from '@/app/actions/transferencia'
 import type { StatusTransferencia } from './status-badge'
 
 export type TransferenciaRow = {
@@ -17,20 +19,22 @@ export type TransferenciaRow = {
   created_at: string
 }
 
-type FilterTab = 'todas' | 'em_transito' | 'recebidas' | 'divergencia'
+type FilterTab = 'todas' | 'em_transito' | 'recebidas' | 'divergencia' | 'canceladas'
 
 const TABS: { key: FilterTab; label: string }[] = [
   { key: 'todas',       label: 'Todas' },
   { key: 'em_transito', label: 'Em Trânsito' },
   { key: 'recebidas',   label: 'Recebidas' },
   { key: 'divergencia', label: 'Com Divergência' },
+  { key: 'canceladas',  label: 'Canceladas' },
 ]
 
 const STATUS_FILTER: Record<FilterTab, StatusTransferencia[]> = {
-  todas:       ['PENDENTE', 'EM_TRANSITO', 'RECEBIDO', 'RECEBIDO_COM_DIVERGENCIA'],
-  em_transito: ['EM_TRANSITO'],
+  todas:       ['PENDENTE', 'EM_TRANSITO', 'RECEBIDO', 'RECEBIDO_COM_DIVERGENCIA', 'CANCELADA'],
+  em_transito: ['EM_TRANSITO', 'PENDENTE'],
   recebidas:   ['RECEBIDO'],
   divergencia: ['RECEBIDO_COM_DIVERGENCIA'],
+  canceladas:  ['CANCELADA'],
 }
 
 function formatDate(iso: string) {
@@ -40,11 +44,65 @@ function formatDate(iso: string) {
   })
 }
 
-export function TransferenciaTable({ rows, sucesso }: { rows: TransferenciaRow[]; sucesso?: string | null }) {
+// Modal de confirmação de exclusão inline
+function ExcluirModal({
+  codigo, loading, onClose, onConfirm,
+}: { codigo: string; loading: boolean; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-sm bg-surface border border-subtle rounded-xl shadow-2xl shadow-black/40 p-6 space-y-4">
+        <p className="text-base font-semibold text-primary">Excluir {codigo}</p>
+        <p className="text-sm text-secondary">
+          Tem certeza? Todos os itens serão removidos permanentemente. Esta ação não pode ser desfeita.
+        </p>
+        <div className="flex gap-3 justify-end pt-1">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-lg border border-subtle text-ink-soft hover:bg-input text-sm font-medium transition-colors"
+          >
+            Voltar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-danger hover:bg-danger/90 text-white text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+          >
+            {loading && <Loader2 size={14} className="animate-spin" />}
+            Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function TransferenciaTable({
+  rows,
+  sucesso,
+}: {
+  rows: TransferenciaRow[]
+  sucesso?: string | null
+}) {
+  const router = useRouter()
   const [tab,    setTab]    = useState<FilterTab>('todas')
   const [banner, setBanner] = useState(sucesso ?? null)
+  const [excluindoId,  setExcluindoId]  = useState<string | null>(null)
+  const [excluirLoading, setExcluirLoading] = useState(false)
 
   const filtered = rows.filter((r) => STATUS_FILTER[tab].includes(r.status))
+
+  async function handleExcluir(id: string) {
+    setExcluirLoading(true)
+    await excluirTransferenciaAction(id)
+    setExcluirLoading(false)
+    setExcluindoId(null)
+    router.refresh()
+  }
+
+  const excluindoRow = rows.find((r) => r.id === excluindoId)
 
   return (
     <div>
@@ -57,12 +115,12 @@ export function TransferenciaTable({ rows, sucesso }: { rows: TransferenciaRow[]
       )}
 
       {/* Tabs — underline style */}
-      <div className="flex border-b border-subtle mb-5">
+      <div className="flex border-b border-subtle mb-5 overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 pb-3 pt-1 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            className={`px-4 pb-3 pt-1 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
               tab === t.key
                 ? 'border-accent-primary text-accent-primary font-semibold'
                 : 'border-transparent text-secondary hover:text-ink-soft'
@@ -98,53 +156,75 @@ export function TransferenciaTable({ rows, sucesso }: { rows: TransferenciaRow[]
               </tr>
             </thead>
             <tbody className="divide-y divide-subtle">
-              {filtered.map((row, i) => (
-                <tr
-                  key={row.id}
-                  className={`transition-colors hover:bg-input ${i % 2 === 0 ? 'bg-canvas' : 'bg-surface-2'}`}
-                >
-                  <td className="px-4 py-3.5 font-mono text-[13px] font-semibold text-primary">
-                    {row.codigo}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+              {filtered.map((row, i) => {
+                const podeExcluir = ['PENDENTE', 'CANCELADA'].includes(row.status)
+                return (
+                  <tr
+                    key={row.id}
+                    className={`transition-colors hover:bg-input ${i % 2 === 0 ? 'bg-canvas' : 'bg-surface-2'}`}
+                  >
+                    <td className="px-4 py-3.5 font-mono text-[13px] font-semibold text-primary">
+                      {row.codigo}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
                         row.tipo === 'TRANSFERENCIA'
                           ? 'bg-accent-tint text-accent-primary'
                           : 'bg-neutral-tint text-secondary'
-                      }`}
-                    >
-                      {row.tipo === 'TRANSFERENCIA' ? 'Envio' : 'Devolução'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5 hidden sm:table-cell">
-                    <span className="flex items-center gap-1.5 text-xs">
-                      <span className="font-medium text-ink-soft">{row.unidade_origem_nome}</span>
-                      <ArrowRight size={12} className="shrink-0 text-accent-primary/50" />
-                      <span className="font-medium text-ink-soft">{row.unidade_destino_nome}</span>
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <StatusBadgeTransferencia status={row.status} />
-                  </td>
-                  <td className="px-4 py-3.5 text-xs text-secondary hidden md:table-cell">
-                    {formatDate(row.created_at)}
-                  </td>
-                  <td className="px-4 py-3.5 text-right">
-                    <Link
-                      href={`/dashboard/transferencias/${row.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-secondary hover:text-accent-primary hover:bg-accent-tint transition-all"
-                    >
-                      <Eye size={13} />
-                      Ver
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                      }`}>
+                        {row.tipo === 'TRANSFERENCIA' ? 'Envio' : 'Devolução'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 hidden sm:table-cell">
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <span className="font-medium text-ink-soft">{row.unidade_origem_nome}</span>
+                        <ArrowRight size={12} className="shrink-0 text-accent-primary/50" />
+                        <span className="font-medium text-ink-soft">{row.unidade_destino_nome}</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <StatusBadgeTransferencia status={row.status} />
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-secondary hidden md:table-cell">
+                      {formatDate(row.created_at)}
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {podeExcluir && (
+                          <button
+                            onClick={() => setExcluindoId(row.id)}
+                            className="p-1.5 rounded-lg text-secondary hover:text-danger hover:bg-danger-tint transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                        <Link
+                          href={`/dashboard/transferencias/${row.id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-secondary hover:text-accent-primary hover:bg-accent-tint transition-all"
+                        >
+                          <Eye size={13} />
+                          Ver
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* Modal excluir */}
+      {excluindoId && excluindoRow && (
+        <ExcluirModal
+          codigo={excluindoRow.codigo}
+          loading={excluirLoading}
+          onClose={() => setExcluindoId(null)}
+          onConfirm={() => handleExcluir(excluindoId)}
+        />
+      )}
     </div>
   )
 }

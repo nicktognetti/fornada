@@ -1,7 +1,8 @@
 'use client'
 
-import { createContext, useContext, ReactNode } from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { createContext, useContext, type ReactNode } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { setUnidadeCookieAction } from '@/app/actions/unidade'
 
 export interface UnidadeOption {
   id: string
@@ -10,8 +11,8 @@ export interface UnidadeOption {
 
 interface UnidadeContextValue {
   unidades: UnidadeOption[]
-  unidadeAtual: UnidadeOption | null
-  setUnidade: (u: UnidadeOption) => void
+  unidadeAtual: UnidadeOption | null  // null = Todas
+  setUnidade: (u: UnidadeOption | null) => void
 }
 
 const UnidadeContext = createContext<UnidadeContextValue>({
@@ -23,22 +24,21 @@ const UnidadeContext = createContext<UnidadeContextValue>({
 interface UnidadeProviderProps {
   children: ReactNode
   unidades: UnidadeOption[]
+  initialUnidadeId: string | null
 }
 
-export function UnidadeProvider({ children, unidades }: UnidadeProviderProps) {
+export function UnidadeProvider({ children, unidades, initialUnidadeId }: UnidadeProviderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
-  // Derivado diretamente de searchParams — sem useState, sem useEffect
-  const idFromUrl = searchParams.get('unidade')
   const unidadeAtual: UnidadeOption | null =
-    (idFromUrl && unidades.find((u) => u.id === idFromUrl)) || unidades[0] || null
+    (initialUnidadeId && unidades.find((u) => u.id === initialUnidadeId)) || null
 
-  function setUnidade(u: UnidadeOption) {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('unidade', u.id)
-    router.replace(`${pathname}?${params.toString()}`)
+  async function setUnidade(u: UnidadeOption | null) {
+    await setUnidadeCookieAction(u?.id ?? null)
+    // Reload sem query params para que o server component releia o cookie
+    router.replace(pathname)
+    router.refresh()
   }
 
   return (

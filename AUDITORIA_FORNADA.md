@@ -205,6 +205,271 @@ Ordem recomendada: **P0 (parser) → versionar+testar a matemática → unificar
 
 ## Inventário de arquivos relevante (Passo 1)
 
+---
+
+---
+
+# Auditoria Técnica — Sessão 2 (Pós multi-empresa + Painel Financeiro)
+
+> Data: 20/06/2026 · Branch: `master` · Build: ✅ 17/17 rotas · Arquivos examinados: 37
+> Escopo: módulo Produto, Painel Financeiro, multi-empresa (empresa_id + EmpresaSwitcher), gráficos clicáveis, meta de faturamento.
+
+---
+
+## 1. Resumo Executivo
+
+O sistema foi evoluído em 4 sessões iterativas. O Painel Financeiro está funcionalmente rico — alertas priorizados, inline editing de preço, gráficos clicáveis com `ChartFilter`, precificadora e meta de faturamento. O build compila sem erros TypeScript.
+
+Contudo, há **3 problemas críticos** e **10 altos** que comprometem funcionalidades centrais em produção multi-tenant. A arquitetura geral é sólida, mas a refatoração de single-tenant para multi-tenant foi feita de forma incremental e incompleta — camadas anteriores (migrations, actions) não foram revisadas.
+
+**Score geral: 5.2 / 10**
+
+| Severidade | Quantidade |
+|---|---|
+| 🔴 CRÍTICO | 3 |
+| 🟠 ALTO | 10 |
+| 🟡 MÉDIO | 9 |
+| 🟢 BAIXO/Sugestão | 5 |
+| **Total** | **27** |
+
+**Veredicto de deploy:** BLOCK em produção multi-tenant. Funciona para single-tenant (Flor do Trigo isolada).
+
+---
+
+## 2. Pontos Positivos
+
+- **`PainelClient` como orquestrador de estado** — centraliza `alertaFiltro` e `chartFilter`, evita prop drilling, mantém Server Components nas bordas
+- **`ChartFilter` com union type discriminada** — design de tipo TypeScript maduro
+- **Migrations idempotentes** — `IF NOT EXISTS`, `ON CONFLICT DO NOTHING`, blocos `DO $$` com verificações condicionais
+- **Gráficos SVG sem dependências externas** — fiel à restrição de não adicionar npm deps
+- **Empty states educativos** (`GraficoVazio`) — guia o usuário quando há < 3 produtos precificados
+- **Cookie-based persistence** para `unidade_preferida` e `empresa_preferida` — robusto, persiste entre sessões
+- **`PrecoCell` com UX clara** — placeholder `R$ 0,00` dashed + flash "✓ Salvo"
+- **`SortHeader` reutilizável** com ícones de estado (ChevronsUpDown/ChevronUp/Down)
+- **RLS em `produto`** — política `produto_empresa_rls` corretamente filtra por `empresa_id IN (SELECT empresa_id FROM usuario_empresa WHERE user_id = auth.uid())`
+
+---
+
+## 3. Problemas e Inconsistências
+
+### 🔴 CRÍTICO 1 — `vw_produto_financeiro` sem RLS: vazamento multi-tenant
+
+**`app/actions/painel.ts:68-76`**
+
+A view não possui Row Level Security. Todo o isolamento multi-tenant depende do `.eq('empresa_id', empresaId)` no código TypeScript. Se qualquer chamada futura omitir esse filtro — por cópia descuidada, refactor, ou consulta via Supabase Studio — **todos os produtos de todas as empresas são retornados**.
+
+**Correção:** Criar Security Definer Function que sempre aplica `WHERE empresa_id IN (SELECT empresa_id FROM usuario_empresa WHERE user_id = auth.uid())`, ou ativar `security_invoker = true` na view.
+
+---
+
+### 🔴 CRÍTICO 2 — Duas políticas RLS conflitantes em `produto`
+
+**`20260621000000_produto_financeiro.sql`** e **`20260622000000_multi_empresa.sql`**
+
+A migration de 21/06 cria `produto_empresa`. A migration de 22/06 cria `produto_empresa_rls`. Ambas estão ativas. No PostgreSQL, múltiplas políticas `FOR ALL` são combinadas com `OR` para SELECT e `AND` para UPDATE/INSERT/DELETE. Operações de escrita em `produto` podem falhar de forma inconsistente.
+
+**Correção:**
+```sql
+-- Em nova migration de correção:
+DROP POLICY IF EXISTS produto_empresa ON public.produto;
+```
+
+---
+
+### 🔴 CRÍTICO 3 — `fn_set_atualizado_em()` assumida mas não garantida nas migrations
+
+**`20260622000001_meta_faturamento.sql:24`**
+
+O trigger de `meta_faturamento` chama `fn_set_atualizado_em()`. Nenhuma migration do conjunto define essa função com `CREATE OR REPLACE`. Em staging limpo ou banco novo, a migration aborta com "function does not exist".
+
+**Correção:** Adicionar no início da migration:
+```sql
+CREATE OR REPLACE FUNCTION public.fn_set_atualizado_em()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN NEW.atualizado_em = now(); RETURN NEW; END $$;
+```
+
+---
+
+### 🟠 ALTO 1 — `savePrecoVenda` não verifica ownership de empresa
+
+**`app/actions/painel.ts:138`**
+
+A action busca `produto.unidade_id` por `produtoId` sem verificar se o produto pertence à empresa do usuário. Um usuário da Empresa A pode sobrescrever preços da Empresa B.
+
+**Correção:**
+```typescript
+const empresaId = await getEmpresaId(supabase, user.id)
+if (prod?.empresa_id !== empresaId) return { error: 'Acesso negado' }
+```
+
+---
+
+### 🟠 ALTO 2 — `copiarEntreUnidades` usa `.single()` com usuário multi-empresa
+
+**`app/actions/unidade.ts:89`**
+
+`.single()` na query `usuario_empresa` retorna erro `PGRST116` se o usuário pertence a mais de uma empresa, bloqueando usuários legítimos.
+
+---
+
+### 🟠 ALTO 3 — Cópia de preços usa tabela `receita_preco` obsoleta
+
+**`app/actions/unidade.ts:207-229`**
+
+O fluxo "Copiar → Preços" copia de `receita_preco`. Após a migration de produto, os preços reais vivem em `produto_preco`. A feature parece funcionar mas copia dados do sistema antigo ou nada.
+
+---
+
+### 🟠 ALTO 4 — Bug visual: faixa negativa do histograma nunca aparece ativa
+
+**`app/dashboard/painel/components/painel-graficos.tsx:78-79`**
+
+`isFaixaAtiva` compara `chartFilter.min === min` onde `min` é `-Infinity`. Mas o `ChartFilter` é criado com `min: -999` (serialização de `-Infinity`). A comparação `-999 === -Infinity` é sempre `false`. O feedback visual da faixa selecionada está quebrado para margens negativas.
+
+---
+
+### 🟠 ALTO 5 — Mutação direta de prop em `PrecoCell`
+
+**`app/dashboard/painel/components/painel-tabela.tsx:162-165`**
+
+```typescript
+// Antipadrão: mutação direta do objeto prop
+f.preco_venda = val
+f.margem_percentual = ((val - f.custo_total) / val) * 100
+```
+
+KPIs e gráficos não atualizam após salvar um preço porque o React não detecta a mutação.
+
+---
+
+### 🟠 ALTO 6 — NOT NULL silencioso na migration multi_empresa
+
+**`20260622000000_multi_empresa.sql:48-59`**
+
+`ALTER TABLE ... SET NOT NULL` só é executado se não existir linha com `empresa_id IS NULL`. Se o backfill falhou silenciosamente, a constraint nunca é aplicada — divergência silenciosa entre TypeScript (`empresa_id: string`) e banco (aceita NULL).
+
+---
+
+### 🟠 ALTO 7 — `getMetaFaturamento` sem filtro de empresa na query de preços
+
+**`app/actions/empresa.ts:113-114`**
+
+`produto_preco` é buscado sem filtro de `empresa_id` server-side. O filtro é aplicado em TypeScript depois — se o RLS falhar (ver CRÍTICO 2), retorna preços de todas as empresas.
+
+---
+
+### 🟠 ALTO 8 — `faturamentoAtual` semanticamente incorreto
+
+**`app/actions/empresa.ts:112-125`**
+
+`faturamentoAtual` = soma de `preco_praticado` de todos os produtos. Isso é o "valor do portfólio precificado", não faturamento. Para uma padaria com 1156 produtos a R$2 médios, dá R$2.312 — sem relação com vendas reais. O componente `PainelMeta` exibe isso como "R$ de faturamento do mês".
+
+---
+
+### 🟠 ALTO 9 — `LoteModal`: N chamadas sequenciais de `savePrecoVenda`
+
+**`app/dashboard/painel/components/painel-tabela.tsx:59-67`**
+
+Para 50 produtos: 50 chamadas × 2 queries = 100 round-trips. Pode levar 30+ segundos.
+
+**Correção:** Criar `savePrecoVendaLote(items: {id: string, preco: number}[])` com upsert em batch.
+
+---
+
+### 🟠 ALTO 10 — Produtos sem `unidade_id` tornam `savePrecoVenda` impossível
+
+**`app/actions/painel.ts:142`**
+
+Se a migration `produto_financeiro` inseriu produtos a partir de receitas sem `unidade_id`, esses produtos recebem `{ error: 'Produto sem unidade definida' }` silenciosamente. O campo de preço aparece mas nunca salva.
+
+---
+
+### 🟡 MÉDIO 1 — Modo Consolidado quebrado silenciosamente
+
+Quando `empresaAtual === null`, `getPainelFinanceiro()` retorna `{ error: 'Empresa não encontrada' }` e o painel exibe lista vazia sem nenhuma mensagem. O botão "Consolidado" parece funcionar mas não faz nada.
+
+---
+
+### 🟡 MÉDIO 2 — Fluxo "Fabricado" no modal exibe erro como comportamento normal
+
+**`app/dashboard/produtos/components/novo-produto-modal.tsx:46`**
+
+Mensagem de erro em vermelho após clicar "Criar Produto". A opção "Fabricado" deveria estar desabilitada com badge "Em breve".
+
+---
+
+### 🟡 MÉDIO 3-9 (sumarizados)
+
+| # | Arquivo | Problema |
+|---|---|---|
+| M3 | `painel-tabela.tsx:162` | Sem `router.refresh()` após save em `PrecoCell` — KPIs ficam stale |
+| M4 | `painel.ts:100-105` | Cast `as ProdutoFinanceiro` esconde campos fantasma (`receita_id`, `rendimento`) sem validação TypeScript |
+| M5 | `empresa.ts:117` | Cast duplo `as unknown as PrecoRow[]` — incompatibilidade de tipo não resolvida |
+| M6 | `permissions-context.tsx:91-93` | `canRead`/`canWrite` retornam `true` durante loading — botões de edição aparecem para quem não tem permissão |
+| M7 | `dashboard/page.tsx:58-77` | 11 queries paralelas sem timeout/fallback parcial |
+| M8 | `dashboard/layout.tsx:46-51` | 6 round-trips por page load (4 paralelas + 2 internas de `getEmpresaAtualId`) |
+| M9 | `painel.ts:57-121` | `getPainelFinanceiro` sem paginação server-side — 1156+ produtos por request |
+
+---
+
+## 4. Lacunas e Riscos
+
+| # | Lacuna | Risco |
+|---|--------|-------|
+| L1 | `vw_produto_financeiro` sem RLS | Vazamento multi-tenant se filtro de código for omitido |
+| L2 | Modo Consolidado não implementado | Feature no EmpresaSwitcher que não funciona |
+| L3 | `createProdutoFabricado` não existe | Criação de produto fabricado está inoperante |
+| L4 | `receita_preco` e `produto_preco` coexistem ativos | Dois sistemas de preços; `copiarEntreUnidades` usa o errado |
+| L5 | Sem testes automatizados | Regressões não detectadas entre sessões |
+| L6 | `unidade_id` pode ser NULL em produtos importados | ~X% dos 1156 produtos impossíveis de precificar |
+| L7 | `faturamentoAtual` com semântica errada | Decisões de negócio baseadas em dados incorretos |
+| L8 | Sem `router.refresh()` após `PrecoCell.save()` | KPIs stale após edição inline |
+
+---
+
+## 5. Recomendações Priorizadas
+
+### Imediato (antes de qualquer demo/produção multi-empresa)
+
+1. **Proteger `vw_produto_financeiro`** com Security Definer Function
+2. **Dropar política duplicada** `produto_empresa` numa nova migration
+3. **Criar `fn_set_atualizado_em()`** idempotente no início das migrations que a usam
+4. **Adicionar `empresa_id` check em `savePrecoVenda`** — 3 linhas
+5. **Corrigir `copiarEntreUnidades`** para usar `.in()` e `produto_preco`
+
+### Curto prazo
+
+6. **Corrigir `isFaixaAtiva`** — usar `d.minVal` em vez de `d.min`
+7. **Eliminar mutação de prop em `PrecoCell`** + adicionar `router.refresh()`
+8. **Desabilitar "Consolidado"** com badge "Em breve" até implementar
+9. **Desabilitar "Fabricado"** no `NovoProdutoModal` com badge "Em breve"
+10. **Criar `savePrecoVendaLote`** — batch upsert
+
+### Médio prazo
+
+11. Paginação server-side em `getPainelFinanceiro`
+12. Corrigir semântica do `faturamentoAtual` (renomear para `valorPortfolio`)
+13. Auditoria de `produto.unidade_id = NULL` e estratégia de migração
+14. Consolidar os dois sistemas de preços (`receita_preco` vs `produto_preco`)
+
+---
+
+## 6. Conclusão
+
+O sistema funciona bem como single-tenant para a Flor do Trigo hoje. A UI do Painel Financeiro é bem construída, os gráficos SVG sem dependências são elegantes, e o modelo de produto como entidade de 1ª classe foi a decisão arquitetural correta.
+
+O problema central: **3 sessões de desenvolvimento acumularam débito de segurança** ao refatorar de single-tenant para multi-tenant sem revisar as camadas anteriores. Nenhum dos problemas CRÍTICOS exige reescrita — são correções de 5-20 linhas cada. Os 3 CRÍTICOs + 5 ALTOs mais urgentes podem ser resolvidos em um dia de trabalho focado.
+
+**Informações adicionais para completar a análise:**
+- `SELECT COUNT(*) FROM produto WHERE unidade_id IS NULL` — quantos produtos bloqueados para precificação
+- `SELECT * FROM pg_policies WHERE tablename = 'produto'` — políticas RLS atuais em produção
+- Se `receita_preco` ainda é usada ativamente ou pode ser descontinuada
+
+---
+
+## Inventário de arquivos relevante (Passo 1)
+
 **Config & infra**
 - `package.json` (deps: next 16.2.9, react 19, @supabase/ssr, lucide-react; **sem libs de teste**) · `next.config.ts` (vazio) · `eslint.config.mjs` · `tsconfig.json` · `postcss.config.mjs`
 - `proxy.ts` (middleware de auth) · `lib/supabase/{server,client}.ts` · `lib/format.ts` (parsing/format BRL)

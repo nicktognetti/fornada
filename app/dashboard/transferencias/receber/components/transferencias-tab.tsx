@@ -1,8 +1,12 @@
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, PackageCheck, TrendingDown } from 'lucide-react'
+import { ArrowRight, PackageCheck, TrendingDown, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { formatBRL } from '@/lib/format'
+import { ConfirmacaoDrawer } from '../../components/confirmacao-drawer'
 import type { TransferenciaReceber, StatusFinanceiro } from '../types'
 
 const STATUS_FIN_LABEL: Record<StatusFinanceiro, string> = {
@@ -25,13 +29,51 @@ function formatDate(iso: string) {
   })
 }
 
+type ItemDrawer = {
+  id: string
+  produto_nome: string
+  quantidade_enviada: number
+  preco_unitario: number
+}
+
 interface Props {
   transferencias: TransferenciaReceber[]
   totalAReceber: number
   isCentro: boolean
+  userId: string
 }
 
-export function TransferenciasTab({ transferencias, totalAReceber, isCentro }: Props) {
+export function TransferenciasTab({ transferencias, totalAReceber, isCentro, userId }: Props) {
+  const router = useRouter()
+  const [drawerTransferencia, setDrawerTransferencia] = useState<TransferenciaReceber | null>(null)
+  const [drawerItens,         setDrawerItens]         = useState<ItemDrawer[]>([])
+  const [loadingId,           setLoadingId]           = useState<string | null>(null)
+
+  async function abrirConfirmar(t: TransferenciaReceber) {
+    setLoadingId(t.id)
+    const supabase = createClient()
+
+    const [iRes, prodRes] = await Promise.all([
+      supabase.from('transferencia_item').select('*').eq('transferencia_id', t.id),
+      supabase.from('produto').select('id, nome'),
+    ])
+
+    const itensRaw = iRes.data ?? []
+    const prodMap = new Map((prodRes.data ?? []).map((p: { id: string; nome: string }) => [p.id, p.nome]))
+
+    setDrawerItens(itensRaw.map((i: {
+      id: string; produto_id: string; quantidade_enviada: number; preco_unitario: number
+    }) => ({
+      id: i.id,
+      produto_nome: prodMap.get(i.produto_id) ?? '—',
+      quantidade_enviada: i.quantidade_enviada,
+      preco_unitario: i.preco_unitario,
+    })))
+
+    setDrawerTransferencia(t)
+    setLoadingId(null)
+  }
+
   if (transferencias.length === 0) {
     return (
       <div className="bg-surface border border-subtle rounded-lg shadow-lg shadow-black/20 flex flex-col items-center py-16 text-center">
@@ -44,7 +86,6 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro }: P
 
   return (
     <div className="space-y-4">
-      {/* Tabela */}
       <div className="bg-surface border border-subtle rounded-lg shadow-lg shadow-black/20 overflow-hidden">
         {/* Cabeçalho */}
         <div className="hidden sm:grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-subtle bg-canvas">
@@ -52,12 +93,13 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro }: P
           <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Origem</span>
           <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-center w-16">Itens</span>
           <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-right w-28">Valor Total</span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-28"></span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-36"></span>
         </div>
 
         <div className="divide-y divide-subtle">
           {transferencias.map((t) => {
             const sfin = t.status_financeiro ?? 'pendente'
+            const carregando = loadingId === t.id
             return (
               <div
                 key={t.id}
@@ -99,15 +141,25 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro }: P
                   )}
                 </div>
 
-                {/* Ação */}
-                <div className="flex justify-end w-28">
+                {/* Ações */}
+                <div className="flex items-center justify-end gap-2 w-36">
                   <Link
                     href={`/dashboard/transferencias/${t.id}`}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-xs font-semibold shadow-sm transition-colors shrink-0"
+                    className="px-3 py-1.5 rounded-lg border border-subtle text-secondary hover:text-ink-soft hover:bg-input text-xs font-medium transition-colors"
                   >
-                    <PackageCheck size={13} />
-                    Conferir
+                    Ver
                   </Link>
+                  <button
+                    onClick={() => abrirConfirmar(t)}
+                    disabled={carregando}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-xs font-semibold shadow-sm transition-colors disabled:opacity-60"
+                  >
+                    {carregando
+                      ? <Loader2 size={12} className="animate-spin" />
+                      : <PackageCheck size={12} />
+                    }
+                    Confirmar
+                  </button>
                 </div>
               </div>
             )
@@ -131,6 +183,20 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro }: P
             R$ {formatBRL(totalAReceber)}
           </p>
         </div>
+      )}
+
+      {/* Drawer de confirmação */}
+      {drawerTransferencia && (
+        <ConfirmacaoDrawer
+          transferenciaId={drawerTransferencia.id}
+          userId={userId}
+          itens={drawerItens}
+          onClose={() => setDrawerTransferencia(null)}
+          onSuccess={() => {
+            setDrawerTransferencia(null)
+            router.refresh()
+          }}
+        />
       )}
     </div>
   )

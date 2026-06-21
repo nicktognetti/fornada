@@ -2,16 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { Package } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { InsumoList } from './components/insumo-list'
-import { UnidadeSelector } from '@/app/components/unidade-selector'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import type { Insumo, CustoAtual, InsumoComCusto } from './types'
 
-export default async function InsumosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ unidade?: string }>
-}) {
-  const { unidade: unidadeId } = await searchParams
-  const supabase = await createClient()
+export default async function InsumosPage() {
+  const [unidadeId, supabase] = await Promise.all([getUnidadePreferida(), createClient()])
 
   let insumosQuery = supabase.from('insumo').select('*').eq('ativo', true).order('nome')
   if (unidadeId) insumosQuery = insumosQuery.eq('unidade_id', unidadeId)
@@ -68,7 +63,6 @@ export default async function InsumosPage({
 
   return (
     <div>
-      <UnidadeSelector />
       <PageTitle icon={Package}>Insumos</PageTitle>
       <InsumoList insumos={insumos} categorias={categorias} />
     </div>

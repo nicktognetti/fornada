@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import {
   X, Menu, LayoutDashboard, Package, BookOpen, Tag,
-  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield,
+  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box,
 } from 'lucide-react'
 import { NavLink } from './nav-link'
 import { logout } from '@/app/login/actions'
@@ -15,6 +15,7 @@ const ALL_NAV_ITEMS = [
   { href: '/dashboard/receitas',                  icon: BookOpen,        label: 'Fichas',           tela: 'receitas'         },
   { href: '/dashboard/insumos',                   icon: Package,         label: 'Insumos',          tela: 'insumos'          },
   { href: '/dashboard/precos',                    icon: Tag,             label: 'Preços',           tela: 'precos'           },
+  { href: '/dashboard/produtos',                  icon: Box,             label: 'Produtos',         tela: 'produtos'         },
   { href: '/dashboard/painel',                    icon: BarChart3,       label: 'Painel',           tela: 'painel'           },
   { href: '/dashboard/cadastros',                 icon: LayoutGrid,      label: 'Cadastros',        tela: 'cadastros'        },
   { href: '/dashboard/simulador',                 icon: Calculator,      label: 'Simulador',        tela: 'simulador'        },

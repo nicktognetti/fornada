@@ -4,7 +4,9 @@
 - Next.js 16 (App Router) + React 19 + TypeScript (strict) + **Tailwind CSS v4** + Supabase (PostgreSQL)
 - Build: `npm run build` (exit 0). Testes: `npm test` (Vitest — `lib/format.test.ts`, 26 testes passando).
 
-## 🎨 Reforma Visual — Dark Theme Unificado
+## 🎨 Dark Theme Unificado
+
+O sistema usa **exclusivamente tema escuro**. Não há tema claro, paleta creme, fundo branco (#ffffff) ou toggle de tema.
 
 ### Onde vivem os tokens
 **Tailwind v4 não usa `tailwind.config.ts`** (esse arquivo não existe). A paleta é declarada no bloco
@@ -45,70 +47,129 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - Tabelas: header `text-secondary` uppercase, divisores `border-subtle`, zebra `bg-canvas`/`bg-surface-2`.
 - **Sem cor inline (`bg-[#...]`)** — usar sempre os tokens acima.
 
-### Progresso por Tela
+## ✅ O que foi implementado
 
-#### ✅ CONCLUÍDO (dark theme + tokens, build verde)
-- [x] **Resumo** (KPIs, alertas, curva ABC com gradiente tokenizado)
-- [x] **Fichas** (lista, ficha técnica/`ficha-view`, modais de receita e de item)
-- [x] **Insumos** (lista e modal — preço, histórico, preview)
-- [x] **Preços** (margem/prejuízo com cores semânticas)
-- [x] **Transferências** (lista/tabela, nova transferência, detalhe `[id]`, drawer de conferência, skeleton, badges de status)
-- [x] **Receber** (recebimentos pendentes)
-- [x] **Sidebar / NavLink / Login** — tokens; toggle "Creme Clássico/Quente" removido (no-op no dark)
-- [x] **Modais e diálogos** — todos com fundo escuro `bg-surface` (antes `bg-white`)
-- [x] **Contraste do accent** corrigido para WCAG AA + **token `bg-canvas`** para o fundo de página
+### Tema e Visual
+- [x] Dark theme unificado WCAG AA — tokens `--t-*`, `@theme`, `.card-surface`, sem paleta clara
+- [x] Sidebar / NavLink / Login — tokens; toggle de tema removido
+- [x] Modais e diálogos — todos com fundo escuro `bg-surface`
+- [x] Contraste do accent corrigido para WCAG AA + token `bg-canvas` para o fundo de página
 
-#### 🔐 RBAC & Limpeza (FASE 5) — CONCLUÍDO
-- [x] Tabela `permissao` no banco (usuario_id, tela, acesso, unidade_id) — migration `20260619000000_rbac_permissoes.sql`
-- [x] `fn_is_global_admin(uuid)` SECURITY DEFINER — resolve loop infinito 42P17 do RLS — migration `20260619010000_fix_permissao_rls.sql`
-- [x] `lib/supabase/admin.ts` — client Supabase com service_role, somente server-side, sem auto-refresh
-- [x] Server Actions em `app/actions/permissoes.ts`: `getUserPermissionsAction`, `savePermissionsAction`, `deletePermissionAction`, `createUserAction`, `disableUserAction`, `resetPasswordAction`, `listUsersWithPermissionsAction`
-- [x] `createUserAction` com rollback: se inserção de permissões falhar, faz `deleteUser` para não deixar órfão
-- [x] `PermissionsContext` (`app/context/permissions-context.tsx`) com `reload()` via tick counter (sem setState dentro de effect)
-- [x] `canAccess()` com fallback: mapa vazio = acesso total (antes do primeiro carregamento / banco sem registros)
-- [x] UI de gerenciamento de usuários em `app/dashboard/configuracoes/` — máquina de estados: `lista | editar | novo | reset | desabilitar`
-- [x] Admin Global (★) vs Permissões Personalizadas (grade tela-a-tela: Sem acesso / Leitura / Escrita / Admin)
-- [x] Modal "+ Novo Usuário" com seção "Permissões Iniciais" — Admin Global ou grade personalizada inline
-- [x] Proteção: não pode desabilitar a si mesmo; desabilitar remove permissões (não deleta `auth.users`)
-- [x] Separação Cadastros / Configurações: `app/dashboard/cadastros/` (Tipos/Unidades/Categorias) vs `app/dashboard/configuracoes/` (apenas Permissões)
-- [x] Sidebar atualizada: 10 itens — Resumo, Fichas, Insumos, Preços, Painel, Cadastros, Simulador, Transferências, Receber, Configurações
-- [x] `app/lib/permissions.ts` com `TELAS`, `TELA_LABEL`, `getAcesso()`, `isGlobalAdmin()`, `PermissaoMap`
-- [x] Lint: 0 erros, 0 warnings. Build: clean.
+### Schema e Banco
+- [x] Schema central versionado em migrations (todas as tabelas, índices, RLS)
+- [x] Multi-empresa: `empresa`, `usuario_empresa`, UnidadeSelector funcional
+- [x] RBAC completo (FASE 5): tabela `permissao`, `fn_is_global_admin`, `PermissionsContext`
+- [x] `fn_get_empresas_usuario()` Security Definer — usado nas políticas RLS
+- [x] `vw_produto_financeiro` com `security_invoker = true`
+- [x] `despesa_fixa_empresa` — CRUD atômico com RLS
+- [x] `insumo_saldo` + `insumo_saldo_historico` — tabelas de estoque
+- [x] `confirmar_recebimento(UUID, UUID, JSONB)` — RPC atômica, `FOR UPDATE`, sem dependência em `produto.insumo_id`
+- [x] Todos os objetos migrados de `fornada.*` para `public.*` — `.schema('fornada')` removido de todo o código
+- [x] `usuario_unidade` em `public` populado via migration 009 para todos os usuários existentes
+- [x] `fn_gerar_codigo_transferencia` com `SECURITY DEFINER` — resolve `permission denied` nas sequences
+- [x] Constraint `ck_transferencia_status` inclui `CANCELADA`
 
-#### 💰 Parsing decimal (R$) — CONCLUÍDO
-- [x] `parseDecimalBR` (`lib/format.ts`) reescrita: convenção BR (vírgula decimal, ponto milhar), tolerante a
-  ruído ("R$", espaços), inválidos → `NaN`. Corrigido o bug que transformava `"10.00"` em `1000`.
-- [x] `formatBRL`/`formatCustoUso` tolerantes a `NaN` (`"0,00"`).
-- [x] Unificado: Insumos/Preços e Transferências (form + drawer) usam a mesma função; inputs `text` + `inputMode="decimal"`.
-- [x] **Testes:** `lib/format.test.ts` (26 casos, incluindo regressão do bug e negativos).
+### Sessão 4 — Transação Atômica + UnidadeSelector
+
+- [x] Migration `20260620000007_confirmar_recebimento_atomico` — RPC com `FOR UPDATE`, loop JSONB, `insumo_saldo` upsert, `insumo_saldo_historico` imutável
+- [x] Dark theme unificado com tokens `--t-*` e `@theme` em `globals.css`
+- [x] `UnidadeSelector` funcional via cookie `unidade_preferida` — `setUnidadeCookieAction` + `router.refresh()`
+- [x] `EmpresaSwitcher` + `UnidadeSelector` coexistindo no `DashboardShell` (acima do `{children}`)
+- [x] `UnidadeProvider` no `DashboardLayout` — alimentado por `usuario_unidade` server-side
+- [x] Curva ABC com tooltip explicando limitação da estimativa (FASE 3)
+- [x] Comentário `is_pendente` com convenção + TODO FASE 3
+
+### Sessão 5 — Schema + Transferências + Botões
+
+- [x] Migration `20260620000008_mover_fornada_para_public` — recreate idempotente de todas as tabelas/funções do schema `fornada` em `public`
+- [x] Migration `20260620000009_popular_usuario_unidade` — INSERT de todos os vínculos empresa→unidade para usuários existentes
+- [x] Migration `20260620000010_fn_gerar_codigo_security_definer` — `SECURITY DEFINER` + `GRANT USAGE ON ALL SEQUENCES`
+- [x] Migration `20260620000011_cancelar_excluir_transferencia` — adiciona `CANCELADA` ao `CHECK` constraint
+- [x] Migration `20260620000012_fix_constraint_cancelada_rpc` — recria RPC sem `p.insumo_id`, idem constraint (idempotente)
+- [x] Página de detalhe de transferência convertida para **Server Component** — `Promise.all` server-side, sem race condition de RLS
+- [x] `AcoesTransferencia` Client Component — botões Confirmar / Cancelar / Excluir com modais inline
+- [x] `cancelarTransferenciaAction` + `excluirTransferenciaAction` em `app/actions/transferencia.ts`
+- [x] Tab "Canceladas" na listagem; ícone de lixeira por linha para `PENDENTE|CANCELADA`
+- [x] Toggle "Ocultar/Mostrar preço" no form de nova transferência — persiste em cookie `show_price_transfer`
+- [x] Botão "Confirmar" inline na tela Receber — busca itens via Supabase client e abre `ConfirmacaoDrawer`
+- [x] `ConfirmacaoDrawer` convertido de slide-right para **modal centralizado** (`max-w-[580px] max-h-[90vh]`)
+- [x] Default da rota: `ordem created_at` no banco (Morada do Sol primeiro); lazy initializer `useState(() => ...)` evita hydration mismatch
+
+### Painel Financeiro (completo)
+- [x] KPIs: total produtos, com/sem preço, margem média + ponderada, faturamento estimado
+- [x] Gráficos SVG: distribuição de margem por faixa + top produtos por faturamento
+- [x] Tabela de produtos com filtros, ordenação, busca
+- [x] Precificadora por produto (modal inline)
+- [x] Meta de faturamento (portfólio estimado)
+- [x] Despesas fixas — CRUD colapsável, totalizador
+- [x] Ponto de equilíbrio — fórmula `despesas / (margem% / 100)`, indicador ▲/▼
+- [x] Alertas inteligentes — equilíbrio vs portfólio, margem negativa, sem preço, diferença entre unidades
+- [x] Margem ponderada pelo portfólio: `SOMA((pv−ct)×pv) / SOMA(pv)`
+
+### Simulador de Preço (completo, 100% em memória)
+- [x] Ajuste individual por produto (campo % por linha, cálculo em tempo real)
+- [x] Ajuste uniforme (painel de controles global)
+- [x] Resumo: 4 cards — total atual, total simulado, diferença R$+%, margem antes→depois
+- [x] Gráficos SVG: comparativo de preços + impacto na margem
+- [x] Tabela: ordenação, busca, paginação (20/página)
+- [x] **Nunca persiste dados** — `AjustesMap` é estado React volátil
+
+### Transferências entre Unidades
+- [x] Fluxo completo: Nova → EM_TRANSITO → Confirmar recebimento → RECEBIDO / RECEBIDO_COM_DIVERGENCIA
+- [x] Cancelar (PENDENTE|EM_TRANSITO → CANCELADA) + Excluir (PENDENTE|CANCELADA)
+- [x] Confirmação atômica via RPC — nenhum item é salvo se qualquer um falhar
+- [x] Saldo de insumo atualizado na unidade de destino (`insumo_saldo` upsert)
+- [x] Histórico imutável de movimentações (`insumo_saldo_historico`)
+- [x] Preço auto-preenchido ao selecionar produto (query `produto_preco` via Supabase client)
+- [x] Input de preço estilo centavos (só dígitos, divide por 100, sem letras)
+- [x] Origem/destino pré-preenchidos: RPC vínculo fixo → cookie `unidade_preferida` → `todasUnidades[0]`
+- [x] `podeConferir` calculado server-side; fallback permissivo se `usuario_unidade` vazio
+
+### Outras Funcionalidades
+- [x] Fichas técnicas (lista, ficha, modais de receita e de item)
+- [x] Insumos (lista e modal — preço, histórico, preview)
+- [x] Preços (margem/prejuízo com cores semânticas)
+- [x] `parseDecimalBR` corrigido (26 testes) — convenção BR, tolerante a ruído
 
 ## 🚧 Pendências reais
 
-### Funcionalidade (telas dark prontas, mas sem lógica)
-- [ ] **Painel Financeiro** — stub "Em configuração" (ponto de equilíbrio, margem média, markup, despesa fixa não implementados).
-- [ ] **Simulador** — stub "Em breve" (impacto de alta/baixa de insumo, comparar cenários).
-- [ ] **Estoque Simplificado (FASE 3)** — entradas manuais por unidade, baixa automática pelas fichas, relatório de consumo. Ainda não iniciado.
+### Migrations pendentes de aplicação manual no Supabase
+> Estas migrations estão no repositório mas **ainda precisam ser rodadas** no SQL Editor do Supabase:
+- [ ] `20260620000011_cancelar_excluir_transferencia.sql` — constraint `CANCELADA` + `GRANT USAGE ON SEQUENCES`
+- [ ] `20260620000012_fix_constraint_cancelada_rpc.sql` — recria `confirmar_recebimento` sem `p.insumo_id`, idem constraint
+
+### UnidadeSelector nas telas de Transferência
+- [ ] A tela `/dashboard/transferencias` (listagem) não filtra por unidade selecionada — mostra todas da empresa
+- [ ] A tela `/dashboard/transferencias/receber` usa `usuario_unidade` diretamente mas ignora o cookie `unidade_preferida`
+- [ ] Decisão de produto: filtrar transferências pelo `UnidadeSelector` ou sempre mostrar todas?
+
+### FASE 3 — Estoque Simplificado
+- [ ] Entradas manuais de estoque por unidade
+- [ ] Baixa automática pelas fichas técnicas
+- [ ] Relatório de consumo
+- [ ] Curva ABC ponderada por volume real de venda (hoje usa estimativa custo × quantidade nas fichas)
 
 ### Configurações persistentes
 - [ ] **Cadastros** (`app/dashboard/cadastros/`) — edição de tipos/unidades/categorias só em memória de sessão; **não persiste** (faltam mutations em `cadastros-panel.tsx`).
 
-### Dados por unidade (decisão tomada, falta implementar completo)
-- [ ] `UnidadeSelector` — filtra por permissão do usuário, mas insumos/preços/receitas ainda não filtram por `unidade_id` na query (mudança de schema + RLS por unidade pendente).
+### Fluxo NFe
+- [ ] **"Receber"** deve virar entrada de **NFe de fornecedor** (que alimenta custo) ou seguir só como conferência de transferência interna? (decisão de produto pendente)
 
-### Limpeza (código inerte)
+### Limpeza técnica remanescente
 - [ ] **Paleta clara do `@theme`** (`marrom-*`, `creme-*`, `madrugada-*`, `croissant`, `demerara`) — agora sem uso; pode ser removida para enxugar o CSS.
 - [ ] **ThemeProvider** (`app/context/theme-provider.tsx`) e o bloco `html.creme-quente` — inertes após remoção do toggle.
+- [ ] Skeleton/error states no núcleo (loading boundaries, Suspense com fallback visual).
+- [ ] Tabular-nums nas colunas de R$ em todas as tabelas.
 
-### Decisões de produto em aberto (confirmar antes de implementar)
+### Decisões de produto em aberto
 - [ ] **Resumo** deve filtrar pela unidade selecionada? (hoje agrega a empresa inteira)
-- [ ] **Quem pode confirmar recebimento** de transferência? (hoje: qualquer um da empresa que não seja o criador — restringir à unidade de destino?)
+- [ ] **Quem pode confirmar recebimento** de transferência? (hoje: fallback permissivo se `usuario_unidade` vazio — restringir quando migrations rodarem)
 - [ ] **Definição de margem:** sobre o preço de venda (atual) ou markup sobre o custo?
-- [ ] **"Receber":** deve virar entrada de **NFe de fornecedor** (que alimenta custo) ou seguir só como conferência de transferência interna?
-- Decididas: tema = **escuro**; dados = **por unidade**; Painel/Simulador/Config = **mantidos no menu como "em breve"**.
 
 ## 🔧 TypeScript
 - Strict mode ativo; `tsc --noEmit` sem erros.
 - `getUserUnidadeAction` retorna discriminated union (`{ success: true; unidade } | { success: false; error }`).
+- Sem `any` — todos os retornos de Supabase tipados via `as`.
 
 ## 📋 Observações
 - Paleta no bloco `@theme` de `app/globals.css` (**não** em `tailwind.config.ts`, que não existe). Usar tokens, **nunca** cor inline `bg-[#...]`.
@@ -116,3 +177,4 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - NÃO quebrar lógica de negócio (APIs, hooks, mutations, queries Supabase).
 - NÃO modificar tipos compartilhados sem verificar dependências.
 - `lib/supabase/admin.ts` usa `SUPABASE_SERVICE_ROLE_KEY` — **nunca expor no client**; usar apenas em server actions.
+- Simulador **nunca persiste** — cálculo 100% em memória React.

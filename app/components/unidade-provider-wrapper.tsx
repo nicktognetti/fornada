@@ -1,20 +1,18 @@
 'use client'
 
 import { UnidadeProvider, type UnidadeOption } from '@/app/context/unidade-context'
-import { Suspense, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 
 interface Props {
   children: ReactNode
   unidades: UnidadeOption[]
+  initialUnidadeId: string | null
 }
 
-// Suspense é obrigatório porque UnidadeProvider usa useSearchParams()
-export function UnidadeProviderWrapper({ children, unidades }: Props) {
+export function UnidadeProviderWrapper({ children, unidades, initialUnidadeId }: Props) {
   return (
-    <Suspense>
-      <UnidadeProvider unidades={unidades}>
-        {children}
-      </UnidadeProvider>
-    </Suspense>
+    <UnidadeProvider unidades={unidades} initialUnidadeId={initialUnidadeId}>
+      {children}
+    </UnidadeProvider>
   )
 }

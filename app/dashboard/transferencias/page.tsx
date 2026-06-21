@@ -18,14 +18,13 @@ export default async function TransferenciasPage({
   const { data: ue } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
-    .eq('usuario_id', user?.id ?? '')
+    .eq('user_id', user?.id ?? '')
     .single()
 
   const empresaId = ue?.empresa_id
 
   const { data: transferencias } = empresaId
     ? await supabase
-        .schema('fornada')
         .from('transferencia')
         .select('*')
         .eq('empresa_id', empresaId)

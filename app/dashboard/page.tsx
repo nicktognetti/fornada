@@ -6,6 +6,7 @@ import {
 import { PageTitle } from '@/app/components/ui/page-title'
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { createClient } from '@/lib/supabase/server'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import { formatBRL } from '@/lib/format'
 
 interface PrejuizoItem {
@@ -33,13 +34,8 @@ function tempoAtras(dateStr: string): string {
   return `há ${Math.floor(d / 365)} ano${Math.floor(d / 365) > 1 ? 's' : ''}`
 }
 
-export default async function ResumePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ unidade?: string }>
-}) {
-  const { unidade: unidadeId } = await searchParams
-  const supabase = await createClient()
+export default async function ResumePage() {
+  const [unidadeId, supabase] = await Promise.all([getUnidadePreferida(), createClient()])
 
   let insumoCountQ = supabase.from('insumo').select('*', { count: 'exact', head: true }).eq('ativo', true)
   let receitaCountQ = supabase.from('receita').select('*', { count: 'exact', head: true }).eq('ativo', true)
@@ -136,6 +132,8 @@ export default async function ResumePage({
     const custo = custoUsoMap.get(item.insumo_id)
     if (!custo || custo <= 0) continue
     const nome = nomeMap.get(item.insumo_id) ?? ''
+    // Exclui insumos cujo nome contém "pendente" — convenção de cadastro para itens ainda
+    // sem fornecedor/preço definido. TODO (FASE 3): substituir por coluna status='pendente'.
     if (nome.toLowerCase().includes('pendente')) continue
     custoAcum.set(item.insumo_id, (custoAcum.get(item.insumo_id) ?? 0) + item.quantidade * custo)
   }
@@ -308,7 +306,11 @@ export default async function ResumePage({
               ))}
             </div>
             <div className="px-5 py-3 border-t" style={{ borderColor: 'var(--t-border-sub)', backgroundColor: 'var(--t-inset-bg)' }}>
-              <p className="text-[11px]" style={{ color: 'var(--t-text-2)' }}>
+              <p
+                className="text-[11px]"
+                style={{ color: 'var(--t-text-2)' }}
+                title="Curva baseada em estimativa de custo × quantidade nas fichas técnicas. Para precisão real, cadastre as vendas no sistema (FASE 3 — Estoque)."
+              >
                 Esses são os ingredientes que mais pesam no custo dos seus produtos.
                 Negociar um preço melhor com o fornecedor desses insumos faz a maior diferença na margem.
               </p>

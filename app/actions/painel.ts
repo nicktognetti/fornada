@@ -2,124 +2,418 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { ProdutoRentabilidade, PainelResumo } from '@/app/dashboard/painel/types'
 
-type ActionResult = { error?: string; success?: boolean }
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-function calcStatus(margem: number): ProdutoRentabilidade['status'] {
-  if (margem >= 40) return 'lucrativo'
-  if (margem >= 20) return 'baixo'
-  return 'prejuizo'
+export type ProdutoFinanceiro = {
+  produto_id: string
+  produto_nome: string
+  produto_tipo: 'produzido' | 'revenda'
+  categoria: string | null
+  empresa_id: string
+  unidade_id: string | null
+  unidade_nome: string | null
+  custo_total: number
+  preco_venda: number
+  margem_rs: number
+  margem_percentual: number
+  markup_percentual: number
 }
 
-export async function getPainelDataAction(unidadeId?: string): Promise<{
-  produtos: ProdutoRentabilidade[]
-  resumo: PainelResumo
-}> {
+export type PainelIndicadores = {
+  total_produtos: number
+  produtos_com_preco: number
+  produtos_sem_preco: number
+  produtos_margem_negativa: number
+  margem_media_percentual: number
+  /** Margem média ponderada pelo valor do portfólio: SOMA((pv-ct)*pv) / SOMA(pv) */
+  margem_ponderada_percentual: number
+  /** Soma dos preços de venda do portfólio. NÃO é faturamento real (depende do volume vendido). */
+  valor_portfolio: number
+  custo_total_geral: number
+  margem_total_rs: number
+}
+
+// ── Despesas Fixas ────────────────────────────────────────────────────────────
+
+export type DespesaFixa = {
+  id: string
+  empresa_id: string
+  descricao: string
+  valor: number
+  created_at: string
+  updated_at: string
+}
+
+// Mantém compatibilidade com componentes que ainda usam FichaFinanceira
+export type FichaFinanceira = ProdutoFinanceiro
+
+type ActionResult<T = void> = T extends void
+  ? { error?: string; success?: boolean }
+  : { error?: string; data?: T }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function getEmpresaId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('usuario_empresa')
+    .select('empresa_id')
+    .eq('user_id', userId)
+    .single()
+  return data?.empresa_id ?? null
+}
+
+// ── getPainelFinanceiro ───────────────────────────────────────────────────────
+
+export type PainelSort = {
+  column: 'produto_nome' | 'custo_total' | 'preco_venda' | 'margem_percentual' | 'markup_percentual'
+  direction: 'asc' | 'desc'
+}
+
+export async function getPainelFinanceiro(
+  unidadeId?: string,
+  tipoProduto?: 'produzido' | 'revenda' | 'todos',
+  pagination?: { page: number; pageSize: number },
+  sort?: PainelSort,
+): Promise<ActionResult<{ fichas: ProdutoFinanceiro[]; indicadores: PainelIndicadores; total: number }>> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
 
-  let produtosQ = supabase
+  const empresaId = await getEmpresaId(supabase, user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
+
+  const sortCol = sort?.column ?? 'produto_nome'
+  const sortAsc = sort ? sort.direction === 'asc' : true
+
+  let q = supabase
+    .from('vw_produto_financeiro')
+    .select('produto_id,produto_nome,produto_tipo,categoria,empresa_id,unidade_id,unidade_nome,custo_total,preco_venda,margem_rs,margem_percentual,markup_percentual', { count: 'exact' })
+    .eq('empresa_id', empresaId)
+    .order(sortCol, { ascending: sortAsc })
+
+  if (unidadeId) q = q.eq('unidade_id', unidadeId)
+  if (tipoProduto && tipoProduto !== 'todos') q = q.eq('produto_tipo', tipoProduto)
+
+  if (pagination) {
+    const { page, pageSize } = pagination
+    q = q.range(page * pageSize, (page + 1) * pageSize - 1)
+  }
+
+  const { data, error, count } = await q
+  if (error) return { error: error.message }
+
+  type Row = {
+    produto_id: string; produto_nome: string; produto_tipo: string
+    categoria: string | null; empresa_id: string; unidade_id: string | null
+    unidade_nome: string | null; custo_total: string; preco_venda: string
+    margem_rs: string; margem_percentual: string; markup_percentual: string
+  }
+
+  const fichas: ProdutoFinanceiro[] = ((data as Row[]) ?? []).map((r) => ({
+    produto_id:        r.produto_id,
+    produto_nome:      r.produto_nome,
+    produto_tipo:      r.produto_tipo as 'produzido' | 'revenda',
+    categoria:         r.categoria,
+    empresa_id:        r.empresa_id,
+    unidade_id:        r.unidade_id,
+    unidade_nome:      r.unidade_nome,
+    custo_total:       Number(r.custo_total),
+    preco_venda:       Number(r.preco_venda),
+    margem_rs:         Number(r.margem_rs),
+    margem_percentual: Number(r.margem_percentual),
+    markup_percentual: Number(r.markup_percentual),
+    // compatibilidade FichaFinanceira
+    receita_id:        r.produto_id,
+    receita_nome:      r.produto_nome,
+    rendimento:        1,
+    rendimento_unidade: 'un',
+  } as ProdutoFinanceiro))
+
+  const comPreco = fichas.filter((f) => f.preco_venda > 0)
+  const somaPrecos = comPreco.reduce((s, f) => s + f.preco_venda, 0)
+  // Margem ponderada: SOMA((pv - ct) * pv) / SOMA(pv)
+  const margemPonderada = somaPrecos > 0
+    ? comPreco.reduce((s, f) => s + (f.preco_venda - f.custo_total) * f.preco_venda, 0) / somaPrecos
+    : 0
+  const indicadores: PainelIndicadores = {
+    total_produtos:              fichas.length,
+    produtos_com_preco:          comPreco.length,
+    produtos_sem_preco:          fichas.length - comPreco.length,
+    produtos_margem_negativa:    comPreco.filter((f) => f.margem_percentual < 0).length,
+    margem_media_percentual:     comPreco.length
+      ? comPreco.reduce((s, f) => s + f.margem_percentual, 0) / comPreco.length
+      : 0,
+    margem_ponderada_percentual: margemPonderada,
+    valor_portfolio:             somaPrecos,
+    custo_total_geral:           fichas.reduce((s, f) => s + f.custo_total, 0),
+    margem_total_rs:             comPreco.reduce((s, f) => s + f.margem_rs, 0),
+  }
+
+  return { data: { fichas, indicadores, total: count ?? fichas.length } }
+}
+
+// ── savePrecoVenda ────────────────────────────────────────────────────────────
+
+export async function savePrecoVenda(
+  produtoId: string,
+  precoVenda: number,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (precoVenda <= 0) return { error: 'Preço deve ser maior que zero' }
+
+  const empresaId = await getEmpresaId(supabase, user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
+
+  // Busca unidade_id + verifica ownership de empresa
+  const { data: prod } = await supabase
     .from('produto')
-    .select('id, nome, receita_id')
-    .eq('ativo', true)
-    .order('nome')
-  if (unidadeId) produtosQ = produtosQ.eq('unidade_id', unidadeId)
+    .select('unidade_id, empresa_id')
+    .eq('id', produtoId)
+    .single()
 
-  const [prodRes, custoRes, precoRes] = await Promise.all([
-    produtosQ,
-    supabase.from('vw_custo_receita').select('id, custo_unitario'),
-    supabase.from('produto_preco').select('produto_id, preco_praticado'),
-  ])
+  if (!prod) return { error: 'Produto não encontrado' }
+  if (prod.empresa_id !== empresaId) return { error: 'Acesso negado' }
+  if (!prod.unidade_id) return { error: 'Produto sem unidade definida' }
 
-  type CustoRow  = { id: string; custo_unitario: number | null }
-  type PrecoRow  = { produto_id: string; preco_praticado: number | null }
-  type ProdRow   = { id: string; nome: string; receita_id: string | null }
+  const { error } = await supabase
+    .from('produto_preco')
+    .upsert(
+      { produto_id: produtoId, unidade_id: prod.unidade_id, preco_praticado: precoVenda, volume_mensal: 0 },
+      { onConflict: 'produto_id,unidade_id' }
+    )
 
-  const custoMap = new Map<string, number>(
-    (custoRes.data as CustoRow[] ?? [])
-      .filter((r) => r.custo_unitario != null)
-      .map((r) => [r.id, r.custo_unitario as number])
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/painel')
+  revalidatePath('/dashboard/precos')
+  revalidatePath('/dashboard/produtos')
+  return { success: true }
+}
+
+// ── savePrecoVendaLote ────────────────────────────────────────────────────────
+
+export async function savePrecoVendaLote(
+  items: { id: string; preco: number }[],
+): Promise<ActionResult<{ salvos: number; erros: number }>> {
+  if (items.length === 0) return { data: { salvos: 0, erros: 0 } }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const empresaId = await getEmpresaId(supabase, user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
+
+  // Busca unidade_id + empresa_id de todos os produtos em batch
+  const ids = items.map((i) => i.id)
+  const { data: produtos, error: errProd } = await supabase
+    .from('produto')
+    .select('id, unidade_id, empresa_id')
+    .in('id', ids)
+
+  if (errProd) return { error: errProd.message }
+
+  const prodMap = new Map(
+    (produtos ?? []).map((p: { id: string; unidade_id: string | null; empresa_id: string }) =>
+      [p.id, p]
+    )
   )
-  const precoMap = new Map<string, number>(
-    (precoRes.data as PrecoRow[] ?? [])
-      .filter((r) => r.preco_praticado != null)
-      .map((r) => [r.produto_id, r.preco_praticado as number])
-  )
 
-  const produtos: ProdutoRentabilidade[] = []
+  const upserts: { produto_id: string; unidade_id: string; preco_praticado: number; volume_mensal: number }[] = []
+  let erros = 0
 
-  for (const p of (prodRes.data as ProdRow[] ?? [])) {
-    const custo = p.receita_id ? (custoMap.get(p.receita_id) ?? 0) : 0
-    const preco = precoMap.get(p.id) ?? 0
-    if (custo <= 0 || preco <= 0) continue
-
-    const margem = ((preco - custo) / preco) * 100
-    const markup = ((preco - custo) / custo) * 100
-
-    produtos.push({
-      id: p.id,
-      nome: p.nome,
-      custo,
-      preco,
-      margem,
-      markup,
-      status: calcStatus(margem),
+  for (const item of items) {
+    if (item.preco <= 0) { erros++; continue }
+    const prod = prodMap.get(item.id)
+    if (!prod || prod.empresa_id !== empresaId || !prod.unidade_id) { erros++; continue }
+    upserts.push({
+      produto_id: item.id,
+      unidade_id: prod.unidade_id,
+      preco_praticado: item.preco,
+      volume_mensal: 0,
     })
   }
 
-  // Resumo
-  const comDados = produtos.filter((p) => p.preco > 0)
-  const margemMedia = comDados.length
-    ? comDados.reduce((s, p) => s + p.margem, 0) / comDados.length
-    : 0
-  const markupMedio = comDados.length
-    ? comDados.reduce((s, p) => s + p.markup, 0) / comDados.length
-    : 0
-  const precoMedio = comDados.length
-    ? comDados.reduce((s, p) => s + p.preco, 0) / comDados.length
-    : 0
+  if (upserts.length === 0) return { data: { salvos: 0, erros } }
 
-  const sorted = [...produtos].sort((a, b) => b.margem - a.margem)
-  const maisLucrativo = sorted[0]
-    ? { nome: sorted[0].nome, margem: sorted[0].margem }
-    : null
-  const menosLucrativo = sorted[sorted.length - 1]
-    ? { nome: sorted[sorted.length - 1].nome, margem: sorted[sorted.length - 1].margem }
-    : null
+  const { error } = await supabase
+    .from('produto_preco')
+    .upsert(upserts, { onConflict: 'produto_id,unidade_id' })
 
-  return {
-    produtos,
-    resumo: {
-      margemMedia,
-      markupMedio,
-      maisLucrativo,
-      menosLucrativo,
-      precoMedio,
-      totalProdutos: produtos.length,
-    },
-  }
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/painel')
+  revalidatePath('/dashboard/precos')
+  revalidatePath('/dashboard/produtos')
+  return { data: { salvos: upserts.length, erros } }
 }
+
+// ── getProdutos ───────────────────────────────────────────────────────────────
+
+export async function getProdutos(opts?: {
+  unidadeId?: string
+  semPreco?: boolean
+  tipo?: 'produzido' | 'revenda'
+}): Promise<ActionResult<ProdutoFinanceiro[]>> {
+  return getPainelFinanceiro(opts?.unidadeId, opts?.tipo).then((r) => ({
+    error: r.error,
+    data: opts?.semPreco
+      ? (r.data?.fichas ?? []).filter((f) => f.preco_venda === 0)
+      : r.data?.fichas,
+  }))
+}
+
+// ── createProdutoRevenda ──────────────────────────────────────────────────────
+
+export async function createProdutoRevenda(
+  nome: string,
+  categoria: string | null,
+  custoCompra: number,
+  unidadeId: string,
+): Promise<ActionResult<{ id: string }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const empresaId = await getEmpresaId(supabase, user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
+
+  const { data, error } = await supabase
+    .from('produto')
+    .insert({
+      nome,
+      tipo: 'revenda',
+      categoria,
+      custo_compra: custoCompra,
+      empresa_id: empresaId,
+      unidade_id: unidadeId,
+      ativo: true,
+    })
+    .select('id')
+    .single()
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/produtos')
+  revalidatePath('/dashboard/painel')
+  return { data: { id: data.id } }
+}
+
+// ── linkProdutoReceita ────────────────────────────────────────────────────────
+
+export async function linkProdutoReceita(
+  produtoId: string,
+  receitaId: string,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { error } = await supabase
+    .from('produto')
+    .update({ receita_id: receitaId, tipo: 'produzido' })
+    .eq('id', produtoId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/produtos')
+  revalidatePath('/dashboard/painel')
+  return { success: true }
+}
+
+// ── aplicarPrecoAction (compat legado) ────────────────────────────────────────
 
 export async function aplicarPrecoAction(
   produtoId: string,
   novoPreco: number,
 ): Promise<ActionResult> {
+  return savePrecoVenda(produtoId, novoPreco)
+}
+
+// ── getDespesasFixas ──────────────────────────────────────────────────────────
+
+export async function getDespesasFixas(): Promise<ActionResult<DespesaFixa[]>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (novoPreco <= 0) return { error: 'Preço deve ser maior que zero' }
 
-  // Upsert: atualiza se existe, insere se não existe
-  const { error } = await supabase
-    .from('produto_preco')
-    .upsert(
-      { produto_id: produtoId, preco_praticado: novoPreco },
-      { onConflict: 'produto_id' }
-    )
+  const empresaId = await getEmpresaId(supabase, user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
 
-  if (error) return { error: 'Erro ao salvar preço: ' + error.message }
+  const { data, error } = await supabase
+    .from('despesa_fixa_empresa')
+    .select('id, empresa_id, descricao, valor, created_at, updated_at')
+    .eq('empresa_id', empresaId)
+    .order('descricao')
+
+  if (error) return { error: error.message }
+  return { data: (data ?? []) as DespesaFixa[] }
+}
+
+// ── saveDespesaFixa ───────────────────────────────────────────────────────────
+
+export async function saveDespesaFixa(
+  descricao: string,
+  valor: number,
+  id?: string,
+): Promise<ActionResult<{ id: string }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!descricao.trim()) return { error: 'Descrição obrigatória' }
+  if (valor <= 0) return { error: 'Valor deve ser maior que zero' }
+
+  const empresaId = await getEmpresaId(supabase, user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
+
+  if (id) {
+    // Update — verifica ownership via RLS
+    const { error } = await supabase
+      .from('despesa_fixa_empresa')
+      .update({ descricao: descricao.trim(), valor })
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+    if (error) return { error: error.message }
+    revalidatePath('/dashboard/painel')
+    return { data: { id } }
+  }
+
+  const { data, error } = await supabase
+    .from('despesa_fixa_empresa')
+    .insert({ empresa_id: empresaId, descricao: descricao.trim(), valor })
+    .select('id')
+    .single()
+
+  if (error) return { error: error.message }
 
   revalidatePath('/dashboard/painel')
-  revalidatePath('/dashboard/precos')
+  return { data: { id: data.id } }
+}
+
+// ── deleteDespesaFixa ─────────────────────────────────────────────────────────
+
+export async function deleteDespesaFixa(id: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const empresaId = await getEmpresaId(supabase, user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
+
+  const { error } = await supabase
+    .from('despesa_fixa_empresa')
+    .delete()
+    .eq('id', id)
+    .eq('empresa_id', empresaId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/painel')
   return { success: true }
 }

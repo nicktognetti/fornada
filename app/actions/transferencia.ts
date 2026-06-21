@@ -31,9 +31,7 @@ export async function createTransferenciaAction(data: {
     return { error: 'Informe o motivo da devolução' }
   }
 
-  // Gerar código via função do banco (schema fornada)
   const { data: codigoData, error: codigoErr } = await supabase
-    .schema('fornada')
     .rpc('fn_gerar_codigo_transferencia', { p_tipo: data.tipo })
 
   if (codigoErr || !codigoData) {
@@ -48,7 +46,6 @@ export async function createTransferenciaAction(data: {
 
   // Inserir transferência já com status EM_TRANSITO
   const { data: transferencia, error: tErr } = await supabase
-    .schema('fornada')
     .from('transferencia')
     .insert({
       empresa_id: data.empresa_id,
@@ -79,7 +76,6 @@ export async function createTransferenciaAction(data: {
   }))
 
   const { error: iErr } = await supabase
-    .schema('fornada')
     .from('transferencia_item')
     .insert(itens)
 
@@ -135,41 +131,119 @@ export async function confirmarRecebimentoAction(data: {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  // Atualizar cada item
-  for (const item of data.itens) {
-    const { error } = await supabase
-      .schema('fornada')
-      .from('transferencia_item')
-      .update({
-        quantidade_recebida: item.quantidade_recebida,
-        status_item: item.status_item,
-        motivo_divergencia: item.motivo_divergencia?.trim() || null,
-      })
-      .eq('id', item.id)
+  // Valida ownership + permissão ANTES de chamar a RPC (SECURITY DEFINER ignora RLS).
+  const { data: vinculos } = await supabase
+    .from('usuario_empresa')
+    .select('empresa_id')
+    .eq('user_id', user.id)
+  const empresaIds = (vinculos ?? []).map((v: { empresa_id: string }) => v.empresa_id)
+  if (empresaIds.length === 0) return { error: 'Empresa não encontrada' }
 
-    if (error) return { error: 'Erro ao atualizar item: ' + error.message }
+  const { data: transf } = await supabase
+    .from('transferencia')
+    .select('empresa_id, unidade_destino_id')
+    .eq('id', data.transferencia_id)
+    .single()
+  if (!transf) return { error: 'Transferência não encontrada' }
+  if (!empresaIds.includes(transf.empresa_id)) {
+    return { error: 'Sem permissão para confirmar esta transferência' }
   }
 
-  // Status final: RECEBIDO_COM_DIVERGENCIA se algum item divergiu
-  const temDivergencia = data.itens.some(
-    (i) => i.status_item === 'DIFERENCA' || i.status_item === 'AUSENTE'
+  // RBAC: admin global, ou permissão de escrita em 'receber'/'transferencias'
+  // para a unidade de destino (ou para todas as unidades, unidade_id = null).
+  const { data: perms } = await supabase
+    .from('permissao')
+    .select('tela, acesso, unidade_id')
+    .eq('usuario_id', user.id)
+  const lista = (perms ?? []) as { tela: string; acesso: string; unidade_id: string | null }[]
+  const isAdminGlobal = lista.some(
+    (p) => p.tela === '*' && p.acesso === 'admin' && p.unidade_id === null
   )
-  const statusFinal = temDivergencia ? 'RECEBIDO_COM_DIVERGENCIA' : 'RECEBIDO'
+  if (!isAdminGlobal) {
+    const podeReceber = lista.some(
+      (p) =>
+        (p.tela === 'receber' || p.tela === 'transferencias') &&
+        (p.acesso === 'escrita' || p.acesso === 'admin') &&
+        (p.unidade_id === null || p.unidade_id === transf.unidade_destino_id)
+    )
+    if (!podeReceber) {
+      return { error: 'Você não tem permissão para confirmar recebimento nesta unidade' }
+    }
+  }
 
-  const { error: tErr } = await supabase
-    .schema('fornada')
-    .from('transferencia')
-    .update({
-      status: statusFinal,
-      confirmed_at: new Date().toISOString(),
-      responsavel_destino_id: data.responsavel_destino_id,
-      status_financeiro: 'a_receber',
-    })
-    .eq('id', data.transferencia_id)
+  // Executa toda a confirmação em uma única transação no banco:
+  // atualiza transferencia_item, insumo_saldo, insumo_saldo_historico e transferencia.
+  const { data: result, error } = await supabase.rpc('confirmar_recebimento', {
+    p_transferencia_id: data.transferencia_id,
+    p_usuario_id:       user.id,
+    p_itens:            data.itens,
+  })
 
-  if (tErr) return { error: 'Erro ao confirmar recebimento: ' + tErr.message }
+  if (error) return { error: 'Erro ao confirmar recebimento: ' + error.message }
+
+  const rpcResult = result as { error?: string; success?: boolean } | null
+  if (rpcResult?.error) return { error: rpcResult.error }
 
   revalidatePath('/dashboard/transferencias')
   revalidatePath(`/dashboard/transferencias/${data.transferencia_id}`)
+  return { success: true }
+}
+
+export async function cancelarTransferenciaAction(transferenciaId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  // Busca transferência e valida empresa + status
+  const { data: ue } = await supabase
+    .from('usuario_empresa').select('empresa_id').eq('user_id', user.id).single()
+  if (!ue) return { error: 'Empresa não encontrada' }
+
+  const { data: t } = await supabase
+    .from('transferencia').select('status, empresa_id').eq('id', transferenciaId).single()
+
+  if (!t) return { error: 'Transferência não encontrada' }
+  if (t.empresa_id !== ue.empresa_id) return { error: 'Sem permissão' }
+  if (!['PENDENTE', 'EM_TRANSITO'].includes(t.status)) {
+    return { error: 'Só é possível cancelar transferências pendentes ou em trânsito' }
+  }
+
+  const { error } = await supabase
+    .from('transferencia')
+    .update({ status: 'CANCELADA' })
+    .eq('id', transferenciaId)
+
+  if (error) return { error: 'Erro ao cancelar: ' + error.message }
+
+  revalidatePath('/dashboard/transferencias')
+  revalidatePath(`/dashboard/transferencias/${transferenciaId}`)
+  return { success: true }
+}
+
+export async function excluirTransferenciaAction(transferenciaId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: ue } = await supabase
+    .from('usuario_empresa').select('empresa_id').eq('user_id', user.id).single()
+  if (!ue) return { error: 'Empresa não encontrada' }
+
+  const { data: t } = await supabase
+    .from('transferencia').select('status, empresa_id').eq('id', transferenciaId).single()
+
+  if (!t) return { error: 'Transferência não encontrada' }
+  if (t.empresa_id !== ue.empresa_id) return { error: 'Sem permissão' }
+  if (!['PENDENTE', 'CANCELADA'].includes(t.status)) {
+    return { error: 'Só é possível excluir transferências pendentes ou canceladas' }
+  }
+
+  // Itens primeiro (FK)
+  await supabase.from('transferencia_item').delete().eq('transferencia_id', transferenciaId)
+
+  const { error } = await supabase.from('transferencia').delete().eq('id', transferenciaId)
+  if (error) return { error: 'Erro ao excluir: ' + error.message }
+
+  revalidatePath('/dashboard/transferencias')
   return { success: true }
 }

@@ -1,39 +1,22 @@
-import { Tag, ShoppingBag, BookOpen, AlertTriangle } from 'lucide-react'
+import { Tag, BookOpen, AlertTriangle } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { SectionLabel } from '@/app/components/ui/section-label'
-import { createClient } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/format'
+import { getPainelFinanceiro } from '@/app/actions/painel'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import Link from 'next/link'
 
-export default async function PrecosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ unidade?: string }>
-}) {
-  const { unidade: unidadeId } = await searchParams
-  const supabase = await createClient()
+export default async function PrecosPage() {
+  const unidadeId = await getUnidadePreferida()
+  const result = await getPainelFinanceiro(unidadeId ?? undefined)
 
-  let produtosQuery = supabase.from('produto').select('id, nome, tipo, ativo, receita_id').eq('ativo', true).order('nome')
-  if (unidadeId) produtosQuery = produtosQuery.eq('unidade_id', unidadeId)
+  const todos = result.data?.fichas ?? []
+  const comCusto    = todos.filter((p) => p.custo_total > 0)
+  const semCusto    = todos.filter((p) => p.custo_total <= 0)
+  const comPreco    = comCusto.filter((p) => p.preco_venda > 0)
+  const semPreco    = comCusto.filter((p) => p.preco_venda <= 0)
 
-  const [produtosRes, custosRes, precosRes] = await Promise.all([
-    produtosQuery,
-    supabase.from('vw_custo_receita').select('id, custo_unitario, rendimento_unidade'),
-    supabase.from('produto_preco').select('produto_id, preco_praticado').order('produto_id'),
-  ])
-
-  type ProdRow2  = { id: string; nome: string; tipo: string; ativo: boolean; receita_id: string | null }
-  type CustoRow2 = { id: string; custo_unitario: number | null; rendimento_unidade: string }
-  type PrecoRow2 = { produto_id: string; preco_praticado: number | null }
-
-  const produtos: ProdRow2[] = (produtosRes.data as ProdRow2[]) ?? []
-  const custoMap = new Map<string, CustoRow2>((custosRes.data as CustoRow2[] ?? []).map((c) => [c.id, c]))
-  const precoMap = new Map<string, number | null>((precosRes.data as PrecoRow2[] ?? []).map((p) => [p.produto_id, p.preco_praticado]))
-
-  const comReceita = produtos.filter((p) => p.receita_id && custoMap.has(p.receita_id))
-  const semReceita = produtos.filter((p) => !p.receita_id || !custoMap.has(p.receita_id))
-
-  if (produtos.length === 0) {
+  if (todos.length === 0) {
     return (
       <div className="max-w-3xl">
         <PageTitle icon={Tag} subtitle="Precificação de produtos">
@@ -41,15 +24,17 @@ export default async function PrecosPage({
         </PageTitle>
         <div className="card-surface p-8 flex flex-col items-center text-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-accent-primary/10 flex items-center justify-center">
-            <ShoppingBag size={28} className="text-accent-primary" />
+            <Tag size={28} className="text-accent-primary" />
           </div>
           <div>
-            <p className="text-primary font-playfair text-xl font-semibold mb-2">Nenhum produto cadastrado</p>
+            <p className="text-primary font-playfair text-xl font-semibold mb-2">Nenhum produto com custo calculado</p>
             <p className="text-secondary text-sm max-w-xs">
-              Produtos vinculados a fichas técnicas aparecerão aqui com custo de produção
-              e comparativo de preço praticado.
+              Cadastre fichas técnicas com insumos para ver o custo de produção e definir preços de venda.
             </p>
           </div>
+          <Link href="/dashboard/receitas" className="btn-primary text-sm px-5 py-2">
+            Ver Fichas Técnicas →
+          </Link>
         </div>
       </div>
     )
@@ -61,53 +46,37 @@ export default async function PrecosPage({
         Preços
       </PageTitle>
 
-      {comReceita.length > 0 && (
+      {comPreco.length > 0 && (
         <div className="space-y-3 mb-8">
-          <SectionLabel icon={BookOpen}>Com ficha técnica</SectionLabel>
+          <SectionLabel icon={BookOpen}>Com preço definido</SectionLabel>
           <div className="space-y-2">
-            {comReceita.map((produto) => {
-              const custo = custoMap.get(produto.receita_id ?? '')
-              const custoUnitario: number | null = custo?.custo_unitario ?? null
-              const precoPraticado: number | null = precoMap.get(produto.id) ?? null
-              const margem = custoUnitario && precoPraticado
-                ? ((precoPraticado - custoUnitario) / precoPraticado) * 100
-                : null
-              const prejuizo = margem != null && margem < 0
-
+            {comPreco.map((p) => {
+              const prejuizo = p.margem_percentual < 0
               return (
-                <div key={produto.id} className="card-surface px-5 py-4 flex items-center gap-4">
+                <div key={p.produto_id} className="card-surface px-5 py-4 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="font-playfair text-primary text-[17px] font-semibold leading-tight truncate">
-                      {produto.nome}
+                      {p.produto_nome}
                     </p>
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       <span className="text-secondary text-xs">
-                        custo: {custoUnitario != null
-                          ? `R$ ${formatBRL(custoUnitario)}/${custo?.rendimento_unidade ?? 'un'}`
-                          : '—'}
+                        custo: R$ {formatBRL(p.custo_total)}
                       </span>
-                      {precoPraticado != null && (
-                        <span className="text-secondary text-xs">
-                          preço: <span className="text-primary">R$ {formatBRL(precoPraticado)}</span>
-                        </span>
+                      <span className="text-secondary text-xs">
+                        preço: <span className="text-primary">R$ {formatBRL(p.preco_venda)}</span>
+                      </span>
+                      {p.unidade_nome && (
+                        <span className="text-faint text-xs">{p.unidade_nome}</span>
                       )}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    {margem != null ? (
-                      <>
-                        <p className={`font-playfair text-[22px] font-bold leading-none ${prejuizo ? 'text-red-400' : 'text-emerald-400'}`}>
-                          {margem.toFixed(1)}%
-                        </p>
-                        <p className={`text-[11px] mt-0.5 ${prejuizo ? 'text-red-400/70' : 'text-emerald-400/70'}`}>
-                          {prejuizo ? 'PREJUÍZO' : 'margem'}
-                        </p>
-                      </>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                        sem preço
-                      </span>
-                    )}
+                    <p className={`font-playfair text-[22px] font-bold leading-none ${prejuizo ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {p.margem_percentual.toFixed(1)}%
+                    </p>
+                    <p className={`text-[11px] mt-0.5 ${prejuizo ? 'text-red-400/70' : 'text-emerald-400/70'}`}>
+                      {prejuizo ? 'PREJUÍZO' : 'margem'}
+                    </p>
                   </div>
                 </div>
               )
@@ -116,23 +85,51 @@ export default async function PrecosPage({
         </div>
       )}
 
-      {semReceita.length > 0 && (
-        <div className="space-y-3">
-          <SectionLabel icon={AlertTriangle}>Sem ficha técnica</SectionLabel>
+      {semPreco.length > 0 && (
+        <div className="space-y-3 mb-8">
+          <SectionLabel icon={AlertTriangle}>Sem preço definido</SectionLabel>
           <div className="space-y-2">
-            {semReceita.map((produto) => (
-              <div key={produto.id} className="card-surface px-5 py-4 flex items-center gap-4">
+            {semPreco.map((p) => (
+              <div key={p.produto_id} className="card-surface px-5 py-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="font-playfair text-primary text-[17px] font-semibold leading-tight truncate">
-                    {produto.nome}
+                    {p.produto_nome}
                   </p>
-                  <p className="text-secondary/60 text-xs mt-1">custo de produção não calculado</p>
+                  <p className="text-secondary text-xs mt-1">
+                    custo: R$ {formatBRL(p.custo_total)} — sem preço de venda
+                  </p>
                 </div>
                 <Link
-                  href="/dashboard/receitas"
+                  href="/dashboard/painel"
                   className="shrink-0 text-[11px] text-accent-primary hover:text-accent-primary/80 transition-colors"
                 >
-                  vincular ficha →
+                  definir preço →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {semCusto.length > 0 && (
+        <div className="space-y-3">
+          <SectionLabel icon={AlertTriangle}>Sem custo calculado</SectionLabel>
+          <div className="space-y-2">
+            {semCusto.map((p) => (
+              <div key={p.produto_id} className="card-surface px-5 py-4 flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="font-playfair text-primary text-[17px] font-semibold leading-tight truncate">
+                    {p.produto_nome}
+                  </p>
+                  <p className="text-secondary/60 text-xs mt-1">
+                    {p.produto_tipo === 'revenda' ? 'custo de compra não informado' : 'ficha técnica sem insumos'}
+                  </p>
+                </div>
+                <Link
+                  href={p.produto_tipo === 'revenda' ? '/dashboard/produtos' : '/dashboard/receitas'}
+                  className="shrink-0 text-[11px] text-accent-primary hover:text-accent-primary/80 transition-colors"
+                >
+                  {p.produto_tipo === 'revenda' ? 'informar custo →' : 'ver ficha →'}
                 </Link>
               </div>
             ))}
@@ -141,7 +138,7 @@ export default async function PrecosPage({
       )}
 
       <p className="text-secondary/40 text-xs mt-6 text-right">
-        {produtos.length} produto{produtos.length !== 1 ? 's' : ''} cadastrado{produtos.length !== 1 ? 's' : ''}
+        {todos.length} produto{todos.length !== 1 ? 's' : ''}
       </p>
     </div>
   )

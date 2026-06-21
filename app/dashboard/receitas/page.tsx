@@ -2,15 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { BookOpen } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { ReceitaList } from './components/receita-list'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import type { ReceitaComCusto, ReceitaTipo } from './types'
 
-export default async function ReceitasPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ unidade?: string }>
-}) {
-  const { unidade: unidadeId } = await searchParams
-  const supabase = await createClient()
+export default async function ReceitasPage() {
+  const [unidadeId, supabase] = await Promise.all([getUnidadePreferida(), createClient()])
 
   let query = supabase.from('vw_custo_receita').select('*').order('nome')
   if (unidadeId) query = query.eq('unidade_id', unidadeId)

@@ -11,13 +11,12 @@ export default async function ReceberPage() {
   const { data: ue } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
-    .eq('usuario_id', user?.id ?? '')
+    .eq('user_id', user?.id ?? '')
     .single()
   const empresaId = ue?.empresa_id
 
-  // Unidade do usuário (via fornada.usuario_unidade)
+  // Unidade padrão do usuário
   const { data: vinculo } = await supabase
-    .schema('fornada')
     .from('usuario_unidade')
     .select('unidade_id')
     .eq('user_id', user?.id ?? '')
@@ -41,7 +40,6 @@ export default async function ReceberPage() {
   let transferencias: TransferenciaReceber[] = []
   if (empresaId && minhaUnidadeId) {
     const { data: tList } = await supabase
-      .schema('fornada')
       .from('transferencia')
       .select('*')
       .eq('empresa_id', empresaId)
@@ -53,7 +51,6 @@ export default async function ReceberPage() {
       // Contar itens por transferência
       const ids = tList.map((t: { id: string }) => t.id)
       const { data: itemRows } = await supabase
-        .schema('fornada')
         .from('transferencia_item')
         .select('transferencia_id')
         .in('transferencia_id', ids)
@@ -106,6 +103,7 @@ export default async function ReceberPage() {
       transferencias={transferencias}
       compras={compras}
       unidadeId={minhaUnidadeId ?? ''}
+      userId={user?.id ?? ''}
       totalAReceber={totalAReceber}
       isCentro={isCentro}
     />

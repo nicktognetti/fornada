@@ -1,19 +1,33 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   X, Plus, Search, Package, ArrowRight, Loader2, Truck,
-  ArrowUpFromLine, ArrowDownToLine, MapPin, SearchX,
+  ArrowUpFromLine, ArrowDownToLine, MapPin, SearchX, Eye, EyeOff,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { createTransferenciaAction } from '@/app/actions/transferencia'
 import { normalizeSearch, parseDecimalBR, formatBRL } from '@/lib/format'
+
+const COOKIE_SHOW_PRICE = 'show_price_transfer'
+
+function readShowPriceCookie(): boolean {
+  if (typeof document === 'undefined') return true
+  const match = document.cookie.match(new RegExp('(?:^|; )' + COOKIE_SHOW_PRICE + '=([^;]*)'))
+  return match ? match[1] !== 'false' : true
+}
+
+function writeShowPriceCookie(val: boolean) {
+  const maxAge = 60 * 60 * 24 * 365
+  document.cookie = `${COOKIE_SHOW_PRICE}=${val}; path=/; max-age=${maxAge}; SameSite=Lax`
+}
 
 type Unidade = { id: string; nome: string }
 type Produto  = { id: string; nome: string }
 type ItemForm = { produto_id: string; nome: string; quantidade_enviada: number; preco_unitario: number }
 
-/* ── Classes de tema (tokens do @theme) ─────────────────────────────────────── */
+/* ── Classes de tema ─────────────────────────────────────────────────────────── */
 const BTN_PRIMARY =
   'inline-flex items-center gap-2 bg-accent-primary hover:bg-accent-hover text-accent-ink font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none'
 
@@ -29,52 +43,148 @@ const CARD = 'bg-surface border border-subtle rounded-lg shadow-lg shadow-black/
 
 interface Props {
   minhaUnidade: Unidade | null
-  unidadesDestino: Unidade[]
+  // true = vínculo fixo via RPC (bloqueia select de origem)
+  // false = veio do cookie (usuário pode trocar)
+  origemViaVinculo: boolean
+  todasUnidades: Unidade[]
   produtos: Produto[]
   empresaId: string
 }
 
-export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos, empresaId }: Props) {
+// ── Helpers para input de preço "estilo centavos" ────────────────────────────
+
+function centavosParaFloat(centavos: string): number {
+  return parseInt(centavos || '0', 10) / 100
+}
+
+function centavosParaDisplay(centavos: string): string {
+  return formatBRL(parseInt(centavos || '0', 10) / 100)
+}
+
+function inputToCentavos(raw: string): string {
+  const digits = raw.replace(/\D/g, '').replace(/^0+/, '') || '0'
+  return digits.slice(0, 9)
+}
+
+function floatToCentavos(val: number): string {
+  return String(Math.round(val * 100))
+}
+
+export function NovaTransferenciaForm({
+  minhaUnidade,
+  origemViaVinculo,
+  todasUnidades,
+  produtos,
+  empresaId,
+}: Props) {
   const router = useRouter()
 
-  const todasUnidades: Unidade[] = minhaUnidade
-    ? [minhaUnidade, ...unidadesDestino]
-    : [...unidadesDestino]
+  // Origem bloqueada (select desabilitado) apenas quando veio de vínculo fixo
+  const origemBloqueada = origemViaVinculo && !!minhaUnidade
 
-  const isAutoRota = !!minhaUnidade && todasUnidades.length >= 2
-  const origemDefault = minhaUnidade?.id ?? todasUnidades[0]?.id ?? ''
-
-  const [tipo,       setTipo]       = useState<'TRANSFERENCIA' | 'DEVOLUCAO'>('TRANSFERENCIA')
-  const [origemId,   setOrigemId]   = useState(origemDefault)
+  const [tipo,       setTipo]      = useState<'TRANSFERENCIA' | 'DEVOLUCAO'>('TRANSFERENCIA')
+  // Lazy initializers: calculados uma única vez no mount com os valores das props
+  const [origemId,   setOrigemId]  = useState(() => minhaUnidade?.id ?? todasUnidades[0]?.id ?? '')
+  const [destinoId,  setDestinoId] = useState(() => {
+    const origem = minhaUnidade?.id ?? todasUnidades[0]?.id ?? ''
+    return todasUnidades.find((u) => u.id !== origem)?.id ?? ''
+  })
   const [observacao, setObservacao] = useState('')
-  const [itens,      setItens]      = useState<ItemForm[]>([])
-  const [modalOpen,  setModalOpen]  = useState(false)
-  const [search,     setSearch]     = useState('')
-  const [selected,   setSelected]   = useState<Produto | null>(null)
-  const [qtdInput,   setQtdInput]   = useState('1')
-  const [precoInput, setPrecoInput] = useState('0')
-  const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
-  const [sucesso,    setSucesso]    = useState<string | null>(null)
+  const [itens,      setItens]     = useState<ItemForm[]>([])
+  const [modalOpen,  setModalOpen] = useState(false)
+  const [search,     setSearch]    = useState('')
+  const [selected,   setSelected]  = useState<Produto | null>(null)
+  const [qtdInput,   setQtdInput]  = useState('1')
+  const [precoCents, setPrecoCents] = useState('0')
+  const [precoLoading, setPrecoLoading] = useState(false)
+  const [loading,    setLoading]   = useState(false)
+  const [error,      setError]     = useState<string | null>(null)
+  const [itemError,  setItemError] = useState<string | null>(null)
+  const [sucesso,    setSucesso]   = useState<string | null>(null)
+  // Ler preferência do cookie após mount (evita hydration mismatch)
+  const [showPrice,  setShowPrice] = useState(true)
+
+  useEffect(() => {
+    // Lê a preferência só após o mount: o cookie do browser não existe no SSR,
+    // então inicializar via lazy state causaria hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShowPrice(readShowPriceCookie())
+  }, [])
+
+  function toggleShowPrice() {
+    const next = !showPrice
+    setShowPrice(next)
+    writeShowPriceCookie(next)
+  }
 
   const unidadeOrigem  = todasUnidades.find((u) => u.id === origemId) ?? todasUnidades[0]
-  const unidadeDestino = todasUnidades.find((u) => u.id !== origemId) ?? todasUnidades[1] ?? todasUnidades[0]
+  const unidadeDestino = todasUnidades.find((u) => u.id === destinoId)
+    ?? todasUnidades.find((u) => u.id !== origemId)
+    ?? todasUnidades[1]
 
   const valorTotal = itens.reduce((acc, i) => acc + i.quantidade_enviada * i.preco_unitario, 0)
 
-  // Subtotal do modal em tempo real
   const subtotalModal = useMemo(() => {
     const qtd = parseDecimalBR(qtdInput)
-    const preco = parseDecimalBR(precoInput)
-    if (!qtd || qtd <= 0 || !preco || preco < 0) return 0
+    const preco = centavosParaFloat(precoCents)
+    if (!qtd || qtd <= 0 || preco <= 0) return 0
     return qtd * preco
-  }, [qtdInput, precoInput])
+  }, [qtdInput, precoCents])
 
   function handleTipoChange(novoTipo: 'TRANSFERENCIA' | 'DEVOLUCAO') {
     if (novoTipo !== tipo && todasUnidades.length === 2 && unidadeDestino) {
-      setOrigemId(unidadeDestino.id)
+      const novaOrigem = unidadeDestino.id
+      const novoDestino = todasUnidades.find((u) => u.id !== novaOrigem)?.id ?? ''
+      setOrigemId(novaOrigem)
+      setDestinoId(novoDestino)
     }
     setTipo(novoTipo)
+  }
+
+  function handleOrigemChange(novaOrigem: string) {
+    setOrigemId(novaOrigem)
+    const outro = todasUnidades.find((u) => u.id !== novaOrigem)
+    if (outro) setDestinoId(outro.id)
+  }
+
+  // Handlers do input de preço
+  function handlePrecoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPrecoCents(inputToCentavos(e.target.value))
+    setItemError(null)
+  }
+
+  function handlePrecoFocus(e: React.FocusEvent<HTMLInputElement>) {
+    e.target.select()
+  }
+
+  // Ao selecionar produto: buscar preço praticado na unidade de origem
+  async function handleSelectProduto(produto: Produto) {
+    setSelected(produto)
+    setItemError(null)
+    if (!origemId) return
+
+    setPrecoLoading(true)
+    try {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('produto_preco')
+        .select('preco_praticado')
+        .eq('produto_id', produto.id)
+        .eq('unidade_id', origemId)
+        .order('atualizado_em', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (data?.preco_praticado && data.preco_praticado > 0) {
+        setPrecoCents(floatToCentavos(data.preco_praticado))
+      } else {
+        setPrecoCents('0')
+      }
+    } catch {
+      setPrecoCents('0')
+    } finally {
+      setPrecoLoading(false)
+    }
   }
 
   const produtosFiltrados = useMemo(() => {
@@ -86,30 +196,29 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
   function adicionarItem() {
     if (!selected) return
     const qtd = parseDecimalBR(qtdInput)
-    if (!qtd || qtd <= 0) return
-    const preco = parseDecimalBR(precoInput)
-    const precoFinal = !Number.isNaN(preco) && preco >= 0 ? preco : 0
+    if (!qtd || qtd <= 0) { setItemError('Informe uma quantidade válida.'); return }
+    const preco = centavosParaFloat(precoCents)
+    if (preco <= 0) { setItemError('Informe um valor válido para o item.'); return }
 
     const idx = itens.findIndex((i) => i.produto_id === selected.id)
     if (idx >= 0) {
       setItens((prev) => prev.map((i, n) =>
-        n === idx
-          ? { ...i, quantidade_enviada: i.quantidade_enviada + qtd, preco_unitario: precoFinal }
-          : i
+        n === idx ? { ...i, quantidade_enviada: i.quantidade_enviada + qtd, preco_unitario: preco } : i
       ))
     } else {
       setItens((prev) => [...prev, {
         produto_id: selected.id,
         nome: selected.nome,
         quantidade_enviada: qtd,
-        preco_unitario: precoFinal,
+        preco_unitario: preco,
       }])
     }
 
     setSelected(null)
     setQtdInput('1')
-    setPrecoInput('0')
+    setPrecoCents('0')
     setSearch('')
+    setItemError(null)
     setModalOpen(false)
   }
 
@@ -118,7 +227,8 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
     setSelected(null)
     setSearch('')
     setQtdInput('1')
-    setPrecoInput('0')
+    setPrecoCents('0')
+    setItemError(null)
   }
 
   function removerItem(produtoId: string) {
@@ -141,9 +251,9 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
       tipo,
       observacao:         observacao.trim() || undefined,
       itens: itens.map((i) => ({
-        produto_id: i.produto_id,
+        produto_id:         i.produto_id,
         quantidade_enviada: i.quantidade_enviada,
-        preco_unitario: i.preco_unitario,
+        preco_unitario:     i.preco_unitario,
       })),
     })
     setLoading(false)
@@ -206,12 +316,12 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
         <div className="flex items-end gap-3">
           <div className="flex-1">
             <label className={LABEL}>Origem</label>
-            {isAutoRota ? (
-              <div className={`${INPUT} opacity-60 cursor-default select-none`} title="Sua unidade">
+            {origemBloqueada ? (
+              <div className={`${INPUT} opacity-60 cursor-default select-none`} title="Sua unidade (vínculo fixo)">
                 {unidadeOrigem?.nome ?? '—'}
               </div>
             ) : (
-              <select value={origemId} onChange={(e) => setOrigemId(e.target.value)} className={INPUT}>
+              <select value={origemId} onChange={(e) => handleOrigemChange(e.target.value)} className={INPUT}>
                 {todasUnidades.map((u) => (
                   <option key={u.id} value={u.id}>{u.nome}</option>
                 ))}
@@ -227,12 +337,21 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
 
           <div className="flex-1">
             <label className={LABEL}>Destino</label>
-            <div
-              className={`${INPUT} opacity-60 cursor-default select-none`}
-              title={isAutoRota ? 'Definido automaticamente' : undefined}
-            >
-              {unidadeDestino?.nome ?? '—'}
-            </div>
+            {todasUnidades.length <= 2 ? (
+              <div className={`${INPUT} opacity-60 cursor-default select-none`}>
+                {unidadeDestino?.nome ?? '—'}
+              </div>
+            ) : (
+              <select
+                value={destinoId}
+                onChange={(e) => setDestinoId(e.target.value)}
+                className={INPUT}
+              >
+                {todasUnidades
+                  .filter((u) => u.id !== origemId)
+                  .map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+              </select>
+            )}
           </div>
         </div>
 
@@ -263,7 +382,7 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
 
       {/* Itens */}
       <div className={`${CARD} overflow-hidden`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-subtle gap-3">
           <p className="text-primary font-semibold text-base">
             Itens da transferência
             {itens.length > 0 && (
@@ -272,15 +391,26 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
               </span>
             )}
           </p>
-          {itens.length > 0 && (
+          <div className="flex items-center gap-2">
+            {/* Toggle de exibição de preço */}
             <button
-              onClick={() => setModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent-tint text-accent-primary text-sm font-medium hover:bg-accent-tint-hover transition-colors"
+              onClick={toggleShowPrice}
+              title={showPrice ? 'Ocultar preços' : 'Mostrar preços'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-subtle text-secondary hover:text-ink-soft hover:bg-input text-xs font-medium transition-colors"
             >
-              <Plus size={14} />
-              Adicionar
+              {showPrice ? <EyeOff size={13} /> : <Eye size={13} />}
+              {showPrice ? 'Ocultar preço' : 'Mostrar preço'}
             </button>
-          )}
+            {itens.length > 0 && (
+              <button
+                onClick={() => setModalOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent-tint text-accent-primary text-sm font-medium hover:bg-accent-tint-hover transition-colors"
+              >
+                <Plus size={14} />
+                Adicionar
+              </button>
+            )}
+          </div>
         </div>
 
         {itens.length === 0 ? (
@@ -288,9 +418,7 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
             <Package size={48} className="text-faint" />
             <div>
               <h4 className="text-ink-soft font-medium text-base">Nenhum produto nesta transferência</h4>
-              <p className="text-faint text-sm mt-1 max-w-xs mx-auto">
-                Adicione produtos para iniciar a movimentação
-              </p>
+              <p className="text-faint text-sm mt-1 max-w-xs mx-auto">Adicione produtos para iniciar a movimentação</p>
             </div>
             <button onClick={() => setModalOpen(true)} className={BTN_PRIMARY}>
               <Plus size={15} />
@@ -299,38 +427,41 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
           </div>
         ) : (
           <>
-            {/* Cabeçalho da tabela */}
-            <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] gap-4 px-6 py-2 border-b border-subtle bg-canvas">
+            <div className={`hidden sm:grid gap-4 px-6 py-2 border-b border-subtle bg-canvas ${showPrice ? 'grid-cols-[1fr_auto_auto_auto]' : 'grid-cols-[1fr_auto]'}`}>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Produto</span>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-right w-20">Qtd</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-right w-28">Preço unit.</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-right w-28">Subtotal</span>
+              {showPrice && <>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-right w-28">Preço unit.</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-right w-28">Subtotal</span>
+              </>}
             </div>
-
             <div className="divide-y divide-subtle">
               {itens.map((item) => {
                 const subtotal = item.quantidade_enviada * item.preco_unitario
                 return (
                   <div
                     key={item.produto_id}
-                    className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-6 py-3.5 hover:bg-input transition-colors"
+                    className={`grid items-center gap-3 px-6 py-3.5 hover:bg-input transition-colors grid-cols-[1fr_auto] ${showPrice ? 'sm:grid-cols-[1fr_auto_auto_auto_auto]' : 'sm:grid-cols-[1fr_auto_auto]'}`}
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-primary truncate">{item.nome}</p>
-                      <p className="text-xs text-secondary mt-0.5 sm:hidden">
-                        {item.quantidade_enviada.toLocaleString('pt-BR')} ×{' '}
-                        R$ {formatBRL(item.preco_unitario)} = R$ {formatBRL(subtotal)}
-                      </p>
+                      {showPrice && (
+                        <p className="text-xs text-secondary mt-0.5 sm:hidden">
+                          {item.quantidade_enviada.toLocaleString('pt-BR')} × R$ {formatBRL(item.preco_unitario)} = R$ {formatBRL(subtotal)}
+                        </p>
+                      )}
                     </div>
                     <span className="hidden sm:block text-sm text-secondary text-right w-20 tabular-nums">
                       {item.quantidade_enviada.toLocaleString('pt-BR')}
                     </span>
-                    <span className="hidden sm:block text-sm text-secondary text-right w-28 tabular-nums">
-                      R$ {formatBRL(item.preco_unitario)}
-                    </span>
-                    <span className="hidden sm:block text-sm font-medium text-primary text-right w-28 tabular-nums">
-                      R$ {formatBRL(subtotal)}
-                    </span>
+                    {showPrice && <>
+                      <span className="hidden sm:block text-sm text-secondary text-right w-28 tabular-nums">
+                        R$ {formatBRL(item.preco_unitario)}
+                      </span>
+                      <span className="hidden sm:block text-sm font-medium text-primary text-right w-28 tabular-nums">
+                        R$ {formatBRL(subtotal)}
+                      </span>
+                    </>}
                     <button
                       onClick={() => removerItem(item.produto_id)}
                       className="shrink-0 p-1.5 rounded-lg text-secondary hover:text-danger hover:bg-danger-tint transition-colors"
@@ -341,14 +472,14 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
                 )
               })}
             </div>
-
-            {/* Rodapé com valor total */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-subtle bg-canvas">
-              <span className="text-xs font-semibold uppercase tracking-wider text-secondary">Valor total</span>
-              <span className="font-playfair text-xl font-bold text-primary tabular-nums">
-                R$ {formatBRL(valorTotal)}
-              </span>
-            </div>
+            {showPrice && (
+              <div className="flex items-center justify-between px-6 py-4 border-t border-subtle bg-canvas">
+                <span className="text-xs font-semibold uppercase tracking-wider text-secondary">Valor total</span>
+                <span className="font-playfair text-xl font-bold text-primary tabular-nums">
+                  R$ {formatBRL(valorTotal)}
+                </span>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -369,7 +500,7 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
         </button>
       </div>
 
-      {/* Modal de busca */}
+      {/* Modal de busca e adição de produto */}
       {modalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
@@ -379,10 +510,7 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-subtle shrink-0">
               <p className="text-base font-semibold text-primary">Adicionar produto</p>
-              <button
-                onClick={fecharModal}
-                className="p-2 rounded-lg text-secondary hover:text-accent-primary hover:bg-accent-tint transition-colors"
-              >
+              <button onClick={fecharModal} className="p-2 rounded-lg text-secondary hover:text-accent-primary hover:bg-accent-tint transition-colors">
                 <X size={16} />
               </button>
             </div>
@@ -427,7 +555,7 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
                   {produtosFiltrados.slice(0, 80).map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => setSelected(p)}
+                      onClick={() => handleSelectProduto(p)}
                       className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors text-sm ${
                         selected?.id === p.id
                           ? 'bg-accent-tint text-accent-primary font-medium'
@@ -441,13 +569,18 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
               )}
             </div>
 
-            {/* Footer com qtd, preço, subtotal */}
+            {/* Footer: qtd + preço + subtotal */}
             <div className="shrink-0 px-6 py-4 border-t border-subtle space-y-3">
               {selected && (
                 <p className="text-xs text-secondary">
                   Selecionado: <span className="font-semibold text-primary">{selected.nome}</span>
                 </p>
               )}
+
+              {itemError && (
+                <p className="text-xs text-danger bg-danger-tint rounded-lg px-3 py-2">{itemError}</p>
+              )}
+
               <div className="flex items-end gap-3 flex-wrap">
                 <div>
                   <label className={LABEL}>Quantidade</label>
@@ -455,22 +588,38 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
                     type="text"
                     inputMode="decimal"
                     value={qtdInput}
-                    onChange={(e) => setQtdInput(e.target.value)}
+                    onChange={(e) => { setQtdInput(e.target.value); setItemError(null) }}
+                    onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => { if (e.key === 'Enter' && selected) adicionarItem() }}
-                    className={`${INPUT} w-24 text-center`}
+                    className={`${INPUT} w-24 text-center tabular-nums`}
                   />
                 </div>
+
                 <div>
-                  <label className={LABEL}>Preço unit. (R$)</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={precoInput}
-                    onChange={(e) => setPrecoInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && selected) adicionarItem() }}
-                    className={`${INPUT} w-28 text-center`}
-                  />
+                  <label className={LABEL}>
+                    Preço unit. (R$)
+                    {precoLoading && (
+                      <span className="ml-1 text-[10px] font-normal text-secondary normal-case tracking-normal">
+                        buscando...
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative w-32">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary pointer-events-none select-none">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={centavosParaDisplay(precoCents)}
+                      onChange={handlePrecoChange}
+                      onFocus={handlePrecoFocus}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && selected) adicionarItem() }}
+                      className={`${INPUT} pl-8 text-right tabular-nums`}
+                    />
+                  </div>
                 </div>
+
                 {subtotalModal > 0 && (
                   <div className="pb-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-secondary mb-0.5">Subtotal</p>
@@ -479,7 +628,8 @@ export function NovaTransferenciaForm({ minhaUnidade, unidadesDestino, produtos,
                     </p>
                   </div>
                 )}
-                <button onClick={adicionarItem} disabled={!selected} className={`${BTN_PRIMARY} ml-auto`}>
+
+                <button onClick={adicionarItem} disabled={!selected || precoLoading} className={`${BTN_PRIMARY} ml-auto`}>
                   Adicionar
                 </button>
               </div>

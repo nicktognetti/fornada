@@ -1,10 +1,12 @@
+export type { ProdutoFinanceiro, PainelIndicadores, FichaFinanceira } from '@/app/actions/painel'
+
 export type ProdutoRentabilidade = {
   id: string
   nome: string
   custo: number
   preco: number
-  margem: number   // (preco - custo) / preco * 100
-  markup: number   // (preco - custo) / custo * 100
+  margem: number
+  markup: number
   status: 'lucrativo' | 'baixo' | 'prejuizo'
 }
 
@@ -14,7 +16,7 @@ export type SimulacaoResultado = {
   novoPreco: number
   margemAtual: number
   novaMargem: number
-  variacao: number  // novaMargem - margemAtual em pontos percentuais
+  variacao: number
 }
 
 export type PainelResumo = {

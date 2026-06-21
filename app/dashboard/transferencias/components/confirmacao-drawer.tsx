@@ -94,10 +94,11 @@ export function ConfirmacaoDrawer({ transferenciaId, userId, itens, onClose, onS
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="w-full max-w-[480px] bg-surface border-l border-subtle h-full flex flex-col shadow-2xl shadow-black/40">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-[580px] max-h-[90vh] bg-surface border border-subtle rounded-xl flex flex-col shadow-2xl shadow-black/40">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-subtle">
           <div>

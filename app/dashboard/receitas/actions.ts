@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import type { ActionResult } from './types'
 
 function isPositiveNum(val: unknown) {
@@ -17,9 +18,28 @@ async function getEmpresaId(userId: string): Promise<string | null> {
   const { data } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
-    .eq('usuario_id', userId)
+    .eq('user_id', userId)
     .single()
   return data?.empresa_id ?? null
+}
+
+// Unidade a usar ao criar registros: a preferida (cookie) se válida para a
+// empresa, senão a primeira unidade ativa da empresa. Evita registros órfãos
+// de unidade que somem sob o filtro por unidade das telas.
+async function getUnidadeEscrita(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  empresaId: string
+): Promise<string | null> {
+  const pref = await getUnidadePreferida()
+  if (pref) {
+    const { data } = await supabase
+      .from('unidade').select('id').eq('id', pref).eq('empresa_id', empresaId).maybeSingle()
+    if (data) return data.id
+  }
+  const { data } = await supabase
+    .from('unidade').select('id')
+    .eq('empresa_id', empresaId).eq('ativa', true).order('nome').limit(1).maybeSingle()
+  return data?.id ?? null
 }
 
 const ReceitaSchema = z.object({
@@ -48,6 +68,8 @@ export async function createReceita(
   const empresaId = await getEmpresaId(user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
+  const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+
   const raw = {
     nome: formData.get('nome'),
     tipo: formData.get('tipo'),
@@ -66,6 +88,7 @@ export async function createReceita(
     rendimento_unidade: result.data.rendimento_unidade,
     observacao: result.data.observacao ?? null,
     empresa_id: empresaId,
+    unidade_id: unidadeId,
     ativo: true,
   })
 
