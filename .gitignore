@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# database backups / dumps (migrations em supabase/migrations NÃO são ignoradas)
+backup_*.sql
+*.dump
+*.sql.gz
+
 # vercel
 .vercel
 

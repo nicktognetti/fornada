@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fornada — ERP de custo e preço para a Flor do Trigo
 
-## Getting Started
+ERP enxuto para a padaria **Flor do Trigo** (unidades **Morada do Sol** — produção + venda — e **Centro** — PDV). O foco é o núcleo de **custo → preço**: cadastrar insumos, montar fichas técnicas (com sub-receitas), calcular custo, precificar e acompanhar margem.
 
-First, run the development server:
+> Projeto em pt-BR. Verdade dos dados: **quantidades em kg**, **custos em R$/kg**. Entrada numérica no padrão BR (vírgula decimal, ponto de milhar) via `parseDecimalBR`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Next.js 16** (App Router, Turbopack) + **React 19** + **TypeScript** (strict)
+- **Tailwind CSS v4** — paleta no bloco `@theme` de `app/globals.css` (**não existe `tailwind.config.ts`**); tema **escuro** unificado
+- **Supabase** — Postgres + Auth + RLS; service role só em server actions
+- **Zod** (validação), **Vitest** (testes), **lucide-react** (ícones)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Módulos
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Módulo | O que faz |
+|--------|-----------|
+| **Resumo** | Visão geral: contagens, alertas de atenção, curva ABC de custo, últimas fichas |
+| **Insumos** | Cadastro + histórico de preço de compra (INSERT-only) e custo por unidade de uso |
+| **Fichas Técnicas** | Receitas e sub-receitas com detecção de ciclo; custo via views SQL |
+| **Preços** | Margem/markup por produto, com destaque de prejuízo |
+| **Painel Financeiro** | KPIs, gráficos SVG, precificadora, meta, despesas fixas, ponto de equilíbrio |
+| **Simulador** | Simulação de reajuste de preço (100% em memória, nunca persiste) |
+| **Transferências** | Entre unidades: criar → em trânsito → confirmar recebimento (RPC atômica) |
+| **Receber / Compras** | Conferência de transferências + registro manual de compras/NFe |
+| **Cadastros** | Tipos, unidades de medida e categorias (persistidos por empresa) |
+| **Permissões (RBAC)** | Acesso por **módulo + unidade/empresa** e nível (leitura/escrita/admin) |
 
-## Learn More
+Multi-empresa e multi-unidade: `EmpresaSwitcher` + `UnidadeSelector` (persistem em cookie). O **RBAC** é aplicado tanto na UI quanto **no servidor** (`app/lib/authz.ts` → `temAcesso`).
 
-To learn more about Next.js, take a look at the following resources:
+## Como rodar
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pré-requisitos: Node 20+ e um projeto Supabase.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Crie `.env.local` na raiz:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=...
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+   SUPABASE_SERVICE_ROLE_KEY=...
+   ```
+   > `.env.local` é ignorado pelo git. **Nunca** exponha a service role key no client.
 
-## Deploy on Vercel
+2. Instale e rode:
+   ```bash
+   npm install
+   npm run dev      # desenvolvimento (http://localhost:3000)
+   npm run build    # build de produção
+   npm run start    # servir o build
+   npm test         # Vitest (lib/format.test.ts — 26 testes)
+   npm run lint     # ESLint
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. **Banco:** as migrations ficam em `supabase/migrations/`. Aplicar via Supabase CLI/SQL Editor. Veja correções de banco pendentes em [`CORRECOES_FORNADA.md`](CORRECOES_FORNADA.md) (§B).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Convenções
+
+- **Tema escuro** via tokens (`bg-surface`, `text-primary`, `accent-primary`…) — sem cor inline `bg-[#...]`.
+- Botão primário = accent `#d98d5f` com **texto escuro** `accent-ink` (contraste 6,57:1, WCAG AA).
+- Todo input monetário usa `type="text" inputMode="decimal"` + `parseDecimalBR` no submit.
+- Rodar `npm run build` e `npm test` após mexer em cálculo/parsing.
+
+## Documentação
+
+- [`PLAN.md`](PLAN.md) — plano-mestre e estado das fases (fonte de verdade do desenvolvimento)
+- [`AUDITORIA_FORNADA_v2.md`](AUDITORIA_FORNADA_v2.md) — auditoria técnica + produto/UX
+- [`CORRECOES_FORNADA.md`](CORRECOES_FORNADA.md) — acompanhamento das correções (feito / pendente)
+- [`AGENTS.md`](AGENTS.md) — nota para agentes de IA (esta versão do Next tem mudanças; consultar `node_modules/next/dist/docs/`)

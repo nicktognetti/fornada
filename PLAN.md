@@ -95,6 +95,16 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [x] `ConfirmacaoDrawer` convertido de slide-right para **modal centralizado** (`max-w-[580px] max-h-[90vh]`)
 - [x] Default da rota: `ordem created_at` no banco (Morada do Sol primeiro); lazy initializer `useState(() => ...)` evita hydration mismatch
 
+### Sessão 6 — Auditoria v2 + RBAC granular (21/06)
+> Relatório: `AUDITORIA_FORNADA_v2.md` · Acompanhamento detalhado: `CORRECOES_FORNADA.md`
+- [x] **Parser monetário unificado** — `parseDecimalBR` + `inputMode="decimal"` em todos os inputs de R$ (PrecoCell, Lote, Precificadora, Meta, Novo Produto); fim do `parseFloat(replace)` que quebrava com separador de milhar
+- [x] **`unidade_id` ao criar ficha/insumo** — `createReceita`/`createInsumo` herdam a unidade preferida (helper `getUnidadeEscrita`); fim dos registros órfãos que sumiam sob o filtro por unidade
+- [x] **"Faturamento Estimado" → "Valor do Portfólio"** — rótulo e campo `valor_portfolio` (deixa claro que NÃO é faturamento real)
+- [x] **Precificadora em lote** — usa `savePrecoVendaLote` (1 chamada em vez de N)
+- [x] **Token `--t-warning`** (atenção) + remoção de `console.log` de debug; `eslint` zerado (era 1 erro)
+- [x] **RBAC vira barreira real (server-side):** helper `temAcesso(userId, telas, {unidadeId, nivel})` em `app/lib/authz.ts`, aplicado nas actions de escrita — insumos, fichas (criar/editar/excluir/itens), preços/produtos/despesas, config, criar transferência (por unidade de origem) e confirmar recebimento (por unidade de destino). Admin global sempre passa.
+- [x] **RBAC: permissão por módulo + unidade na UI** — seletor de **Escopo** (unidade) ao editar e ao criar usuário; grava `permissao.unidade_id`; `getUnidadesGerenciaveis` lista as unidades da empresa. Ex.: criar usuária só com "Receber" na Centro.
+
 ### Painel Financeiro (completo)
 - [x] KPIs: total produtos, com/sem preço, margem média + ponderada, faturamento estimado
 - [x] Gráficos SVG: distribuição de margem por faixa + top produtos por faturamento
@@ -150,7 +160,7 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [ ] Curva ABC ponderada por volume real de venda (hoje usa estimativa custo × quantidade nas fichas)
 
 ### Configurações persistentes
-- [ ] **Cadastros** (`app/dashboard/cadastros/`) — edição de tipos/unidades/categorias só em memória de sessão; **não persiste** (faltam mutations em `cadastros-panel.tsx`).
+- [x] **Cadastros** — tipos/unidades/categorias persistem em `config_geral` (por empresa) via `getConfigAction`/`saveConfigAction`.
 
 ### Fluxo NFe
 - [ ] **"Receber"** deve virar entrada de **NFe de fornecedor** (que alimenta custo) ou seguir só como conferência de transferência interna? (decisão de produto pendente)
@@ -161,10 +171,20 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [ ] Skeleton/error states no núcleo (loading boundaries, Suspense com fallback visual).
 - [ ] Tabular-nums nas colunas de R$ em todas as tabelas.
 
-### Decisões de produto em aberto
-- [ ] **Resumo** deve filtrar pela unidade selecionada? (hoje agrega a empresa inteira)
-- [ ] **Quem pode confirmar recebimento** de transferência? (hoje: fallback permissivo se `usuario_unidade` vazio — restringir quando migrations rodarem)
-- [ ] **Definição de margem:** sobre o preço de venda (atual) ou markup sobre o custo?
+### Decisões de produto — respondidas (21/06)
+- [x] **Isolamento = RBAC granular** por módulo + empresa/unidade (ex.: admin total vs. "só Receber na Centro"). Implementado: seletor de escopo na UI + `temAcesso` server-side.
+- [x] **Quem confirma recebimento:** via RBAC (escrita em `receber`/`transferencias` na unidade de destino); admin global sempre.
+- [x] **Margem:** sobre o preço de venda (`(pv−ct)/pv`); markup (`(pv−ct)/ct`) é visão auxiliar.
+- [x] **"Receber"** segue como Compra simples (fornecedor + valor) por ora; pipeline NFe→custo é roadmap.
+- [ ] **Resumo/Painel** devem respeitar também a **empresa** selecionada? (hoje filtram por unidade via cookie; empresa só via RLS) — ainda em aberto
+
+### Pendências de banco — auditoria v2 (SQL pronto em `CORRECOES_FORNADA.md` §B)
+> Não aplicado (sem acesso ao banco): revisar + rodar no Supabase com backup.
+- [ ] Consolidar RLS (decisão: por empresa, já que o controle fino é via RBAC nas actions)
+- [ ] `security_invoker` idempotente em `vw_produto_financeiro` (hoje `ALTER VIEW` roda antes do `CREATE` em banco limpo)
+- [ ] `vw_insumo_custo_atual` com desempate de `vigente_desde` (evita custo duplicado)
+- [ ] Backfill de `unidade_id` NULL em insumo/receita antigos
+- [ ] Verificar a definição real de `vw_custo_receita` (CTE recursivo) com `pg_get_viewdef`
 
 ## 🔧 TypeScript
 - Strict mode ativo; `tsc --noEmit` sem erros.
