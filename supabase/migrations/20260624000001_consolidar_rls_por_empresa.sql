@@ -1,114 +1,74 @@
 -- ============================================================
--- Consolidação de RLS — isolamento POR EMPRESA (auditoria v2 §B1)
--- Data: 24/06/2026
+-- Consolidação de RLS por EMPRESA — CORRIGIDO p/ o schema REAL
+-- Data: 24/06/2026 (revisado após diagnóstico do banco de produção)
 --
--- ⚠️⚠️  REVISAR COM CUIDADO E TESTAR EM STAGING/BRANCH ANTES DE PRODUÇÃO.
---       FAÇA BACKUP. Não foi testado contra o banco real.
+-- ⚠️ TESTAR EM STAGING/BRANCH + FAZER BACKUP. Não testado contra o banco.
 --
--- CONTEXTO
---   As tabelas core acumularam políticas POR UNIDADE (gen 1 —
---   20260618140000_unidade_id_rls) e POR EMPRESA (gen 2 —
---   20260620000004_schema_central). Sendo permissivas, combinam por OR:
---   o isolamento por unidade não vale (a de empresa, mais ampla, vence).
+-- ESTADO REAL (diagnóstico via pg_policies):
+--   Cada tabela core tem:
+--     - POR EMPRESA:  p_emp  → USING empresa_id IN (SELECT app_user_empresas())
+--     - POR UNIDADE:  "Usuário vê ... da sua unidade" → unidade_id = get_user_unidade_id()
+--   produto / produto_preco têm ainda duplicatas por empresa
+--   (produto_por_empresa / produto_preco_empresa).
+--   Sendo permissivas, combinam por OR → o isolamento por unidade não vale.
 --
--- DECISÃO DE PRODUTO (21/06)
---   Isolar por EMPRESA no banco. O controle fino por unidade/módulo é
---   feito no servidor via RBAC (tabela `permissao` + app/lib/authz.ts
---   `temAcesso`), aplicado nas server actions de escrita.
+-- DECISÃO (21/06): manter SOMENTE p_emp (isolamento por empresa). O controle
+-- fino por unidade/módulo é feito no app via RBAC (tabela permissao + temAcesso
+-- nas server actions).
 --
--- ESTRATÉGIA SEGURA
---   1) Garantir que a política POR EMPRESA existe (idempotente) ANTES de
---   2) remover as políticas POR UNIDADE. Assim o acesso nunca é perdido.
---
--- NÃO TOCA em: compra/compra_item, transferencia/transferencia_item,
--- permissao, despesa_fixa_empresa, config_geral, meta_faturamento
--- (têm suas próprias políticas e estão fora deste escopo).
+-- SEGURANÇA: cada DROP só roda se p_emp EXISTIR naquela tabela — nunca remove
+-- a última política. Se alguma tabela não tiver p_emp, o DROP é pulado (e você
+-- me avisa para tratá-la à parte).
 --
 -- VERIFICAR ANTES E DEPOIS:
---   SELECT tablename, policyname, cmd FROM pg_policies
---   WHERE schemaname = 'public'
---     AND tablename IN ('insumo','insumo_preco','receita','receita_item','produto','produto_preco')
---   ORDER BY tablename, policyname;
+--   select tablename, policyname, cmd from pg_policies
+--   where schemaname='public'
+--     and tablename in ('insumo','insumo_preco','receita','receita_item','produto','produto_preco')
+--   order by 1,2;
 -- ============================================================
 
--- ── 1. Garantir políticas POR EMPRESA (idempotente) ──────────────────────────
-
+-- insumo
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='insumo' AND policyname='insumo_empresa') THEN
-    CREATE POLICY insumo_empresa ON public.insumo FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.usuario_empresa ue WHERE ue.empresa_id = insumo.empresa_id AND ue.user_id = auth.uid()))
-      WITH CHECK (EXISTS (SELECT 1 FROM public.usuario_empresa ue WHERE ue.empresa_id = insumo.empresa_id AND ue.user_id = auth.uid()));
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='insumo' AND policyname='p_emp') THEN
+    DROP POLICY IF EXISTS "Usuário vê insumos da sua unidade" ON public.insumo;
   END IF;
 END $$;
 
+-- insumo_preco
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='insumo_preco' AND policyname='insumo_preco_empresa') THEN
-    CREATE POLICY insumo_preco_empresa ON public.insumo_preco FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.insumo i JOIN public.usuario_empresa ue ON ue.empresa_id = i.empresa_id WHERE i.id = insumo_preco.insumo_id AND ue.user_id = auth.uid()))
-      WITH CHECK (EXISTS (SELECT 1 FROM public.insumo i JOIN public.usuario_empresa ue ON ue.empresa_id = i.empresa_id WHERE i.id = insumo_preco.insumo_id AND ue.user_id = auth.uid()));
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='insumo_preco' AND policyname='p_emp') THEN
+    DROP POLICY IF EXISTS "Usuário vê preços de insumos da sua unidade" ON public.insumo_preco;
   END IF;
 END $$;
 
+-- receita
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='receita' AND policyname='receita_empresa') THEN
-    CREATE POLICY receita_empresa ON public.receita FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.usuario_empresa ue WHERE ue.empresa_id = receita.empresa_id AND ue.user_id = auth.uid()))
-      WITH CHECK (EXISTS (SELECT 1 FROM public.usuario_empresa ue WHERE ue.empresa_id = receita.empresa_id AND ue.user_id = auth.uid()));
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='receita' AND policyname='p_emp') THEN
+    DROP POLICY IF EXISTS "Usuário vê receitas da sua unidade" ON public.receita;
   END IF;
 END $$;
 
+-- receita_item
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='receita_item' AND policyname='receita_item_empresa') THEN
-    CREATE POLICY receita_item_empresa ON public.receita_item FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.receita r JOIN public.usuario_empresa ue ON ue.empresa_id = r.empresa_id WHERE r.id = receita_item.receita_id AND ue.user_id = auth.uid()))
-      WITH CHECK (EXISTS (SELECT 1 FROM public.receita r JOIN public.usuario_empresa ue ON ue.empresa_id = r.empresa_id WHERE r.id = receita_item.receita_id AND ue.user_id = auth.uid()));
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='receita_item' AND policyname='p_emp') THEN
+    DROP POLICY IF EXISTS "Usuário vê itens de receita da sua unidade" ON public.receita_item;
   END IF;
 END $$;
 
--- produto: mantém produto_por_empresa como política canônica
+-- produto (mantém p_emp; remove a por-unidade e a duplicata produto_por_empresa)
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='produto' AND policyname='produto_por_empresa') THEN
-    CREATE POLICY produto_por_empresa ON public.produto FOR ALL
-      USING (empresa_id IN (SELECT empresa_id FROM public.usuario_empresa WHERE user_id = auth.uid()))
-      WITH CHECK (empresa_id IN (SELECT empresa_id FROM public.usuario_empresa WHERE user_id = auth.uid()));
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='produto' AND policyname='p_emp') THEN
+    DROP POLICY IF EXISTS "Usuário vê produtos da sua unidade" ON public.produto;
+    DROP POLICY IF EXISTS produto_por_empresa ON public.produto;
   END IF;
 END $$;
 
+-- produto_preco (mantém p_emp; remove a por-unidade e a duplicata produto_preco_empresa)
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='produto_preco' AND policyname='produto_preco_empresa') THEN
-    CREATE POLICY produto_preco_empresa ON public.produto_preco FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.produto p JOIN public.usuario_empresa ue ON ue.empresa_id = p.empresa_id WHERE p.id = produto_preco.produto_id AND ue.user_id = auth.uid()))
-      WITH CHECK (EXISTS (SELECT 1 FROM public.produto p JOIN public.usuario_empresa ue ON ue.empresa_id = p.empresa_id WHERE p.id = produto_preco.produto_id AND ue.user_id = auth.uid()));
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='produto_preco' AND policyname='p_emp') THEN
+    DROP POLICY IF EXISTS "Usuário vê preços de produtos da sua unidade" ON public.produto_preco;
+    DROP POLICY IF EXISTS produto_preco_empresa ON public.produto_preco;
   END IF;
 END $$;
 
--- ── 2. Remover políticas POR UNIDADE (gen 1) ─────────────────────────────────
-
-DROP POLICY IF EXISTS "Usuarios veem apenas registros da propria unidade" ON public.insumo;
-DROP POLICY IF EXISTS insert_insumo_unidade ON public.insumo;
-DROP POLICY IF EXISTS update_insumo_unidade ON public.insumo;
-
-DROP POLICY IF EXISTS "Usuarios veem apenas registros da propria unidade" ON public.insumo_preco;
-DROP POLICY IF EXISTS insert_insumo_preco_unidade ON public.insumo_preco;
-
-DROP POLICY IF EXISTS "Usuarios veem apenas registros da propria unidade" ON public.receita;
-DROP POLICY IF EXISTS insert_receita_unidade ON public.receita;
-DROP POLICY IF EXISTS update_receita_unidade ON public.receita;
-
-DROP POLICY IF EXISTS "Usuarios veem apenas registros da propria unidade" ON public.receita_item;
-DROP POLICY IF EXISTS insert_receita_item_unidade ON public.receita_item;
-DROP POLICY IF EXISTS update_receita_item_unidade ON public.receita_item;
-DROP POLICY IF EXISTS delete_receita_item_unidade ON public.receita_item;
-
-DROP POLICY IF EXISTS "Usuarios veem apenas registros da propria unidade" ON public.produto;
-DROP POLICY IF EXISTS insert_produto_unidade ON public.produto;
-DROP POLICY IF EXISTS update_produto_unidade ON public.produto;
-
-DROP POLICY IF EXISTS "Usuarios veem apenas registros da propria unidade" ON public.produto_preco;
-DROP POLICY IF EXISTS insert_produto_preco_unidade ON public.produto_preco;
-DROP POLICY IF EXISTS update_produto_preco_unidade ON public.produto_preco;
-
--- ── 3. Remover política POR EMPRESA duplicada em produto ──────────────────────
--- Mantém produto_por_empresa; remove as redundantes.
-DROP POLICY IF EXISTS produto_empresa_rls ON public.produto;
-DROP POLICY IF EXISTS produto_empresa ON public.produto;
+-- Resultado esperado: cada tabela acima fica APENAS com a política p_emp.

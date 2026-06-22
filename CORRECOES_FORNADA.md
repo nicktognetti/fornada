@@ -37,6 +37,13 @@
 >
 > Antes/depois do RLS, conferir: `SELECT tablename, policyname, cmd FROM pg_policies WHERE schemaname='public' ORDER BY 1,2;`
 
+> **⚠️ Diagnóstico do banco real (24/06) — repo ≠ banco.** Ao inspecionar o Postgres de produção descobrimos divergência importante:
+> - **Não existem** `vw_custo_receita` nem `vw_produto_financeiro` no banco. O código novo (Painel/Produtos/Preços) depende delas → precisa criá-las (com `vw_custo_receita` numa definição que o Postgres aceite) **antes de o código novo ir ao ar**.
+> - Existem views que **não estão no repo** (`vw_markup_linha`, `vw_faturamento_atual`, `vw_despesa_total`, `vw_perc_despesa_fixa`, …) → schema antigo/paralelo, montado manualmente.
+> - **Nomes reais das políticas RLS:** `p_emp` (por empresa, via `app_user_empresas()`) + `"Usuário vê … da sua unidade"` (por unidade, via `get_user_unidade_id()`); `produto`/`produto_preco` com duplicatas. **A isolação por empresa já funciona** (`p_emp`).
+> - As migrations `20260624000000/01` foram **reescritas para baterem com os nomes/colunas reais** (RLS com guarda "só remove se `p_emp` existir"; backfill com guarda de coluna). A recriação da `vw_insumo_custo_atual` foi adiada (faltou a def completa).
+> - **Pendente:** criar `vw_custo_receita` + `vw_produto_financeiro` reais (precisa do restante das colunas de receita/produto/produto_preco) e decidir o deploy do código novo.
+
 ### B1 ⛔ Consolidar RLS (P1) — **DEPENDE DE DECISÃO D1**
 Hoje as tabelas core têm políticas **por unidade** (gen 1) **e por empresa** (gen 2) simultâneas; como são PERMISSIVE, combinam por **OR** e o isolamento por unidade não vale. Escolher **um** caminho:
 
