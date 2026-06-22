@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
 
 type GetResult<T> = { error?: string; data?: T }
@@ -50,6 +51,7 @@ export async function saveConfigAction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['cadastros']))) return { error: 'Sem permissão para editar cadastros' }
 
   const empresaId = await getEmpresaId(supabase, user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }

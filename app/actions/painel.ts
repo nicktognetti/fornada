@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -165,6 +166,7 @@ export async function savePrecoVenda(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['painel', 'precos']))) return { error: 'Sem permissão para alterar preços' }
   if (precoVenda <= 0) return { error: 'Preço deve ser maior que zero' }
 
   const empresaId = await getEmpresaId(supabase, user.id)
@@ -206,6 +208,7 @@ export async function savePrecoVendaLote(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['painel', 'precos']))) return { error: 'Sem permissão para alterar preços' }
 
   const empresaId = await getEmpresaId(supabase, user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
@@ -280,6 +283,7 @@ export async function createProdutoRevenda(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['painel', 'precos']))) return { error: 'Sem permissão para criar produtos' }
 
   const empresaId = await getEmpresaId(supabase, user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
@@ -366,6 +370,7 @@ export async function saveDespesaFixa(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['painel']))) return { error: 'Sem permissão para editar despesas' }
   if (!descricao.trim()) return { error: 'Descrição obrigatória' }
   if (valor <= 0) return { error: 'Valor deve ser maior que zero' }
 
@@ -402,6 +407,7 @@ export async function deleteDespesaFixa(id: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['painel']))) return { error: 'Sem permissão para editar despesas' }
 
   const empresaId = await getEmpresaId(supabase, user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }

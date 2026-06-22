@@ -144,7 +144,7 @@ export async function resetPasswordAction(
 
 export type PermissaoInicialInput =
   | { tipo: 'admin_global' }
-  | { tipo: 'personalizado'; permissoes: { tela: string; acesso: NivelAcesso }[] }
+  | { tipo: 'personalizado'; permissoes: { tela: string; acesso: NivelAcesso; unidade_id?: string | null }[] }
 
 export async function createUserAction(
   email: string,
@@ -193,7 +193,7 @@ export async function createUserAction(
         usuario_id: newUserId,
         tela: p.tela,
         acesso: p.acesso,
-        unidade_id: null,
+        unidade_id: p.unidade_id ?? null,
       }))
       if (rows.length > 0) {
         await supabaseAdmin.from('permissao').insert(rows)
@@ -207,6 +207,31 @@ export async function createUserAction(
 
   revalidatePath('/dashboard/configuracoes')
   return { data: { id: newUserId, email } }
+}
+
+// ── Listar unidades gerenciáveis (das empresas do admin) ─────────────────────
+
+export async function getUnidadesGerenciaveis(): Promise<ActionResult<{ id: string; nome: string }[]>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
+
+  const { data: ue } = await supabase
+    .from('usuario_empresa')
+    .select('empresa_id')
+    .eq('user_id', user.id)
+  const empresaIds = (ue ?? []).map((r: { empresa_id: string }) => r.empresa_id)
+  if (empresaIds.length === 0) return { data: [] }
+
+  const { data: unidades } = await supabaseAdmin
+    .from('unidade')
+    .select('id, nome')
+    .in('empresa_id', empresaIds)
+    .eq('ativa', true)
+    .order('nome')
+
+  return { data: (unidades ?? []) as { id: string; nome: string }[] }
 }
 
 // ── Listar usuários com permissões ───────────────────────────────────────────

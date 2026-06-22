@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
 import { getUnidadePreferida } from '@/app/actions/unidade'
+import { temAcesso } from '@/app/lib/authz'
 import type { ActionResult, InsumoPreco } from './types'
 
 function parseNum(val: unknown): number {
@@ -76,6 +77,7 @@ export async function createInsumo(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['insumos']))) return { error: 'Sem permissão para editar insumos' }
 
   const empresaId = await getEmpresaId(user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
@@ -130,6 +132,7 @@ export async function updateInsumo(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['insumos']))) return { error: 'Sem permissão para editar insumos' }
 
   const id = formData.get('id') as string
   if (!id) return { error: 'ID não informado' }
@@ -160,6 +163,7 @@ export async function addPreco(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['insumos']))) return { error: 'Sem permissão para editar insumos' }
 
   const insumo_id = formData.get('insumo_id') as string
   if (!insumo_id) return { error: 'Insumo não informado' }

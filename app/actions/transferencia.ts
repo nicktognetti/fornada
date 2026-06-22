@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
 
 export type ActionResult = {
@@ -24,6 +25,8 @@ export async function createTransferenciaAction(data: {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['transferencias'], { unidadeId: data.unidade_origem_id })))
+    return { error: 'Sem permissão para criar transferências nesta unidade' }
 
   if (data.itens.length === 0) return { error: 'Adicione pelo menos um item' }
 

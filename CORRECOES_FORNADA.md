@@ -21,6 +21,8 @@
 | A6 | **Token semântico de atenção (P3)** | Adicionados `--color-warning`/`--t-warning` (`#d9a441`, AA sobre escuro) e substituídos os `#f59e0b` inline. | [globals.css:67-68,103](app/globals.css), [simulador-client.tsx:200](app/dashboard/simulador/components/simulador-client.tsx), [painel-meta.tsx:70](app/dashboard/painel/components/painel-meta.tsx) |
 | A7 | **Semântica "Faturamento Estimado" (P2/P3)** | ✅ Renomeado para **"Valor do Portfólio"** em todo o painel; campo interno `faturamento_estimado` → `valor_portfolio`; ponto de equilíbrio compara explicitamente com o portfólio (prop `valorPortfolio`). (Decisão D3) | [painel-kpis.tsx](app/dashboard/painel/components/painel-kpis.tsx), [painel.ts](app/actions/painel.ts), [painel-equilibrio.tsx](app/dashboard/painel/components/painel-equilibrio.tsx), [painel-alertas.tsx](app/dashboard/painel/components/painel-alertas.tsx) |
 | A8 | **Autorização de recebimento via RBAC (P1 · D2)** | A confirmação exige **admin global** OU permissão de **escrita** em `receber`/`transferencias` para a **unidade de destino** (ou todas). Não quebra hoje (todos são admin global pelo seeder); passa a valer p/ perfis restritos. | [transferencia.ts:134-170](app/actions/transferencia.ts) |
+| A9 | **RBAC: UI de permissões por unidade (P1 · D1)** | Seletor de **Escopo** (unidade) no editar e no criar usuário; grava `unidade_id`; lista unidades via `getUnidadesGerenciaveis`. Destrava criar a Priscila restrita. | [permissoes-tab.tsx](app/dashboard/configuracoes/components/permissoes-tab.tsx), [permissoes.ts](app/actions/permissoes.ts) |
+| A10 | **RBAC: enforcement server-side (P1 · D1)** | Helper `temAcesso` + checagem em insumos, fichas, preços, produtos, despesas, config, criar transferência e recebimento. | [authz.ts](app/lib/authz.ts) + actions |
 
 **Observações de A3:** `updateReceita`/`updateInsumo` **não** alteram a unidade (para não mover registros sem querer). Registros **antigos** com `unidade_id = NULL` continuam órfãos até o backfill do banco (ver B4). `insumo_preco.unidade_id` segue nulo (a view de custo não usa).
 
@@ -140,10 +142,12 @@ Meta: `supabase db reset` num banco limpo passar do zero. Consolidar políticas 
 ### RBAC granular (D1) — o que já existe e o que falta
 **Já existe (✅):** a tabela `permissao(usuario_id, tela, acesso, unidade_id)` suporta exatamente o modelo desejado — `tela='*'`=admin global; `unidade_id=NULL`=todas as unidades; ou uma linha por (módulo, unidade). Um seeder garante que todo usuário existente seja admin global (ninguém é bloqueado por acidente). [rbac_permissoes.sql](supabase/migrations/20260619000000_rbac_permissoes.sql)
 
-**Falta (⬜):**
-1. **UI: escolher a unidade por permissão.** Hoje a grade ([permissoes-tab.tsx:111,150](app/dashboard/configuracoes/components/permissoes-tab.tsx)) só edita permissões globais (`unidade_id=null`), e `createUserAction` grava `unidade_id:null` ([permissoes.ts:196](app/actions/permissoes.ts)). Para criar "Priscila → Receber → Centro" pela tela, a grade precisa de uma dimensão de **unidade** (ex.: seletor de unidade por linha, ou uma grade por unidade).
-2. **Autorização server-side nas demais ações.** Só o recebimento (A8) já checa permissão no servidor. As outras actions (criar/editar insumo, ficha, preço, transferência, despesa, config) ainda **não** verificam RBAC server-side — o controle é só visual (esconde botões). Criar um helper `assertPermissao(tela, unidadeId, nível)` e aplicá-lo em cada action sensível.
-3. **(Opcional) RLS por permissão no banco.** Como o controle fino passará a ser via RBAC nas actions, o RLS das tabelas de dados pode ficar **por empresa** (mais simples/seguro) — ver B1, Opção 2.
+**Feito (✅) em 21/06:**
+1. **UI: escolher unidade por permissão.** A tela de permissões (editar **e** criar usuário) ganhou um seletor de **Escopo** (Todas as unidades / cada unidade). Ao escolher uma unidade, a grade grava a permissão com aquele `unidade_id`; "Admin global" some quando o escopo é uma unidade específica. Unidades vêm de `getUnidadesGerenciaveis`. → **Criar a Priscila:** Novo Usuário → Personalizado → Escopo **Centro** → marcar **Receber = Escrita** → Criar. [permissoes-tab.tsx](app/dashboard/configuracoes/components/permissoes-tab.tsx), [permissoes.ts](app/actions/permissoes.ts), [configuracoes/page.tsx](app/dashboard/configuracoes/page.tsx)
+2. **Autorização server-side (RBAC vira barreira real).** Helper `temAcesso(userId, telas, { unidadeId, nivel })` em [authz.ts](app/lib/authz.ts), aplicado nas actions de escrita: **insumos**, **fichas** (criar/editar/excluir/itens), **preços/produtos/despesas** (painel), **config** (cadastros), **criar transferência** (por unidade de origem) e **confirmar recebimento** (por unidade de destino). Admin global sempre passa; usuário sem permissão é bloqueado.
+
+**Ainda falta (⬜):**
+3. **Leitura por unidade / RLS no banco (opcional).** O controle fino de **escrita** está garantido nas actions. As **listagens** (telas de leitura) ainda filtram pelo `UnidadeSelector` (cookie), não pelo RBAC — um usuário restrito ainda poderia *ver* (não editar) dados de outra unidade trocando o seletor. Se quiser bloquear a leitura também, reforçar via RLS por empresa (B1, Opção 2) + filtro por `unidadesPermitidas`.
 
 ---
 
@@ -159,8 +163,11 @@ Meta: `supabase db reset` num banco limpo passar do zero. Consolidar políticas 
 ---
 
 ## F) Próximos passos sugeridos (ordem)
-1. **UI de permissões por unidade** (D1, item 1) — para você criar a Priscila restrita pela tela.
-2. **Helper `assertPermissao` nas server actions** (D1, item 2) — transformar o RBAC em barreira real além do recebimento.
-3. **Migrations de banco** B2–B6 (seguras) — revisar + aplicar/testar; RLS (B1) provavelmente **Opção 2 (por empresa)**, já que o controle fino será via RBAC nas actions.
-4. C2 (lote na precificadora), C4/C6 (polimento).
-5. Planejar E (roadmap NFe→custo) — D4.
+1. ✅ ~~UI de permissões por unidade~~ — feito (A9).
+2. ✅ ~~Enforcement server-side~~ — feito (A10, via `temAcesso`).
+3. ✅ ~~Lote na precificadora~~ — feito (C2).
+4. **Migrations de banco** B2–B6 (seguras) — revisar + aplicar/testar no Supabase; RLS (B1) **Opção 2 (por empresa)**, já que o controle fino é via RBAC nas actions.
+5. C1 (Resumo por empresa), C4/C6 (polimento).
+6. Planejar E (roadmap NFe→custo) — D4.
+
+> **Teste recomendado do RBAC:** criar a Priscila (Personalizado → Escopo Centro → Receber=Escrita), entrar com o login dela e confirmar que só vê/usa o Recebimento da Centro; tentar receber uma transferência da Morada do Sol deve ser bloqueado ("Sem permissão...").

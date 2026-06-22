@@ -18,6 +18,7 @@ import type { NivelAcesso } from '@/app/lib/permissions'
 
 interface Props {
   usuarios: UsuarioComPermissoes[]
+  unidades: { id: string; nome: string }[]
   currentUserId: string
 }
 
@@ -31,9 +32,11 @@ const ACESSO_OPTS: { value: NivelAcesso; label: string }[] = [
 function PermissaoGrade({
   permissoes,
   onChange,
+  hideGlobal = false,
 }: {
   permissoes: Record<string, NivelAcesso | 'none'>
   onChange: (tela: string, valor: NivelAcesso | 'none') => void
+  hideGlobal?: boolean
 }) {
   return (
     <div className="rounded-xl overflow-hidden border border-subtle">
@@ -45,7 +48,7 @@ function PermissaoGrade({
         ))}
       </div>
       <div className="divide-y divide-subtle">
-        {(['*', ...TELAS] as const).map((tela) => {
+        {(['*', ...TELAS] as const).filter((tela) => !hideGlobal || tela !== '*').map((tela) => {
           const label = tela === '*' ? '★ Admin global (todas as telas)' : TELA_LABEL[tela]
           const efetivo = permissoes[tela] ?? 'none'
           return (
@@ -72,7 +75,7 @@ function PermissaoGrade({
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
-export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Props) {
+export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUserId }: Props) {
   const [usuarios, setUsuarios] = useState(usuariosIniciais)
 
   // Vista: 'lista' | 'editar' | 'novo' | 'reset' | 'desabilitar'
@@ -82,6 +85,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
 
   // Edição de permissões
   const [pendente, setPendente] = useState<Record<string, NivelAcesso | 'none'>>({})
+  const [escopoEditar, setEscopoEditar] = useState<string | null>(null) // null = todas as unidades
   const [isPending, startTransition] = useTransition()
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
 
@@ -91,6 +95,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
   const [novaSenha, setNovaSenha] = useState('')
   const [novoTipoAcesso, setNovoTipoAcesso] = useState<'admin_global' | 'personalizado'>('admin_global')
   const [novoPerms, setNovoPerms] = useState<Record<string, NivelAcesso | 'none'>>({})
+  const [novoEscopo, setNovoEscopo] = useState<string | null>(null)
   const [criando, setCriando] = useState(false)
   const [erroModal, setErroModal] = useState('')
 
@@ -111,9 +116,22 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
       if (p.unidade_id === null) mapa[p.tela] = p.acesso
     }
     setTargetUser(u)
+    setEscopoEditar(null)
     setPendente(mapa)
     setFeedback(null)
     setVista('editar')
+  }
+
+  // Troca o escopo (unidade) que está sendo editado e recarrega a grade
+  function trocarEscopoEditar(novo: string | null) {
+    if (!targetUser) return
+    setEscopoEditar(novo)
+    const mapa: Record<string, NivelAcesso | 'none'> = {}
+    for (const p of targetUser.permissoes) {
+      if (p.unidade_id === novo) mapa[p.tela] = p.acesso
+    }
+    setPendente(mapa)
+    setFeedback(null)
   }
 
   function voltar() {
@@ -132,6 +150,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
     setNovaSenha('')
     setNovoTipoAcesso('admin_global')
     setNovoPerms({})
+    setNovoEscopo(null)
     setErroModal('')
     setVista('novo')
   }
@@ -140,6 +159,8 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
 
   function handleSalvar() {
     if (!targetUser) return
+    const tu = targetUser
+    const escopo = escopoEditar
     setFeedback(null)
     startTransition(async () => {
       const toUpsert: Parameters<typeof savePermissionsAction>[0] = []
@@ -147,7 +168,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
 
       for (const [tela, acesso] of Object.entries(pendente)) {
         if (acesso === 'none') toDelete.push(tela)
-        else toUpsert.push({ usuario_id: targetUser.id, tela, acesso, unidade_id: null })
+        else toUpsert.push({ usuario_id: tu.id, tela, acesso, unidade_id: escopo })
       }
 
       if (toUpsert.length > 0) {
@@ -156,27 +177,21 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
       }
 
       for (const tela of toDelete) {
-        const r = await deletePermissionAction(targetUser.id, tela, null)
+        const r = await deletePermissionAction(tu.id, tela, escopo)
         if (r.error) { setFeedback({ ok: false, msg: r.error }); return }
       }
 
-      // Atualiza lista local
-      setUsuarios((prev) => prev.map((u) => {
-        if (u.id !== targetUser.id) return u
-        const permsAtualizadas = u.permissoes
-          .filter((p) => p.unidade_id !== null) // mantém específicas de unidade
-          .filter((p) => !toDelete.includes(p.tela)) // remove deletadas
-        for (const up of toUpsert) {
-          const idx = permsAtualizadas.findIndex((p) => p.tela === up.tela)
-          if (idx >= 0) permsAtualizadas[idx] = { tela: up.tela, acesso: up.acesso, unidade_id: null }
-          else permsAtualizadas.push({ tela: up.tela, acesso: up.acesso, unidade_id: null })
-        }
-        const isAdminGlobal = permsAtualizadas.some((p) => p.tela === '*' && p.acesso === 'admin' && p.unidade_id === null)
-        return { ...u, permissoes: permsAtualizadas, isAdminGlobal }
-      }))
+      // Atualiza estado local trocando apenas as permissões do escopo (unidade) atual
+      const novasPerms = [
+        ...tu.permissoes.filter((p) => p.unidade_id !== escopo),
+        ...toUpsert.map((up) => ({ tela: up.tela, acesso: up.acesso, unidade_id: escopo })),
+      ]
+      const isAdminGlobal = novasPerms.some((p) => p.tela === '*' && p.acesso === 'admin' && p.unidade_id === null)
+      const tuAtualizado = { ...tu, permissoes: novasPerms, isAdminGlobal }
+      setTargetUser(tuAtualizado)
+      setUsuarios((prev) => prev.map((u) => (u.id === tu.id ? tuAtualizado : u)))
 
-      setPendente({})
-      setFeedback({ ok: true, msg: 'Permissões salvas.' })
+      setFeedback({ ok: true, msg: escopo ? 'Permissões da unidade salvas.' : 'Permissões salvas.' })
     })
   }
 
@@ -201,7 +216,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
             tipo: 'personalizado',
             permissoes: Object.entries(novoPerms)
               .filter(([, v]) => v !== 'none')
-              .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso })),
+              .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso, unidade_id: novoEscopo })),
           }
 
     const result = await createUserAction(novoEmail.trim(), novaSenha, novoNome.trim(), permissaoInicial)
@@ -215,7 +230,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
           ? [{ tela: '*', acesso: 'admin' as NivelAcesso, unidade_id: null }]
           : Object.entries(novoPerms)
               .filter(([, v]) => v !== 'none')
-              .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso, unidade_id: null }))
+              .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso, unidade_id: novoEscopo }))
 
       const novo: UsuarioComPermissoes = {
         id: result.data.id,
@@ -375,7 +390,37 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
           </div>
         </div>
 
-        <PermissaoGrade permissoes={pendente} onChange={(tela, valor) => { setPendente((p) => ({ ...p, [tela]: valor })); setFeedback(null) }} />
+        {unidades.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-medium text-secondary mr-1">Escopo:</span>
+            <button
+              onClick={() => trocarEscopoEditar(null)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${escopoEditar === null ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
+            >
+              Todas as unidades
+            </button>
+            {unidades.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => trocarEscopoEditar(u.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${escopoEditar === u.id ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
+              >
+                {u.nome}
+              </button>
+            ))}
+          </div>
+        )}
+        {escopoEditar !== null && (
+          <p className="text-[11px] text-faint -mt-1">
+            Permissões aplicadas só a esta unidade. &quot;Admin global&quot; existe apenas em &quot;Todas as unidades&quot;.
+          </p>
+        )}
+
+        <PermissaoGrade
+          permissoes={pendente}
+          hideGlobal={escopoEditar !== null}
+          onChange={(tela, valor) => { setPendente((p) => ({ ...p, [tela]: valor })); setFeedback(null) }}
+        />
 
         <div className="flex items-center gap-3">
           <button
@@ -445,10 +490,35 @@ export function PermissoesTab({ usuarios: usuariosIniciais, currentUserId }: Pro
           </div>
 
           {novoTipoAcesso === 'personalizado' && (
-            <PermissaoGrade
-              permissoes={novoPerms}
-              onChange={(tela, valor) => setNovoPerms((p) => ({ ...p, [tela]: valor }))}
-            />
+            <>
+              {unidades.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-secondary mr-1">Escopo:</span>
+                  <button
+                    type="button"
+                    onClick={() => setNovoEscopo(null)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${novoEscopo === null ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
+                  >
+                    Todas as unidades
+                  </button>
+                  {unidades.map((u) => (
+                    <button
+                      type="button"
+                      key={u.id}
+                      onClick={() => setNovoEscopo(u.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${novoEscopo === u.id ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
+                    >
+                      {u.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <PermissaoGrade
+                permissoes={novoPerms}
+                hideGlobal={novoEscopo !== null}
+                onChange={(tela, valor) => setNovoPerms((p) => ({ ...p, [tela]: valor }))}
+              />
+            </>
           )}
         </div>
 
