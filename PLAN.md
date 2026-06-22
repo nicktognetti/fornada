@@ -178,13 +178,11 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [x] **"Receber"** segue como Compra simples (fornecedor + valor) por ora; pipeline NFe→custo é roadmap.
 - [ ] **Resumo/Painel** devem respeitar também a **empresa** selecionada? (hoje filtram por unidade via cookie; empresa só via RLS) — ainda em aberto
 
-### Pendências de banco — auditoria v2 (SQL pronto em `CORRECOES_FORNADA.md` §B)
-> Não aplicado (sem acesso ao banco): revisar + rodar no Supabase com backup.
-- [ ] Consolidar RLS (decisão: por empresa, já que o controle fino é via RBAC nas actions)
-- [ ] `security_invoker` idempotente em `vw_produto_financeiro` (hoje `ALTER VIEW` roda antes do `CREATE` em banco limpo)
-- [ ] `vw_insumo_custo_atual` com desempate de `vigente_desde` (evita custo duplicado)
-- [ ] Backfill de `unidade_id` NULL em insumo/receita antigos
-- [ ] Verificar a definição real de `vw_custo_receita` (CTE recursivo) com `pg_get_viewdef`
+### Pendências de banco — auditoria v2
+> Migrations **escritas** (não aplicadas — sem acesso ao banco). Revisar + rodar no Supabase, com backup. Detalhes em `CORRECOES_FORNADA.md` §B.
+- [ ] Aplicar `supabase/migrations/20260624000000_correcoes_auditoria_v2.sql` — `security_invoker` idempotente, `vw_insumo_custo_atual` com desempate de vigência, backfill de `unidade_id`, `NOT NULL` de `empresa_id`
+- [ ] Aplicar `supabase/migrations/20260624000001_consolidar_rls_por_empresa.sql` — consolida RLS por empresa (garante a política por empresa e remove as por unidade + a duplicada em `produto`)
+- [ ] Manual: verificar `vw_custo_receita` (CTE recursivo) com `pg_get_viewdef` e testar sub-receita de 2+ níveis
 
 ## 🔧 TypeScript
 - Strict mode ativo; `tsc --noEmit` sem erros.

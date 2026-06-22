@@ -28,9 +28,14 @@
 
 ---
 
-## B) Correções de BANCO — propostas (⬜ aplicar + testar manualmente)
+## B) Correções de BANCO — migrations ESCRITAS (⬜ revisar + aplicar/testar)
 
-> Aplicar via nova migration `supabase/migrations/2026MMDD..._correcoes_auditoria_v2.sql` **depois de revisar** e, idealmente, testar em staging / `supabase db reset`. **Faça backup antes.**
+> **As migrations já foram escritas** (não aplicadas — o agente não tem acesso ao banco). Revisar, testar em staging/branch e **fazer backup** antes de aplicar em produção:
+> - [`20260624000000_correcoes_auditoria_v2.sql`](supabase/migrations/20260624000000_correcoes_auditoria_v2.sql) — itens **B2, B3, B4, B6** (seguros/idempotentes)
+> - [`20260624000001_consolidar_rls_por_empresa.sql`](supabase/migrations/20260624000001_consolidar_rls_por_empresa.sql) — item **B1** (RLS por empresa; estratégia "garantir a política nova antes de remover a antiga")
+> - **B5** (verificar `vw_custo_receita`) segue **manual**: rodar `pg_get_viewdef('public.vw_custo_receita', true)` e testar sub-receita de 2+ níveis.
+>
+> Antes/depois do RLS, conferir: `SELECT tablename, policyname, cmd FROM pg_policies WHERE schemaname='public' ORDER BY 1,2;`
 
 ### B1 ⛔ Consolidar RLS (P1) — **DEPENDE DE DECISÃO D1**
 Hoje as tabelas core têm políticas **por unidade** (gen 1) **e por empresa** (gen 2) simultâneas; como são PERMISSIVE, combinam por **OR** e o isolamento por unidade não vale. Escolher **um** caminho:
@@ -166,8 +171,8 @@ Meta: `supabase db reset` num banco limpo passar do zero. Consolidar políticas 
 1. ✅ ~~UI de permissões por unidade~~ — feito (A9).
 2. ✅ ~~Enforcement server-side~~ — feito (A10, via `temAcesso`).
 3. ✅ ~~Lote na precificadora~~ — feito (C2).
-4. **Migrations de banco** B2–B6 (seguras) — revisar + aplicar/testar no Supabase; RLS (B1) **Opção 2 (por empresa)**, já que o controle fino é via RBAC nas actions.
-5. C1 (Resumo por empresa), C4/C6 (polimento).
+4. ✅ ~~Escrever migrations de banco~~ — feito (`20260624000000` seguras + `20260624000001` RLS por empresa). **Falta VOCÊ revisar + aplicar/testar no Supabase** (com backup); B5 é manual.
+5. C1 (Resumo/Painel por empresa), C4/C6 (polimento).
 6. Planejar E (roadmap NFe→custo) — D4.
 
 > **Teste recomendado do RBAC:** criar a Priscila (Personalizado → Escopo Centro → Receber=Escrita), entrar com o login dela e confirmar que só vê/usa o Recebimento da Centro; tentar receber uma transferência da Morada do Sol deve ser bloqueado ("Sem permissão...").
