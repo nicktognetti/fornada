@@ -29,20 +29,20 @@ DO $$ BEGIN
              WHERE table_schema='public' AND table_name='insumo' AND column_name='unidade_id') THEN
     UPDATE public.insumo i
     SET unidade_id = (SELECT u.id FROM public.unidade u
-                      WHERE u.empresa_id = i.empresa_id AND u.ativa = true
+                      WHERE u.empresa_id = i.empresa_id AND u.ativo = true
                       ORDER BY u.nome LIMIT 1)
     WHERE i.unidade_id IS NULL AND i.empresa_id IS NOT NULL
-      AND EXISTS (SELECT 1 FROM public.unidade u2 WHERE u2.empresa_id = i.empresa_id AND u2.ativa = true);
+      AND EXISTS (SELECT 1 FROM public.unidade u2 WHERE u2.empresa_id = i.empresa_id AND u2.ativo = true);
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns
              WHERE table_schema='public' AND table_name='receita' AND column_name='unidade_id') THEN
     UPDATE public.receita r
     SET unidade_id = (SELECT u.id FROM public.unidade u
-                      WHERE u.empresa_id = r.empresa_id AND u.ativa = true
+                      WHERE u.empresa_id = r.empresa_id AND u.ativo = true
                       ORDER BY u.nome LIMIT 1)
     WHERE r.unidade_id IS NULL AND r.empresa_id IS NOT NULL
-      AND EXISTS (SELECT 1 FROM public.unidade u2 WHERE u2.empresa_id = r.empresa_id AND u2.ativa = true);
+      AND EXISTS (SELECT 1 FROM public.unidade u2 WHERE u2.empresa_id = r.empresa_id AND u2.ativo = true);
   END IF;
 END $$;
 

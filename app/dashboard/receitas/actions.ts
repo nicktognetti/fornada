@@ -39,7 +39,7 @@ async function getUnidadeEscrita(
   }
   const { data } = await supabase
     .from('unidade').select('id')
-    .eq('empresa_id', empresaId).eq('ativa', true).order('nome').limit(1).maybeSingle()
+    .eq('empresa_id', empresaId).eq('ativo', true).order('nome').limit(1).maybeSingle()
   return data?.id ?? null
 }
 

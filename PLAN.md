@@ -12,9 +12,15 @@
 
 **Próximos passos (um de cada vez — com calma):**
 1. ✅ **FEITO (25/06): aplicado** `20260625000000_views_custo_fornada.sql` → Painel acendeu. `vw_produto_financeiro` tem **1156 produtos**; `vw_custo_receita`/`vw_produto_financeiro` agora existem. Obs.: só ~8 produtos têm preço cadastrado (falta precificar) e o Painel carrega 1000 de 1156 (limite padrão do Supabase — habilitar paginação).
-2. (opcional) Backfill `20260624000000` + faxina de RLS `20260624000001` — parados a pedido do dono; quando quiser.
-3. Conferir as margens no Painel com dados reais; ajustar se preciso (custo unitário vs. embalagem).
-4. Testar a **Priscila** (RBAC por unidade).
+2. ✅ **FEITO (26/06):** corrigido bug `unidade.ativa`→`ativo` no código; escritas as migrations de **isolamento por loja**:
+   - `20260626000000_cnpj_por_loja.sql` — CNPJ por loja (aditivo)
+   - `20260626000001_rls_por_loja.sql` — RLS por loja (admin global vê tudo; restrito só a sua loja; helpers `fn_user_unidades`/`fn_is_admin_global`)
+3. ⬜ **Aplicar com BACKUP** (ordem): CNPJ → RLS por loja → conferir `pg_policies` (1 política `_loja` por tabela) → testar um usuário restrito (1 loja só).
+4. ⬜ Conferir margens no Painel; quando a Natali zerar/reimportar produtos, cadastrar por loja.
+5. ⬜ Testar a **Priscila** (criar restrita à Centro) e a Natali trocando de loja no seletor.
+6. ⬜ (futuro) Módulo "contas a pagar/receber" por loja.
+
+> A "faxina de RLS por empresa" (`20260624000001`) está **DESCARTADA** — substituída pela RLS por loja (`20260626000001`). O backfill `20260624000000` (já corrigido p/ `ativo`) é opcional.
 
 Nada disso é urgente — o que está no ar funciona.
 
