@@ -23,6 +23,36 @@ async function assertAdmin(userId: string): Promise<boolean> {
   return !!data
 }
 
+// Mantém usuario_unidade (vínculo de LOJA, base do RLS por loja) em sincronia com
+// as unidades referenciadas nas permissões do usuário. Aditivo: só adiciona vínculos
+// que faltam (não desvincula automaticamente). supabase-js não lança em erro de query.
+async function syncUsuarioUnidade(targetUserId: string): Promise<void> {
+  const { data: perms } = await supabaseAdmin
+    .from('permissao')
+    .select('unidade_id')
+    .eq('usuario_id', targetUserId)
+
+  const desejadas = [...new Set(
+    ((perms ?? []) as { unidade_id: string | null }[])
+      .map((p) => p.unidade_id)
+      .filter((id): id is string => !!id)
+  )]
+  if (desejadas.length === 0) return
+
+  const { data: existentes } = await supabaseAdmin
+    .from('usuario_unidade')
+    .select('unidade_id')
+    .eq('user_id', targetUserId)
+  const jaTem = new Set(((existentes ?? []) as { unidade_id: string }[]).map((r) => r.unidade_id))
+
+  const novas = desejadas.filter((id) => !jaTem.has(id))
+  if (novas.length > 0) {
+    await supabaseAdmin
+      .from('usuario_unidade')
+      .insert(novas.map((unidade_id) => ({ user_id: targetUserId, unidade_id })))
+  }
+}
+
 // ── Leitura das próprias permissões ─────────────────────────────────────────
 
 export async function getUserPermissionsAction(): Promise<ActionResult<PermissaoMap>> {
@@ -68,6 +98,9 @@ export async function savePermissionsAction(
     .upsert(permissoes, { onConflict: 'usuario_id,tela,unidade_id' })
 
   if (error) return { error: error.message }
+
+  // Liga a(s) loja(s) (usuario_unidade) conforme as unidades das permissões salvas
+  await syncUsuarioUnidade(permissoes[0].usuario_id)
 
   revalidatePath('/dashboard/configuracoes')
   return { success: true }
@@ -199,6 +232,9 @@ export async function createUserAction(
         await supabaseAdmin.from('permissao').insert(rows)
       }
     }
+
+    // 4. Vincular loja(s) (usuario_unidade) — base do RLS por loja
+    await syncUsuarioUnidade(newUserId)
   } catch {
     // Rollback: remover usuário criado para não deixar órfão
     await supabaseAdmin.auth.admin.deleteUser(newUserId)
