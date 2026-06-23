@@ -11,7 +11,7 @@
 - Tabelas `linha`/`parametro_financeiro`/`despesa`/`vw_markup_linha` são de uma versão **antiga, não usada** por este app.
 
 **Próximos passos (um de cada vez — com calma):**
-1. **Aplicar `20260625000000_views_custo_fornada.sql`** (com BACKUP) → o Painel/Produtos/Preços "acende". Verificar: `select count(*) from public.vw_produto_financeiro;`.
+1. ✅ **FEITO (25/06): aplicado** `20260625000000_views_custo_fornada.sql` → Painel acendeu. `vw_produto_financeiro` tem **1156 produtos**; `vw_custo_receita`/`vw_produto_financeiro` agora existem. Obs.: só ~8 produtos têm preço cadastrado (falta precificar) e o Painel carrega 1000 de 1156 (limite padrão do Supabase — habilitar paginação).
 2. (opcional) Backfill `20260624000000` + faxina de RLS `20260624000001` — parados a pedido do dono; quando quiser.
 3. Conferir as margens no Painel com dados reais; ajustar se preciso (custo unitário vs. embalagem).
 4. Testar a **Priscila** (RBAC por unidade).
