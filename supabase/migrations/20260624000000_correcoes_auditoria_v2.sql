@@ -1,8 +1,12 @@
 -- ============================================================
--- Correções da auditoria v2 — parte SEGURA (revisado p/ schema REAL)
+-- Correções da auditoria v2 — parte SEGURA (backfill unidade_id)
 -- Data: 24/06/2026
 --
--- ⚠️ TESTAR + BACKUP. Não testado contra o banco.
+-- ⛔ NÃO APLICAR AINDA — o diagnóstico que embasou esta migration foi feito no
+--    banco ERRADO (sac_agrindus). Reverificar colunas/objetos no banco do Fornada
+--    (confirmar: select slug from public.empresa; → 'flor-do-trigo') antes de rodar.
+--    As guardas (IF EXISTS de coluna) evitam quebra, mas valide antes.
+--    ⚠️ TESTAR + BACKUP.
 --
 -- Revisado após diagnóstico do banco de produção:
 --   - A vw_insumo_custo_atual NÃO é recriada aqui (faltou confirmar a definição

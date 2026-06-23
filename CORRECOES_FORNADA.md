@@ -37,7 +37,9 @@
 >
 > Antes/depois do RLS, conferir: `SELECT tablename, policyname, cmd FROM pg_policies WHERE schemaname='public' ORDER BY 1,2;`
 
-> **⚠️ Diagnóstico do banco real (24/06) — repo ≠ banco.** Ao inspecionar o Postgres de produção descobrimos divergência importante:
+> **⛔ ESTA NOTA ESTÁ INVÁLIDA — diagnóstico feito no banco ERRADO (`sac_agrindus`).** Descoberto em 24/06 à noite: os comandos foram rodados por engano em outro projeto, não no Fornada. **Tudo abaixo precisa ser refeito no banco do Fornada** (confirmar com `select slug from public.empresa;` → `flor-do-trigo`). Mantido só como histórico do que foi visto no banco errado:
+>
+> _(observado no `sac_agrindus`, NÃO confirmado para o Fornada):_
 > - **Não existem** `vw_custo_receita` nem `vw_produto_financeiro` no banco. O código novo (Painel/Produtos/Preços) depende delas → precisa criá-las (com `vw_custo_receita` numa definição que o Postgres aceite) **antes de o código novo ir ao ar**.
 > - Existem views que **não estão no repo** (`vw_markup_linha`, `vw_faturamento_atual`, `vw_despesa_total`, `vw_perc_despesa_fixa`, …) → schema antigo/paralelo, montado manualmente.
 > - **Nomes reais das políticas RLS:** `p_emp` (por empresa, via `app_user_empresas()`) + `"Usuário vê … da sua unidade"` (por unidade, via `get_user_unidade_id()`); `produto`/`produto_preco` com duplicatas. **A isolação por empresa já funciona** (`p_emp`).

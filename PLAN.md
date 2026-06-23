@@ -1,5 +1,21 @@
 # ERP Fornada — Plano de Desenvolvimento
 
+## ▶ Ponto de retomada (atualizado 24/06/2026)
+
+**Status:** todo o trabalho está **commitado** na `master` (auditoria → correções → RBAC granular → docs → migrations). **Nada foi aplicado no banco** — o sistema no ar está intacto. Não há remote git configurado (tudo local).
+
+**⛔ ATENÇÃO — diagnóstico de banco INVÁLIDO (precisa refazer).** Os comandos de verificação de 24/06 foram rodados, por engano, no **banco errado (`sac_agrindus`)**, não no do Fornada/Flor do Trigo. **Todas as conclusões sobre "o banco real" estão suspensas** — RLS `p_emp`/`app_user_empresas()`, views `vw_custo_receita`/`vw_produto_financeiro` "ausentes", `vw_markup_linha`/etc. eram do sac_agrindus. **Nada foi aplicado em banco nenhum** (só leitura) — sem dano. A parte de **código** (correções, RBAC, docs) segue válida. Ver memória `estado_banco_fornada` e `CORRECOES_FORNADA.md` §B.
+
+**Próximos passos (com calma, um de cada vez — pedido do dono):**
+0. **Refazer o diagnóstico no banco CERTO** (Fornada). Confirmar a identidade primeiro: `select current_database();` e `select slug, nome from public.empresa;` (deve listar `flor-do-trigo`). Só então rodar `pg_policies` / `information_schema` / `pg_get_viewdef` e refazer as conclusões.
+1. Com o diagnóstico **real do Fornada**: revisar/corrigir as migrations `20260624*` (os nomes de políticas/colunas podem ser outros) antes de qualquer "faxina de RLS".
+2. **Criar/validar as views** que faltarem no Fornada (`vw_custo_receita` numa def que o Postgres aceite, `vw_produto_financeiro`) conforme o diagnóstico real.
+3. **Publicar o código novo** (Painel/Produtos/RBAC por unidade) e **testar a Priscila** (perfil só "Receber" na Centro).
+
+Nada disso é urgente — o que está no ar funciona.
+
+---
+
 ## 🏗 Stack
 - Next.js 16 (App Router) + React 19 + TypeScript (strict) + **Tailwind CSS v4** + Supabase (PostgreSQL)
 - Build: `npm run build` (exit 0). Testes: `npm test` (Vitest — `lib/format.test.ts`, 26 testes passando).
@@ -56,6 +72,7 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [x] Contraste do accent corrigido para WCAG AA + token `bg-canvas` para o fundo de página
 
 ### Schema e Banco
+> ⚠️ **Esta lista reflete a INTENÇÃO do repositório.** O estado real do banco do Fornada **ainda não foi verificado** (o diagnóstico de 24/06 foi feito no banco errado, `sac_agrindus` — ver "Ponto de retomada"). Verificar com `pg_policies`/`pg_get_viewdef` **no projeto Fornada** antes de agir.
 - [x] Schema central versionado em migrations (todas as tabelas, índices, RLS)
 - [x] Multi-empresa: `empresa`, `usuario_empresa`, UnidadeSelector funcional
 - [x] RBAC completo (FASE 5): tabela `permissao`, `fn_is_global_admin`, `PermissionsContext`
@@ -178,11 +195,13 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [x] **"Receber"** segue como Compra simples (fornecedor + valor) por ora; pipeline NFe→custo é roadmap.
 - [ ] **Resumo/Painel** devem respeitar também a **empresa** selecionada? (hoje filtram por unidade via cookie; empresa só via RLS) — ainda em aberto
 
-### Pendências de banco — auditoria v2
-> Migrations **escritas** (não aplicadas — sem acesso ao banco). Revisar + rodar no Supabase, com backup. Detalhes em `CORRECOES_FORNADA.md` §B.
-- [ ] Aplicar `supabase/migrations/20260624000000_correcoes_auditoria_v2.sql` — `security_invoker` idempotente, `vw_insumo_custo_atual` com desempate de vigência, backfill de `unidade_id`, `NOT NULL` de `empresa_id`
-- [ ] Aplicar `supabase/migrations/20260624000001_consolidar_rls_por_empresa.sql` — consolida RLS por empresa (garante a política por empresa e remove as por unidade + a duplicada em `produto`)
-- [ ] Manual: verificar `vw_custo_receita` (CTE recursivo) com `pg_get_viewdef` e testar sub-receita de 2+ níveis
+### Pendências de banco — auditoria v2 (⚠️ REVERIFICAR — diagnóstico foi no banco errado)
+> As migrations `20260624*` foram ajustadas para um diagnóstico que, descobriu-se, foi feito no banco **errado (`sac_agrindus`)**. **NÃO aplicar.** Primeiro refazer o diagnóstico no banco do Fornada (ver "Ponto de retomada") e então corrigir/validar as migrations. Detalhes em `CORRECOES_FORNADA.md` §B.
+- [ ] **Refazer diagnóstico no banco do Fornada** (políticas, colunas, views) — confirmar identidade (`empresa.slug = 'flor-do-trigo'`) antes
+- [ ] Revisar `20260624000001_consolidar_rls_por_empresa.sql` com os **nomes reais** das políticas do Fornada
+- [ ] Revisar `20260624000000_correcoes_auditoria_v2.sql` com as **colunas reais**
+- [ ] Verificar se `vw_custo_receita` / `vw_produto_financeiro` existem no Fornada; criar/corrigir conforme necessário
+- [ ] Confirmar se a tabela `permissao` tem `unidade_id` — base do RBAC por unidade
 
 ## 🔧 TypeScript
 - Strict mode ativo; `tsc --noEmit` sem erros.

@@ -1,8 +1,13 @@
 -- ============================================================
--- Consolidação de RLS por EMPRESA — CORRIGIDO p/ o schema REAL
--- Data: 24/06/2026 (revisado após diagnóstico do banco de produção)
+-- Consolidação de RLS por EMPRESA
+-- Data: 24/06/2026
 --
--- ⚠️ TESTAR EM STAGING/BRANCH + FAZER BACKUP. Não testado contra o banco.
+-- ⛔⛔ NÃO APLICAR AINDA — BASEADO EM DIAGNÓSTICO DO BANCO ERRADO (sac_agrindus).
+--     Os nomes de políticas abaixo (p_emp, "Usuário vê ... da sua unidade") foram
+--     observados no banco `sac_agrindus`, NÃO no Fornada. Reverificar no banco do
+--     Fornada (confirmar: select slug from public.empresa; → 'flor-do-trigo') e
+--     corrigir os nomes antes de rodar. As guardas evitam quebra, mas pode virar no-op.
+--     ⚠️ TESTAR EM STAGING/BRANCH + FAZER BACKUP.
 --
 -- ESTADO REAL (diagnóstico via pg_policies):
 --   Cada tabela core tem:
