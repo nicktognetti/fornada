@@ -57,7 +57,12 @@ export async function setUnidadeCookieAction(unidadeId: string | null): Promise<
 
 export async function getUnidadePreferida(): Promise<string | null> {
   const jar = await cookies()
-  return jar.get(COOKIE_NAME)?.value ?? null
+  const cookieVal = jar.get(COOKIE_NAME)?.value
+  if (cookieVal) return cookieVal
+  // Sem cookie: padrão = PRIMEIRA loja do usuário (nunca "todas" — as lojas são
+  // isoladas; sempre uma loja selecionada por vez).
+  const unidades = await getUserUnidadesAction()
+  return unidades[0]?.id ?? null
 }
 
 // ── Cópia entre unidades ──────────────────────────────────────────────────────

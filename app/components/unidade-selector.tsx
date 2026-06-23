@@ -24,7 +24,8 @@ export function UnidadeSelector() {
     )
   }
 
-  const tabs = [{ id: null, nome: 'Todas' }, ...visíveis]
+  // Sem "Todas": cada loja é isolada — sempre uma loja selecionada por vez.
+  const tabs = visíveis
 
   return (
     <div className="flex items-center gap-0.5 mb-4 border-b border-subtle pb-0">

@@ -15,6 +15,7 @@
 2. ✅ **FEITO (26/06):** corrigido bug `unidade.ativa`→`ativo` no código; escritas as migrations de **isolamento por loja**:
    - `20260626000000_cnpj_por_loja.sql` — CNPJ por loja (aditivo)
    - `20260626000001_rls_por_loja.sql` — RLS por loja (admin global vê tudo; restrito só a sua loja; helpers `fn_user_unidades`/`fn_is_admin_global`)
+   - **Seletor de loja sem "Todas":** removida a aba "Todas" (não soma as lojas); sempre 1 loja selecionada por padrão (a primeira). Cada tela já filtra por `unidade_id` da loja escolhida. (`getUnidadePreferida` agora resolve a 1ª loja quando não há cookie.)
 3. ⬜ **Aplicar com BACKUP** (ordem): CNPJ → RLS por loja → conferir `pg_policies` (1 política `_loja` por tabela) → testar um usuário restrito (1 loja só).
 4. ⬜ Conferir margens no Painel; quando a Natali zerar/reimportar produtos, cadastrar por loja.
 5. ⬜ Testar a **Priscila** (criar restrita à Centro) e a Natali trocando de loja no seletor.
