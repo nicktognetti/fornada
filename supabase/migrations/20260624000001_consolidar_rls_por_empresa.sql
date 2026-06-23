@@ -2,12 +2,11 @@
 -- Consolidação de RLS por EMPRESA
 -- Data: 24/06/2026
 --
--- ⛔⛔ NÃO APLICAR AINDA — BASEADO EM DIAGNÓSTICO DO BANCO ERRADO (sac_agrindus).
---     Os nomes de políticas abaixo (p_emp, "Usuário vê ... da sua unidade") foram
---     observados no banco `sac_agrindus`, NÃO no Fornada. Reverificar no banco do
---     Fornada (confirmar: select slug from public.empresa; → 'flor-do-trigo') e
---     corrigir os nomes antes de rodar. As guardas evitam quebra, mas pode virar no-op.
---     ⚠️ TESTAR EM STAGING/BRANCH + FAZER BACKUP.
+-- ✅ CONFIRMADO contra o banco do Fornada (slug 'flor-do-trigo', 25/06): os nomes
+--    p_emp e "Usuário vê ... da sua unidade" existem mesmo — esta migration está correta.
+--    (O "susto do sac_agrindus" foi alarme falso.)
+--    Faxina OPCIONAL e parada a pedido do dono; aplicar quando quiser, com BACKUP.
+--    ⚠️ TESTAR EM STAGING/BRANCH + FAZER BACKUP.
 --
 -- ESTADO REAL (diagnóstico via pg_policies):
 --   Cada tabela core tem:

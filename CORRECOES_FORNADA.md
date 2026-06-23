@@ -37,9 +37,9 @@
 >
 > Antes/depois do RLS, conferir: `SELECT tablename, policyname, cmd FROM pg_policies WHERE schemaname='public' ORDER BY 1,2;`
 
-> **⛔ ESTA NOTA ESTÁ INVÁLIDA — diagnóstico feito no banco ERRADO (`sac_agrindus`).** Descoberto em 24/06 à noite: os comandos foram rodados por engano em outro projeto, não no Fornada. **Tudo abaixo precisa ser refeito no banco do Fornada** (confirmar com `select slug from public.empresa;` → `flor-do-trigo`). Mantido só como histórico do que foi visto no banco errado:
+> **✅ CONFIRMADO contra o banco do Fornada (25/06, slug `flor-do-trigo`).** O "susto do sac_agrindus" foi alarme falso — os achados abaixo valem para o Fornada. **Resolução:** o app em produção É este repositório (o Painel mostra "Valor do Portfólio", rename desta sessão); ele aparece **vazio** porque faltam `vw_custo_receita` e `vw_produto_financeiro` no banco → criada a migration `20260625000000_views_custo_fornada.sql` que cria as duas (custo via função recursiva). As tabelas `linha`/`parametro_financeiro`/`despesa`/`vw_markup_linha` são de uma versão antiga e NÃO são usadas por este app (limpar depois, se quiser).
 >
-> _(observado no `sac_agrindus`, NÃO confirmado para o Fornada):_
+> _Estado real do Fornada:_
 > - **Não existem** `vw_custo_receita` nem `vw_produto_financeiro` no banco. O código novo (Painel/Produtos/Preços) depende delas → precisa criá-las (com `vw_custo_receita` numa definição que o Postgres aceite) **antes de o código novo ir ao ar**.
 > - Existem views que **não estão no repo** (`vw_markup_linha`, `vw_faturamento_atual`, `vw_despesa_total`, `vw_perc_despesa_fixa`, …) → schema antigo/paralelo, montado manualmente.
 > - **Nomes reais das políticas RLS:** `p_emp` (por empresa, via `app_user_empresas()`) + `"Usuário vê … da sua unidade"` (por unidade, via `get_user_unidade_id()`); `produto`/`produto_preco` com duplicatas. **A isolação por empresa já funciona** (`p_emp`).

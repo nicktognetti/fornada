@@ -2,10 +2,9 @@
 -- Correções da auditoria v2 — parte SEGURA (backfill unidade_id)
 -- Data: 24/06/2026
 --
--- ⛔ NÃO APLICAR AINDA — o diagnóstico que embasou esta migration foi feito no
---    banco ERRADO (sac_agrindus). Reverificar colunas/objetos no banco do Fornada
---    (confirmar: select slug from public.empresa; → 'flor-do-trigo') antes de rodar.
---    As guardas (IF EXISTS de coluna) evitam quebra, mas valide antes.
+-- ✅ CONFIRMADO contra o banco do Fornada (slug 'flor-do-trigo', 25/06): insumo e
+--    receita têm unidade_id. (O "susto do sac_agrindus" foi alarme falso.)
+--    Backfill OPCIONAL — aplicar quando quiser, com BACKUP. As guardas (IF EXISTS) protegem.
 --    ⚠️ TESTAR + BACKUP.
 --
 -- Revisado após diagnóstico do banco de produção:

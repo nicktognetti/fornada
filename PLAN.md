@@ -4,13 +4,17 @@
 
 **Status:** todo o trabalho está **commitado** na `master` (auditoria → correções → RBAC granular → docs → migrations). **Nada foi aplicado no banco** — o sistema no ar está intacto. Não há remote git configurado (tudo local).
 
-**⛔ ATENÇÃO — diagnóstico de banco INVÁLIDO (precisa refazer).** Os comandos de verificação de 24/06 foram rodados, por engano, no **banco errado (`sac_agrindus`)**, não no do Fornada/Flor do Trigo. **Todas as conclusões sobre "o banco real" estão suspensas** — RLS `p_emp`/`app_user_empresas()`, views `vw_custo_receita`/`vw_produto_financeiro` "ausentes", `vw_markup_linha`/etc. eram do sac_agrindus. **Nada foi aplicado em banco nenhum** (só leitura) — sem dano. A parte de **código** (correções, RBAC, docs) segue válida. Ver memória `estado_banco_fornada` e `CORRECOES_FORNADA.md` §B.
+**✅ Banco confirmado (25/06): é o Fornada** (slug `flor-do-trigo`). O "susto do sac_agrindus" foi alarme falso. **Nada foi aplicado em banco** (só leitura). Diagnóstico real:
+- O app em produção É **este repositório** (o Painel mostra "Valor do Portfólio", rename desta sessão).
+- O **Painel aparece vazio** porque faltam `vw_custo_receita` e `vw_produto_financeiro` no banco → criada a migration `20260625000000_views_custo_fornada.sql` que as cria (custo via função recursiva que o Postgres aceita).
+- RLS real = `p_emp` (por empresa) + por-unidade redundante + duplicatas → migration `20260624000001` está correta (faxina opcional).
+- Tabelas `linha`/`parametro_financeiro`/`despesa`/`vw_markup_linha` são de uma versão **antiga, não usada** por este app.
 
-**Próximos passos (com calma, um de cada vez — pedido do dono):**
-0. **Refazer o diagnóstico no banco CERTO** (Fornada). Confirmar a identidade primeiro: `select current_database();` e `select slug, nome from public.empresa;` (deve listar `flor-do-trigo`). Só então rodar `pg_policies` / `information_schema` / `pg_get_viewdef` e refazer as conclusões.
-1. Com o diagnóstico **real do Fornada**: revisar/corrigir as migrations `20260624*` (os nomes de políticas/colunas podem ser outros) antes de qualquer "faxina de RLS".
-2. **Criar/validar as views** que faltarem no Fornada (`vw_custo_receita` numa def que o Postgres aceite, `vw_produto_financeiro`) conforme o diagnóstico real.
-3. **Publicar o código novo** (Painel/Produtos/RBAC por unidade) e **testar a Priscila** (perfil só "Receber" na Centro).
+**Próximos passos (um de cada vez — com calma):**
+1. **Aplicar `20260625000000_views_custo_fornada.sql`** (com BACKUP) → o Painel/Produtos/Preços "acende". Verificar: `select count(*) from public.vw_produto_financeiro;`.
+2. (opcional) Backfill `20260624000000` + faxina de RLS `20260624000001` — parados a pedido do dono; quando quiser.
+3. Conferir as margens no Painel com dados reais; ajustar se preciso (custo unitário vs. embalagem).
+4. Testar a **Priscila** (RBAC por unidade).
 
 Nada disso é urgente — o que está no ar funciona.
 
