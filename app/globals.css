@@ -281,3 +281,27 @@ body {
 
 aside ::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.12); }
 aside ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.22); }
+
+/* ── Fix autofill branco do browser ──────────────────────────────────────── */
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--t-input-bg) inset !important;
+  -webkit-text-fill-color: var(--t-text-1) !important;
+  caret-color: var(--t-text-1);
+  /* Atrasa a transição do browser para não piscar */
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* ── Animações de entrada ─────────────────────────────────────────────────── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
