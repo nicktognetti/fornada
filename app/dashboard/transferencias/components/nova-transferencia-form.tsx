@@ -105,9 +105,6 @@ export function NovaTransferenciaForm({
   const [showPrice,  setShowPrice] = useState(true)
 
   useEffect(() => {
-    // Lê a preferência só após o mount: o cookie do browser não existe no SSR,
-    // então inicializar via lazy state causaria hydration mismatch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowPrice(readShowPriceCookie())
   }, [])
 
@@ -464,9 +461,10 @@ export function NovaTransferenciaForm({
                     </>}
                     <button
                       onClick={() => removerItem(item.produto_id)}
+                      aria-label={`Remover ${item.nome}`}
                       className="shrink-0 p-1.5 rounded-lg text-secondary hover:text-danger hover:bg-danger-tint transition-colors"
                     >
-                      <X size={14} />
+                      <X size={14} aria-hidden />
                     </button>
                   </div>
                 )
@@ -510,8 +508,8 @@ export function NovaTransferenciaForm({
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-subtle shrink-0">
               <p className="text-base font-semibold text-primary">Adicionar produto</p>
-              <button onClick={fecharModal} className="p-2 rounded-lg text-secondary hover:text-accent-primary hover:bg-accent-tint transition-colors">
-                <X size={16} />
+              <button onClick={fecharModal} aria-label="Fechar" className="p-2 rounded-lg text-secondary hover:text-accent-primary hover:bg-accent-tint transition-colors">
+                <X size={16} aria-hidden />
               </button>
             </div>
 

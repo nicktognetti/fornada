@@ -62,15 +62,19 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
     setLoadingId(t.id)
     const supabase = createClient()
 
-    const [iRes, prodRes] = await Promise.all([
-      supabase.from('transferencia_item').select('*').eq('transferencia_id', t.id),
-      supabase.from('produto').select('id, nome'),
-    ])
+    const { data: itensRaw } = await supabase
+      .from('transferencia_item')
+      .select('id, produto_id, quantidade_enviada, preco_unitario')
+      .eq('transferencia_id', t.id)
 
-    const itensRaw = iRes.data ?? []
-    const prodMap = new Map((prodRes.data ?? []).map((p: { id: string; nome: string }) => [p.id, p.nome]))
+    const prodIds = (itensRaw ?? []).map((i: { produto_id: string }) => i.produto_id)
+    const { data: produtos } = prodIds.length > 0
+      ? await supabase.from('produto').select('id, nome').in('id', prodIds)
+      : { data: [] }
 
-    setDrawerItens(itensRaw.map((i: {
+    const prodMap = new Map((produtos ?? []).map((p: { id: string; nome: string }) => [p.id, p.nome]))
+
+    setDrawerItens((itensRaw ?? []).map((i: {
       id: string; produto_id: string; quantidade_enviada: number; preco_unitario: number
     }) => ({
       id: i.id,

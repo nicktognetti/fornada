@@ -265,7 +265,7 @@ export async function createUserAction(
       .from('usuario_empresa')
       .select('empresa_id')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
     if (ue?.empresa_id) {
       await supabaseAdmin

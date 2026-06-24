@@ -174,14 +174,14 @@ export function TransferenciaTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface border-b border-subtle">
-                {['Código', 'Tipo', 'Rota', 'Status', 'Data', ''].map((h, i) => (
+                {(['Código', 'Tipo', 'Rota', 'Status', 'Data', 'ações'] as const).map((h, i) => (
                   <th
-                    key={i}
+                    key={h}
                     className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-secondary ${
                       i === 2 ? 'hidden sm:table-cell' : i === 4 ? 'hidden md:table-cell' : ''
                     }`}
                   >
-                    {h}
+                    {h === 'ações' ? '' : h}
                   </th>
                 ))}
               </tr>
@@ -224,10 +224,10 @@ export function TransferenciaTable({
                         {podeExcluir && (
                           <button
                             onClick={() => setExcluindoId(row.id)}
+                            aria-label={`Excluir ${row.codigo}`}
                             className="p-1.5 rounded-lg text-secondary hover:text-danger hover:bg-danger-tint transition-all"
-                            title="Excluir"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={13} aria-hidden />
                           </button>
                         )}
                         <Link
