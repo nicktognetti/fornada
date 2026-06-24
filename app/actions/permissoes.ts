@@ -106,20 +106,19 @@ export interface PermissaoInput {
   unidade_id: string | null
 }
 
+// userId e unidadeId explícitos: garante o DELETE mesmo quando permissoes=[].
+// Caso contrário, antigas permissões globais ficam no banco e o seletor mostra tabs errados.
 export async function savePermissionsAction(
+  targetUserId: string,
+  unidadeId: string | null,
   permissoes: PermissaoInput[]
 ): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
-  if (permissoes.length === 0) return { success: true }
 
-  const targetUserId = permissoes[0].usuario_id
-  const unidadeId = permissoes[0].unidade_id ?? null
-
-  // upsert com ON CONFLICT não funciona para NULL no Postgres (NULL != NULL no índice único).
-  // Solução: DELETE do escopo atual + INSERT fresco.
+  // DELETE do escopo atual (sempre — mesmo que permissoes seja vazio, limpa o escopo)
   let deleteQ = supabaseAdmin
     .from('permissao')
     .delete()
@@ -130,8 +129,11 @@ export async function savePermissionsAction(
   const { error: delErr } = await deleteQ
   if (delErr) return { error: delErr.message }
 
-  const { error } = await supabaseAdmin.from('permissao').insert(permissoes)
-  if (error) return { error: error.message }
+  // INSERT apenas as permissões ativas (pode ser vazio = limpar o escopo)
+  if (permissoes.length > 0) {
+    const { error } = await supabaseAdmin.from('permissao').insert(permissoes)
+    if (error) return { error: error.message }
+  }
 
   await syncUsuarioUnidade(targetUserId)
 

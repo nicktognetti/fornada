@@ -8,12 +8,12 @@ import {
 } from 'lucide-react'
 import {
   savePermissionsAction,
-  deletePermissionAction,
   createUserAction,
   disableUserAction,
   resetPasswordAction,
   deleteUserAction,
 } from '@/app/actions/permissoes'
+import type { PermissaoInput } from '@/app/actions/permissoes'
 import { TELAS, TELA_LABEL } from '@/app/lib/permissions'
 import type { UsuarioComPermissoes, PermissaoInicialInput } from '@/app/actions/permissoes'
 import type { NivelAcesso } from '@/app/lib/permissions'
@@ -171,23 +171,16 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     const escopo = escopoEditar
     setFeedback(null)
     startTransition(async () => {
-      const toUpsert: Parameters<typeof savePermissionsAction>[0] = []
-      const toDelete: string[] = []
+      const toUpsert: PermissaoInput[] = []
 
       for (const [tela, acesso] of Object.entries(pendente)) {
-        if (acesso === 'none') toDelete.push(tela)
-        else toUpsert.push({ usuario_id: tu.id, tela, acesso, unidade_id: escopo })
+        if (acesso !== 'none') toUpsert.push({ usuario_id: tu.id, tela, acesso, unidade_id: escopo })
       }
 
-      if (toUpsert.length > 0) {
-        const r = await savePermissionsAction(toUpsert)
-        if (r.error) { setFeedback({ ok: false, msg: r.error }); return }
-      }
-
-      for (const tela of toDelete) {
-        const r = await deletePermissionAction(tu.id, tela, escopo)
-        if (r.error) { setFeedback({ ok: false, msg: r.error }); return }
-      }
+      // Sempre chama savePermissionsAction — mesmo com toUpsert vazio,
+      // o DELETE limpa permissões antigas do escopo (ex: globais null que sobraram).
+      const r = await savePermissionsAction(tu.id, escopo, toUpsert)
+      if (r.error) { setFeedback({ ok: false, msg: r.error }); return }
 
       // Atualiza estado local trocando apenas as permissões do escopo (unidade) atual
       const novasPerms = [
