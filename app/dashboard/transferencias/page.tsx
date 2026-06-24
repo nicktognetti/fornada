@@ -15,11 +15,13 @@ export default async function TransferenciasPage({
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  if (!user?.id) return <div />
+
   const { data: ue } = await supabase
     .from('usuario_empresa')
     .select('empresa_id')
-    .eq('user_id', user?.id ?? '')
-    .single()
+    .eq('user_id', user.id)
+    .maybeSingle()
 
   const empresaId = ue?.empresa_id
 
@@ -32,7 +34,10 @@ export default async function TransferenciasPage({
         .limit(50)
     : { data: [] }
 
-  const { data: unidades } = await supabase.from('unidade').select('id, nome')
+  // Filtro por empresa garante que não vaza unidades de outros tenants
+  const { data: unidades } = empresaId
+    ? await supabase.from('unidade').select('id, nome').eq('empresa_id', empresaId)
+    : { data: [] }
   const unidadeMap = new Map((unidades ?? []).map((u) => [u.id, u.nome]))
 
   type TRow = {

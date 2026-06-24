@@ -100,6 +100,8 @@
   --t-row-hover:   rgba(255,255,255,0.04);
   --t-table-head:  #1e1e26;
   --t-inset-bg:    #1e1e26;
+  --t-nav-bg:      #1a1a1d;
+  --t-nav-border:  #2a2a2e;
   --t-success:     #5f9a5f;
   --t-warning:     #d9a441;
   --t-error:       #c74a4a;

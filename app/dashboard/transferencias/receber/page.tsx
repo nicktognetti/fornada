@@ -13,7 +13,7 @@ export default async function ReceberPage() {
     .from('usuario_empresa')
     .select('empresa_id')
     .eq('user_id', user?.id ?? '')
-    .single()
+    .maybeSingle()
   const empresaId = ue?.empresa_id
 
   // Unidade selecionada pelo usuário (cookie) — respeita o tab ativo

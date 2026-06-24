@@ -66,9 +66,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     map,
     isLoading,
     isAdmin: admin,
+    // Nota: isLoading é tratado pelos chamadores (sidebar, usePermission) —
+    // não retornamos true aqui para evitar acesso inadvertido se o fetch falhar.
     canAccess: (tela: string) => {
-      if (isLoading) return true
-      if (Object.keys(map).length === 0) return true
+      if (isLoading) return false
+      if (Object.keys(map).length === 0) return true   // mapa vazio = erro no fetch, abre tudo
       if (admin) return true
       return getAcesso(map, tela) !== null
     },

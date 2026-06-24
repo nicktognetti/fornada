@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, type ReactNode } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { setUnidadeCookieAction } from '@/app/actions/unidade'
 
 export interface UnidadeOption {
@@ -29,15 +29,14 @@ interface UnidadeProviderProps {
 
 export function UnidadeProvider({ children, unidades, initialUnidadeId }: UnidadeProviderProps) {
   const router = useRouter()
-  const pathname = usePathname()
 
   const unidadeAtual: UnidadeOption | null =
     (initialUnidadeId && unidades.find((u) => u.id === initialUnidadeId)) || null
 
   async function setUnidade(u: UnidadeOption | null) {
     await setUnidadeCookieAction(u?.id ?? null)
-    // Reload sem query params para que o server component releia o cookie
-    router.replace(pathname)
+    // router.refresh() é suficiente: revalida os Server Components com o novo cookie
+    // sem mudar URL. router.replace() seria uma navegação redundante → double fetch.
     router.refresh()
   }
 

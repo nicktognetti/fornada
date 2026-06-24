@@ -9,25 +9,29 @@ import { getEmpresasDoUsuario, getEmpresaAtualId } from '@/app/actions/empresa'
 import type { UnidadeOption } from '@/app/context/unidade-context'
 
 async function getUnidadesDoUsuario(userId: string): Promise<UnidadeOption[]> {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { data: vinculos } = await supabase
-    .from('usuario_unidade')
-    .select('unidade_id')
-    .eq('user_id', userId)
-    .order('created_at')
+    const { data: vinculos } = await supabase
+      .from('usuario_unidade')
+      .select('unidade_id')
+      .eq('user_id', userId)
+      .order('created_at')
 
-  if (!vinculos || vinculos.length === 0) return []
+    if (!vinculos || vinculos.length === 0) return []
 
-  const ids = vinculos.map((v: { unidade_id: string }) => v.unidade_id)
+    const ids = vinculos.map((v: { unidade_id: string }) => v.unidade_id)
 
-  const { data: unidades } = await supabase
-    .from('unidade')
-    .select('id, nome')
-    .in('id', ids)
-    .order('nome')
+    const { data: unidades } = await supabase
+      .from('unidade')
+      .select('id, nome')
+      .in('id', ids)
+      .order('nome')
 
-  return (unidades ?? []) as UnidadeOption[]
+    return (unidades ?? []) as UnidadeOption[]
+  } catch {
+    return []
+  }
 }
 
 export default async function DashboardLayout({
