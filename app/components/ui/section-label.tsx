@@ -12,7 +12,7 @@ export function SectionLabel({ icon: Icon, children }: Props) {
       <span className="text-accent-primary font-outfit text-[11px] uppercase tracking-widest font-semibold whitespace-nowrap">
         {children}
       </span>
-      <div className="flex-1 h-px bg-accent-primary/15" />
+      <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, color-mix(in srgb, var(--color-accent-primary) 22%, transparent), transparent)' }} />
     </div>
   )
 }

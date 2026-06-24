@@ -11,7 +11,7 @@ export function PageTitle({ icon: Icon, children, subtitle }: Props) {
     <div className="mb-8">
       <div className="flex items-center gap-3">
         {Icon && (
-          <div className="w-10 h-10 rounded-xl bg-accent-primary/12 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-accent-primary/12 flex items-center justify-center shrink-0 ring-1 ring-accent-primary/20" style={{ boxShadow: '0 2px 8px color-mix(in srgb, var(--color-accent-primary) 18%, transparent)' }}>
             <Icon size={20} className="text-accent-primary" />
           </div>
         )}

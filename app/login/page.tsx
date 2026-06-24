@@ -14,7 +14,7 @@ export default function LoginPage() {
   )
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 100%, color-mix(in srgb, var(--color-accent-primary) 9%, transparent) 0%, transparent 70%)' }}>
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-10 gap-3">

@@ -97,7 +97,9 @@ export function Sidebar({ userEmail }: SidebarProps) {
         </form>
 
         <div className="px-3 pt-2">
-          <p className="text-faint text-[10px]">v0.5 · Flor do Trigo · desde 1948</p>
+          <p className="text-[11px]" style={{ color: 'rgba(172,97,55,0.5)', letterSpacing: '0.04em' }}>
+            Flor do Trigo · desde 1948
+          </p>
         </div>
       </div>
     </aside>

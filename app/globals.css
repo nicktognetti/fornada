@@ -118,6 +118,9 @@ html.creme-quente {
 
 body {
   background-color: var(--t-page-bg);
+  /* Textura de grão artesanal — muito sutil, reforça a identidade de padaria */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  background-size: 300px 300px;
   color: var(--t-text-1);
   font-family: var(--font-outfit);
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -133,8 +136,8 @@ body {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background-color: rgba(172,97,55,0.25); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background-color: rgba(172,97,55,0.40); }
+::-webkit-scrollbar-thumb { background-color: rgba(172,97,55,0.38); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(172,97,55,0.56); }
 
 /* ── Design system components ─────────────────────────────────────────────── */
 
@@ -191,7 +194,12 @@ body {
     border-radius: 1rem;
     border: 1px solid var(--t-card-border);
     box-shadow: var(--t-card-shadow);
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card-surface:hover {
+    border-color: color-mix(in srgb, var(--t-accent) 22%, var(--t-card-border));
+    box-shadow: var(--t-card-shadow), 0 0 0 1px color-mix(in srgb, var(--t-accent) 8%, transparent);
   }
 
   /* Botão primário */
