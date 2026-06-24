@@ -94,15 +94,25 @@ export async function savePermissionsAction(
   if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
   if (permissoes.length === 0) return { success: true }
 
-  // Usa admin client para bypassar RLS na escrita
-  const { error } = await supabaseAdmin
-    .from('permissao')
-    .upsert(permissoes, { onConflict: 'usuario_id,tela,unidade_id' })
+  const targetUserId = permissoes[0].usuario_id
+  const unidadeId = permissoes[0].unidade_id ?? null
 
+  // upsert com ON CONFLICT não funciona para NULL no Postgres (NULL != NULL no índice único).
+  // Solução: DELETE do escopo atual + INSERT fresco.
+  let deleteQ = supabaseAdmin
+    .from('permissao')
+    .delete()
+    .eq('usuario_id', targetUserId)
+  deleteQ = unidadeId === null
+    ? deleteQ.is('unidade_id', null)
+    : deleteQ.eq('unidade_id', unidadeId)
+  const { error: delErr } = await deleteQ
+  if (delErr) return { error: delErr.message }
+
+  const { error } = await supabaseAdmin.from('permissao').insert(permissoes)
   if (error) return { error: error.message }
 
-  // Liga a(s) loja(s) (usuario_unidade) conforme as unidades das permissões salvas
-  await syncUsuarioUnidade(permissoes[0].usuario_id)
+  await syncUsuarioUnidade(targetUserId)
 
   revalidatePath('/dashboard/configuracoes')
   return { success: true }
@@ -149,6 +159,23 @@ export async function disableUserAction(targetUserId: string): Promise<ActionRes
     .delete()
     .eq('usuario_id', targetUserId)
 
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/configuracoes')
+  return { success: true }
+}
+
+// ── Excluir usuário permanentemente ──────────────────────────────────────────
+
+export async function deleteUserAction(targetUserId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (targetUserId === user.id) return { error: 'Você não pode excluir a si mesmo' }
+  if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
+
+  // Cascata cuida de permissao + usuario_unidade + usuario_empresa via FK
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(targetUserId)
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/configuracoes')

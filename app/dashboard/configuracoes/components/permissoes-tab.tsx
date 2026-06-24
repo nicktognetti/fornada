@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import {
   Shield, Loader2, Check, X, Plus, UserPlus,
-  Pencil, KeyRound, UserX, ChevronLeft,
+  Pencil, KeyRound, UserX, ChevronLeft, Trash2,
 } from 'lucide-react'
 import {
   savePermissionsAction,
@@ -11,6 +11,7 @@ import {
   createUserAction,
   disableUserAction,
   resetPasswordAction,
+  deleteUserAction,
 } from '@/app/actions/permissoes'
 import { TELAS, TELA_LABEL } from '@/app/lib/permissions'
 import type { UsuarioComPermissoes, PermissaoInicialInput } from '@/app/actions/permissoes'
@@ -78,8 +79,8 @@ function PermissaoGrade({
 export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUserId }: Props) {
   const [usuarios, setUsuarios] = useState(usuariosIniciais)
 
-  // Vista: 'lista' | 'editar' | 'novo' | 'reset' | 'desabilitar'
-  type Vista = 'lista' | 'editar' | 'novo' | 'reset' | 'desabilitar'
+  // Vista: 'lista' | 'editar' | 'novo' | 'reset' | 'desabilitar' | 'excluir'
+  type Vista = 'lista' | 'editar' | 'novo' | 'reset' | 'desabilitar' | 'excluir'
   const [vista, setVista] = useState<Vista>('lista')
   const [targetUser, setTargetUser] = useState<UsuarioComPermissoes | null>(null)
 
@@ -107,6 +108,10 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
   // Desabilitar
   const [desabilitando, setDesabilitando] = useState(false)
   const [erroDesabilitar, setErroDesabilitar] = useState('')
+
+  // Excluir
+  const [excluindo, setExcluindo] = useState(false)
+  const [erroExcluir, setErroExcluir] = useState('')
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -260,6 +265,19 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     voltar()
   }
 
+  // ── excluir usuário permanentemente ──────────────────────────────────────
+
+  async function handleExcluir() {
+    if (!targetUser) return
+    setExcluindo(true)
+    setErroExcluir('')
+    const r = await deleteUserAction(targetUser.id)
+    setExcluindo(false)
+    if (r.error) { setErroExcluir(r.error); return }
+    setUsuarios((prev) => prev.filter((u) => u.id !== targetUser.id))
+    voltar()
+  }
+
   // ── desabilitar usuário ───────────────────────────────────────────────────
 
   async function handleDesabilitar() {
@@ -361,6 +379,15 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
                         <UserX size={14} />
                       </button>
                     )}
+                    {!ehVoce && (
+                      <button
+                        onClick={() => { setTargetUser(u); setErroExcluir(''); setVista('excluir') }}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-danger hover:bg-danger-tint transition-all"
+                        title="Excluir usuário permanentemente"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -424,8 +451,14 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
 
         <div className="flex items-center gap-3">
           <button
+            onClick={voltar}
+            className="px-5 py-2.5 rounded-lg border border-subtle text-secondary hover:text-primary hover:bg-input text-sm font-semibold transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
             onClick={handleSalvar}
-            disabled={Object.keys(pendente).length === 0 || isPending}
+            disabled={isPending}
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-sm font-semibold shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isPending ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
@@ -586,6 +619,49 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
           >
             {resetando ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
             {resetando ? 'Redefinindo...' : 'Redefinir Senha'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── RENDER: confirmar excluir ─────────────────────────────────────────────
+
+  if (vista === 'excluir' && targetUser) {
+    return (
+      <div className="space-y-5 max-w-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={voltar} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-input transition-all">
+            <ChevronLeft size={16} />
+          </button>
+          <div className="flex items-center gap-2">
+            <Trash2 size={18} className="text-danger" />
+            <h2 className="font-playfair text-primary text-lg font-bold">Excluir Usuário</h2>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-danger/30 bg-danger-tint px-5 py-4 space-y-2">
+          <p className="text-sm text-danger font-medium">
+            Tem certeza que deseja <strong>excluir permanentemente</strong> <span className="font-bold">{targetUser.email}</span>?
+          </p>
+          <p className="text-xs text-danger/70">
+            Esta ação não pode ser desfeita. O usuário será removido do Supabase Auth e todos os dados associados serão apagados.
+          </p>
+        </div>
+
+        {erroExcluir && <p className="text-danger text-sm">{erroExcluir}</p>}
+
+        <div className="flex gap-2">
+          <button onClick={voltar} className="flex-1 px-4 py-2.5 rounded-lg border border-subtle text-secondary hover:text-primary hover:bg-input text-sm font-semibold transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleExcluir}
+            disabled={excluindo}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-danger hover:bg-danger/80 text-white text-sm font-semibold shadow-sm transition-colors disabled:opacity-50"
+          >
+            {excluindo ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            {excluindo ? 'Excluindo...' : 'Excluir Permanentemente'}
           </button>
         </div>
       </div>
