@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, PackageCheck, TrendingDown, Loader2 } from 'lucide-react'
+import { ArrowRight, PackageCheck, TrendingDown, Loader2, CalendarDays, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatBRL } from '@/lib/format'
 import { ConfirmacaoDrawer } from '../../components/confirmacao-drawer'
@@ -43,11 +43,20 @@ interface Props {
   userId: string
 }
 
+function todayISO() {
+  return new Date().toISOString().split('T')[0]
+}
+
 export function TransferenciasTab({ transferencias, totalAReceber, isCentro, userId }: Props) {
   const router = useRouter()
   const [drawerTransferencia, setDrawerTransferencia] = useState<TransferenciaReceber | null>(null)
   const [drawerItens,         setDrawerItens]         = useState<ItemDrawer[]>([])
   const [loadingId,           setLoadingId]           = useState<string | null>(null)
+  const [dataFiltro, setDataFiltro] = useState<string>(todayISO)
+
+  const visiveis = dataFiltro
+    ? transferencias.filter((t) => t.created_at.startsWith(dataFiltro))
+    : transferencias
 
   async function abrirConfirmar(t: TransferenciaReceber) {
     setLoadingId(t.id)
@@ -74,18 +83,42 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
     setLoadingId(null)
   }
 
-  if (transferencias.length === 0) {
-    return (
-      <div className="bg-surface border border-subtle rounded-lg shadow-lg shadow-black/20 flex flex-col items-center py-16 text-center">
-        <PackageCheck size={40} className="mb-4 text-accent-primary/25" />
-        <p className="font-medium text-primary text-base">Nenhuma transferência a receber</p>
-        <p className="text-sm text-secondary mt-1">Todas as transferências foram conferidas.</p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
+      {/* Filtro de data */}
+      <div className="flex items-center gap-2">
+        <CalendarDays size={14} className="text-secondary shrink-0" />
+        <input
+          type="date"
+          value={dataFiltro}
+          onChange={(e) => setDataFiltro(e.target.value)}
+          className="bg-input border border-subtle rounded-lg px-3 py-1.5 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/40 focus:border-accent-primary transition-colors"
+        />
+        {dataFiltro && (
+          <button
+            onClick={() => setDataFiltro('')}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-secondary hover:text-ink-soft hover:bg-input border border-subtle transition-colors"
+          >
+            <X size={11} />
+            Todos
+          </button>
+        )}
+        <span className="text-xs text-faint ml-1">
+          {dataFiltro ? `${visiveis.length} de ${transferencias.length}` : `${transferencias.length} total`}
+        </span>
+      </div>
+
+      {visiveis.length === 0 ? (
+        <div className="bg-surface border border-subtle rounded-lg shadow-lg shadow-black/20 flex flex-col items-center py-16 text-center">
+          <PackageCheck size={40} className="mb-4 text-accent-primary/25" />
+          <p className="font-medium text-primary text-base">
+            {dataFiltro ? 'Nenhuma transferência nessa data' : 'Nenhuma transferência a receber'}
+          </p>
+          <p className="text-sm text-secondary mt-1">
+            {dataFiltro ? 'Tente outra data ou clique em "Todos".' : 'Todas as transferências foram conferidas.'}
+          </p>
+        </div>
+      ) : (
       <div className="bg-surface border border-subtle rounded-lg shadow-lg shadow-black/20 overflow-hidden">
         {/* Cabeçalho */}
         <div className="hidden sm:grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-subtle bg-canvas">
@@ -97,7 +130,7 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
         </div>
 
         <div className="divide-y divide-subtle">
-          {transferencias.map((t) => {
+          {visiveis.map((t) => {
             const sfin = t.status_financeiro ?? 'pendente'
             const carregando = loadingId === t.id
             return (
@@ -166,6 +199,7 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
           })}
         </div>
       </div>
+      )}
 
       {/* Card resumo financeiro — só para Centro */}
       {isCentro && totalAReceber > 0 && (

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Eye, ArrowLeftRight, Trash2, Loader2 } from 'lucide-react'
+import { ArrowRight, Eye, ArrowLeftRight, Trash2, Loader2, CalendarDays, X } from 'lucide-react'
 import { StatusBadgeTransferencia } from './status-badge'
 import { excluirTransferenciaAction } from '@/app/actions/transferencia'
 import type { StatusTransferencia } from './status-badge'
@@ -79,6 +79,10 @@ function ExcluirModal({
   )
 }
 
+function todayISO() {
+  return new Date().toISOString().split('T')[0]
+}
+
 export function TransferenciaTable({
   rows,
   sucesso,
@@ -91,8 +95,12 @@ export function TransferenciaTable({
   const [banner, setBanner] = useState(sucesso ?? null)
   const [excluindoId,  setExcluindoId]  = useState<string | null>(null)
   const [excluirLoading, setExcluirLoading] = useState(false)
+  const [dataFiltro, setDataFiltro] = useState<string>(todayISO)
 
-  const filtered = rows.filter((r) => STATUS_FILTER[tab].includes(r.status))
+  const byDate = dataFiltro
+    ? rows.filter((r) => r.created_at.startsWith(dataFiltro))
+    : rows
+  const filtered = byDate.filter((r) => STATUS_FILTER[tab].includes(r.status))
 
   async function handleExcluir(id: string) {
     setExcluirLoading(true)
@@ -113,6 +121,29 @@ export function TransferenciaTable({
           <button onClick={() => setBanner(null)} className="text-success/60 hover:text-success text-lg leading-none">×</button>
         </div>
       )}
+
+      {/* Filtro de data */}
+      <div className="flex items-center gap-2 mb-4">
+        <CalendarDays size={14} className="text-secondary shrink-0" />
+        <input
+          type="date"
+          value={dataFiltro}
+          onChange={(e) => setDataFiltro(e.target.value)}
+          className="bg-input border border-subtle rounded-lg px-3 py-1.5 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/40 focus:border-accent-primary transition-colors"
+        />
+        {dataFiltro && (
+          <button
+            onClick={() => setDataFiltro('')}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-secondary hover:text-ink-soft hover:bg-input border border-subtle transition-colors"
+          >
+            <X size={11} />
+            Todos
+          </button>
+        )}
+        <span className="text-xs text-faint ml-1">
+          {dataFiltro ? `${byDate.length} transferência${byDate.length !== 1 ? 's' : ''}` : `${rows.length} no total`}
+        </span>
+      </div>
 
       {/* Tabs — underline style */}
       <div className="flex border-b border-subtle mb-5 overflow-x-auto">

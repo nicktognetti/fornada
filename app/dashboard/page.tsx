@@ -139,7 +139,8 @@ export default async function ResumePage() {
   }
   const totalCusto = [...custoAcum.values()].reduce((s, v) => s + v, 0)
   const abcTop5 = [...custoAcum.entries()]
-    .map(([id, custo]) => ({ nome: nomeMap.get(id) ?? id, percentual: totalCusto > 0 ? (custo / totalCusto) * 100 : 0 }))
+    .filter(([id]) => nomeMap.has(id))
+    .map(([id, custo]) => ({ nome: nomeMap.get(id)!, percentual: totalCusto > 0 ? (custo / totalCusto) * 100 : 0 }))
     .sort((a, b) => b.percentual - a.percentual)
     .slice(0, 5)
 

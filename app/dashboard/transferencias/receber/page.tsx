@@ -39,6 +39,7 @@ export default async function ReceberPage() {
       .eq('empresa_id', empresaId)
       .eq('unidade_destino_id', minhaUnidadeId)
       .in('status_financeiro', ['pendente', 'a_receber'])
+      .in('status', ['PENDENTE', 'EM_TRANSITO'])
       .order('created_at', { ascending: true })
 
     if (tList && tList.length > 0) {
