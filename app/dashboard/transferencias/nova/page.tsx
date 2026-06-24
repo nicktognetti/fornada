@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NovaTransferenciaForm } from '../components/nova-transferencia-form'
 import { getUserUnidadeAction } from '@/app/actions/transferencia'
 import { getUnidadePreferida } from '@/app/actions/unidade'
@@ -10,18 +11,20 @@ export default async function NovaTransferenciaPage() {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: ue } = await supabase
+  // Usa admin para bypas RLS: usuario_empresa e unidade podem ter políticas
+  // que bloqueiam usuários não-admin dependendo de migrations aplicadas no banco.
+  const { data: ue } = await supabaseAdmin
     .from('usuario_empresa')
     .select('empresa_id')
     .eq('user_id', user?.id ?? '')
-    .single()
+    .maybeSingle()
 
   const empresaId = ue?.empresa_id ?? ''
 
   // Todas as unidades da empresa + produtos + cookie em paralelo
   const [unidadesResult, produtosResult, unidadeCookieId] = await Promise.all([
-    supabase.from('unidade').select('id, nome').eq('empresa_id', empresaId).order('created_at'),
-    supabase.from('produto').select('id, nome').eq('empresa_id', empresaId).eq('ativo', true).order('nome'),
+    supabaseAdmin.from('unidade').select('id, nome').eq('empresa_id', empresaId).order('created_at'),
+    supabaseAdmin.from('produto').select('id, nome').eq('empresa_id', empresaId).eq('ativo', true).order('nome'),
     getUnidadePreferida(),
   ])
 
