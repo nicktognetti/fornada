@@ -16,7 +16,7 @@ export default async function FichaPage({ params }: Props) {
   // Fetch receita + custo em paralelo
   const [receitaRes, custoRes, itemsRes] = await Promise.all([
     supabase.from('receita').select('*').eq('id', id).single(),
-    supabase.from('vw_custo_receita').select('custo_total, custo_unitario').eq('id', id).single(),
+    supabase.from('vw_custo_receita').select('custo_total, custo_unitario').eq('id', id).maybeSingle(),
     supabase
       .from('receita_item')
       .select(`

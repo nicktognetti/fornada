@@ -146,7 +146,7 @@ export async function confirmarRecebimentoAction(data: {
     .from('transferencia')
     .select('empresa_id, unidade_destino_id')
     .eq('id', data.transferencia_id)
-    .single()
+    .maybeSingle()
   if (!transf) return { error: 'Transferência não encontrada' }
   if (!empresaIds.includes(transf.empresa_id)) {
     return { error: 'Sem permissão para confirmar esta transferência' }
@@ -199,11 +199,11 @@ export async function cancelarTransferenciaAction(transferenciaId: string): Prom
 
   // Busca transferência e valida empresa + status
   const { data: ue } = await supabase
-    .from('usuario_empresa').select('empresa_id').eq('user_id', user.id).single()
+    .from('usuario_empresa').select('empresa_id').eq('user_id', user.id).maybeSingle()
   if (!ue) return { error: 'Empresa não encontrada' }
 
   const { data: t } = await supabase
-    .from('transferencia').select('status, empresa_id').eq('id', transferenciaId).single()
+    .from('transferencia').select('status, empresa_id').eq('id', transferenciaId).maybeSingle()
 
   if (!t) return { error: 'Transferência não encontrada' }
   if (t.empresa_id !== ue.empresa_id) return { error: 'Sem permissão' }
@@ -229,11 +229,11 @@ export async function excluirTransferenciaAction(transferenciaId: string): Promi
   if (!user) return { error: 'Não autenticado' }
 
   const { data: ue } = await supabase
-    .from('usuario_empresa').select('empresa_id').eq('user_id', user.id).single()
+    .from('usuario_empresa').select('empresa_id').eq('user_id', user.id).maybeSingle()
   if (!ue) return { error: 'Empresa não encontrada' }
 
   const { data: t } = await supabase
-    .from('transferencia').select('status, empresa_id').eq('id', transferenciaId).single()
+    .from('transferencia').select('status, empresa_id').eq('id', transferenciaId).maybeSingle()
 
   if (!t) return { error: 'Transferência não encontrada' }
   if (t.empresa_id !== ue.empresa_id) return { error: 'Sem permissão' }

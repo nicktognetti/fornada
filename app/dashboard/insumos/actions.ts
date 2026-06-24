@@ -40,7 +40,7 @@ async function getEmpresaId(userId: string): Promise<string | null> {
     .from('usuario_empresa')
     .select('empresa_id')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
   return data?.empresa_id ?? null
 }
 
