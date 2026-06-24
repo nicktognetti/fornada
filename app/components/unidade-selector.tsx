@@ -20,9 +20,13 @@ export function UnidadeSelector() {
 
   if (unidades.length === 0) return null
 
+  // Durante loading: oculta tabs para evitar flash falso (ex: Resumo sem permissão mostraria
+  // ambas as unidades até a query de permissões terminar — muito visível em páginas lentas).
+  if (isLoading) return null
+
   let visíveis: typeof unidades
 
-  if (isLoading || isAdmin) {
+  if (isAdmin) {
     visíveis = unidades
   } else {
     const telaAtual = pathnameToTela(pathname)

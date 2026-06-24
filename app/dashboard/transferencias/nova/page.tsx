@@ -3,55 +3,53 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NovaTransferenciaForm } from '../components/nova-transferencia-form'
-import { getUserUnidadeAction } from '@/app/actions/transferencia'
 import { getUnidadePreferida } from '@/app/actions/unidade'
+
+type UnidadeRow = { id: string; nome: string; empresa_id: string }
 
 export default async function NovaTransferenciaPage() {
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
+  const userId = user?.id ?? ''
 
-  // Usa admin para bypas RLS: usuario_empresa e unidade podem ter políticas
-  // que bloqueiam usuários não-admin dependendo de migrations aplicadas no banco.
-  const { data: ue } = await supabaseAdmin
-    .from('usuario_empresa')
-    .select('empresa_id')
-    .eq('user_id', user?.id ?? '')
-    .maybeSingle()
-
-  const empresaId = ue?.empresa_id ?? ''
-
-  // Todas as unidades da empresa + produtos + cookie em paralelo
-  const [unidadesResult, produtosResult, unidadeCookieId] = await Promise.all([
-    supabaseAdmin.from('unidade').select('id, nome').eq('empresa_id', empresaId).order('created_at'),
-    supabaseAdmin.from('produto').select('id, nome').eq('empresa_id', empresaId).eq('ativo', true).order('nome'),
+  // Busca unidades a que o usuário tem acesso via usuario_unidade (bypassa usuario_empresa
+  // que pode estar vazia para usuários criados antes da migration que faz o insert automático)
+  const [uuResult, cookieId] = await Promise.all([
+    supabaseAdmin
+      .from('usuario_unidade')
+      .select('unidade:unidade_id(id, nome, empresa_id)')
+      .eq('user_id', userId),
     getUnidadePreferida(),
   ])
 
-  const todasUnidades = unidadesResult.data ?? []
-  const produtos = produtosResult.data ?? []
+  const minhasUnidades: UnidadeRow[] = (uuResult.data ?? [])
+    .map((r) => r.unidade as unknown as UnidadeRow)
+    .filter(Boolean)
 
-  // 1ª fonte: RPC fn_get_user_unidade (vínculo fixo do operador)
-  let minhaUnidade: { id: string; nome: string } | null = null
+  // empresa do primeiro vínculo de loja
+  const empresaId = minhasUnidades[0]?.empresa_id ?? ''
 
-  const unidadeResult = await getUserUnidadeAction()
-  if (unidadeResult.success) {
-    const encontrada = todasUnidades.find((u) => u.id === unidadeResult.unidade.id)
-    minhaUnidade = encontrada ?? null
-  }
+  // Todas as unidades da empresa + produtos
+  const [todasResult, produtosResult] = await Promise.all([
+    empresaId
+      ? supabaseAdmin.from('unidade').select('id, nome').eq('empresa_id', empresaId).order('created_at')
+      : Promise.resolve({ data: minhasUnidades }),
+    empresaId
+      ? supabaseAdmin.from('produto').select('id, nome').eq('empresa_id', empresaId).eq('ativo', true).order('nome')
+      : Promise.resolve({ data: [] }),
+  ])
 
-  // 2ª fonte (fallback): cookie unidade_preferida do UnidadeSelector
-  if (!minhaUnidade && unidadeCookieId) {
-    const encontrada = todasUnidades.find((u) => u.id === unidadeCookieId)
-    minhaUnidade = encontrada ?? null
-  }
+  const todasUnidades: { id: string; nome: string }[] = todasResult.data ?? []
+  const produtos: { id: string; nome: string }[] = produtosResult.data ?? []
 
-  // Só exibe alerta se não há qualquer referência de unidade
-  const semUnidade = !minhaUnidade && todasUnidades.length >= 2
+  // Origem padrão: cookie (unidade selecionada pelo usuário) → primeira unidade vinculada
+  const minhaUnidade =
+    todasUnidades.find((u) => u.id === cookieId) ??
+    (minhasUnidades[0] ? todasUnidades.find((u) => u.id === minhasUnidades[0].id) : null) ??
+    null
 
   return (
     <div>
-      {/* Breadcrumb */}
       <div className="mb-6">
         <Link
           href="/dashboard/transferencias"
@@ -62,7 +60,6 @@ export default async function NovaTransferenciaPage() {
         </Link>
       </div>
 
-      {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <ArrowLeftRight size={22} className="text-accent-primary shrink-0" />
         <div>
@@ -71,16 +68,15 @@ export default async function NovaTransferenciaPage() {
         </div>
       </div>
 
-      {/* Banner de aviso: só quando não há unidade de origem identificada */}
-      {semUnidade && (
+      {todasUnidades.length < 2 && (
         <div className="mb-5 bg-amber-500/8 border border-amber-500/25 text-amber-400 rounded-lg px-4 py-3 text-sm">
-          Selecione a unidade de origem e destino para continuar.
+          É preciso ter pelo menos duas unidades para criar uma transferência.
         </div>
       )}
 
       <NovaTransferenciaForm
         minhaUnidade={minhaUnidade}
-        origemViaVinculo={unidadeResult.success}
+        origemViaVinculo={false}
         todasUnidades={todasUnidades}
         produtos={produtos}
         empresaId={empresaId}
