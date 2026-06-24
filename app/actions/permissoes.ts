@@ -52,7 +52,7 @@ async function syncUsuarioUnidade(targetUserId: string): Promise<void> {
       .from('unidade')
       .select('id')
       .eq('empresa_id', ue.empresa_id)
-      .eq('ativa', true)
+      .eq('ativo', true)
     desejadas = ((todas ?? []) as { id: string }[]).map((u) => u.id)
   } else {
     desejadas = [...new Set(
@@ -314,7 +314,7 @@ export async function getUnidadesGerenciaveis(): Promise<ActionResult<{ id: stri
     .from('unidade')
     .select('id, nome')
     .in('empresa_id', empresaIds)
-    .eq('ativa', true)
+    .eq('ativo', true)
     .order('nome')
 
   return { data: (unidades ?? []) as { id: string; nome: string }[] }
