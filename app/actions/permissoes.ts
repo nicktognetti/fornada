@@ -195,9 +195,14 @@ export async function deleteUserAction(targetUserId: string): Promise<ActionResu
   if (targetUserId === user.id) return { error: 'Você não pode excluir a si mesmo' }
   if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
 
-  // Cascata cuida de permissao + usuario_unidade + usuario_empresa via FK
+  // Tenta remover do Auth; se "not found" o usuário já foi deletado — continua limpeza
   const { error } = await supabaseAdmin.auth.admin.deleteUser(targetUserId)
-  if (error) return { error: error.message }
+  if (error && !error.message.toLowerCase().includes('not found')) return { error: error.message }
+
+  // Limpeza manual caso a cascata não tenha funcionado (ex: usuário orphan)
+  await supabaseAdmin.from('permissao').delete().eq('usuario_id', targetUserId)
+  await supabaseAdmin.from('usuario_unidade').delete().eq('user_id', targetUserId)
+  await supabaseAdmin.from('usuario_empresa').delete().eq('user_id', targetUserId)
 
   revalidatePath('/dashboard/configuracoes')
   return { success: true }

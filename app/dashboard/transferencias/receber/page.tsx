@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import { ReceberHub } from './components/receber-hub'
 import type { TransferenciaReceber, Compra, StatusFinanceiro } from './types'
 
@@ -15,15 +16,8 @@ export default async function ReceberPage() {
     .single()
   const empresaId = ue?.empresa_id
 
-  // Unidade padrão do usuário
-  const { data: vinculo } = await supabase
-    .from('usuario_unidade')
-    .select('unidade_id')
-    .eq('user_id', user?.id ?? '')
-    .order('created_at')
-    .limit(1)
-    .single()
-  const minhaUnidadeId = vinculo?.unidade_id ?? null
+  // Unidade selecionada pelo usuário (cookie) — respeita o tab ativo
+  const minhaUnidadeId = await getUnidadePreferida()
 
   // Todas as unidades da empresa para montar nomes
   const { data: unidades } = await supabase
