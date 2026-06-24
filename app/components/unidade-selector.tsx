@@ -20,6 +20,9 @@ export function UnidadeSelector() {
 
   if (unidades.length === 0) return null
 
+  // Configurações tem seletor de escopo próprio (Todas / Centro / Morada) — tabs aqui seriam duplicados
+  if (pathname.startsWith('/dashboard/configuracoes')) return null
+
   // Durante loading: oculta tabs para evitar flash falso (ex: Resumo sem permissão mostraria
   // ambas as unidades até a query de permissões terminar — muito visível em páginas lentas).
   if (isLoading) return null
