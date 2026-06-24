@@ -49,5 +49,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)'],
+  // Exclui assets estáticos do public/ (images, fonts, etc.) para evitar
+  // que o middleware de autenticação bloqueie recursos públicos como o logo
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|images/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
 }
