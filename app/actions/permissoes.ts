@@ -12,15 +12,17 @@ type ActionResult<T = void> = T extends void
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function assertAdmin(userId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin
+  // Não usar .single() — permissao pode ter duplicatas com unidade_id NULL
+  // (PostgreSQL permite múltiplos NULLs no mesmo índice UNIQUE)
+  const { data, error } = await supabaseAdmin
     .from('permissao')
     .select('id')
     .eq('usuario_id', userId)
     .eq('tela', '*')
     .eq('acesso', 'admin')
     .is('unidade_id', null)
-    .single()
-  return !!data
+    .limit(1)
+  return !error && Array.isArray(data) && data.length > 0
 }
 
 // Mantém usuario_unidade (vínculo de LOJA, base do RLS por loja) em sincronia com
