@@ -53,8 +53,8 @@ export default function LoginPage() {
           {/* Régua decorativa com "Fornada" centralizado */}
           <div className="flex items-center gap-3 w-full px-6">
             <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, rgba(217,141,95,0.45))' }} />
-            <p className="font-sacramento leading-none text-accent-primary"
-               style={{ fontSize: '2.6rem', textShadow: '0 0 32px rgba(217,141,95,0.35)' }}>
+            <p className="font-playfair leading-none font-bold italic"
+               style={{ fontSize: '2.6rem', color: '#ede9e1', textShadow: '0 2px 24px rgba(237,233,225,0.18)' }}>
               Fornada
             </p>
             <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, rgba(217,141,95,0.45))' }} />
