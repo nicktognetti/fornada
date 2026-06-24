@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useActionState } from 'react'
 import { login } from './actions'
 
@@ -33,12 +34,14 @@ export default function LoginPage() {
 
         {/* Logo Flor do Trigo */}
         <div className="animate-fade-up" style={{ animationDelay: '0ms' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/images/LOGO2claro.png"
             alt="Flor do Trigo — desde 1948"
+            width={560}
+            height={280}
             className="w-[220px] sm:w-[280px] h-auto"
-            style={{ filter: 'drop-shadow(0 4px 24px rgba(0,0,0,0.5))' }}
+            priority
+            unoptimized
           />
         </div>
 
