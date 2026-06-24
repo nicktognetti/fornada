@@ -52,11 +52,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
   const admin = isGlobalAdmin(map)
 
-  const unidadesPermitidas: string[] | null = admin
-    ? null
-    : Object.values(map)
-        .filter((p) => p.unidade_id !== null)
-        .map((p) => p.unidade_id as string)
+  // null = sem filtro (admin global OU permissões ainda não carregadas/erro)
+  const unidadesPermitidas: string[] | null =
+    admin || Object.keys(map).length === 0
+      ? null
+      : Object.values(map)
+          .filter((p) => p.unidade_id !== null)
+          .map((p) => p.unidade_id as string)
 
   const value: PermissionsContextValue = {
     map,

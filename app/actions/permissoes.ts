@@ -264,7 +264,7 @@ export async function getUnidadesGerenciaveis(): Promise<ActionResult<{ id: stri
     .from('unidade')
     .select('id, nome')
     .in('empresa_id', empresaIds)
-    .eq('ativo', true)
+    .eq('ativa', true)
     .order('nome')
 
   return { data: (unidades ?? []) as { id: string; nome: string }[] }
