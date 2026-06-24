@@ -37,55 +37,70 @@ function tempoAtras(dateStr: string): string {
 export default async function ResumePage() {
   const [unidadeId, supabase] = await Promise.all([getUnidadePreferida(), createClient()])
 
-  let insumoCountQ = supabase.from('insumo').select('*', { count: 'exact', head: true }).eq('ativo', true)
-  let receitaCountQ = supabase.from('receita').select('*', { count: 'exact', head: true }).eq('ativo', true)
-  let produtoCountQ = supabase.from('produto').select('*', { count: 'exact', head: true }).eq('ativo', true)
-  let insumoIdsQ = supabase.from('insumo').select('id').eq('ativo', true)
-  let nomesQ = supabase.from('insumo').select('id, nome').eq('ativo', true)
-  let produtosQ = supabase.from('produto').select('id, nome, receita_id').eq('ativo', true)
+  let insumoCountQ   = supabase.from('insumo').select('*', { count: 'exact', head: true }).eq('ativo', true)
+  let receitaCountQ  = supabase.from('receita').select('*', { count: 'exact', head: true }).eq('ativo', true)
+  let produtoCountQ  = supabase.from('produto').select('*', { count: 'exact', head: true }).eq('ativo', true)
+  let insumoIdsQ     = supabase.from('insumo').select('id').eq('ativo', true)
+  let nomesQ         = supabase.from('insumo').select('id, nome').eq('ativo', true)
+  let produtosQ      = supabase.from('produto').select('id, nome, receita_id').eq('ativo', true)
   let ultimasFichasQ = supabase.from('receita').select('id, nome, updated_at').eq('ativo', true).order('updated_at', { ascending: false }).limit(5)
 
   if (unidadeId) {
-    insumoCountQ = insumoCountQ.eq('unidade_id', unidadeId)
-    receitaCountQ = receitaCountQ.eq('unidade_id', unidadeId)
-    produtoCountQ = produtoCountQ.eq('unidade_id', unidadeId)
-    insumoIdsQ = insumoIdsQ.eq('unidade_id', unidadeId)
-    nomesQ = nomesQ.eq('unidade_id', unidadeId)
-    produtosQ = produtosQ.eq('unidade_id', unidadeId)
+    insumoCountQ   = insumoCountQ.eq('unidade_id', unidadeId)
+    receitaCountQ  = receitaCountQ.eq('unidade_id', unidadeId)
+    produtoCountQ  = produtoCountQ.eq('unidade_id', unidadeId)
+    insumoIdsQ     = insumoIdsQ.eq('unidade_id', unidadeId)
+    nomesQ         = nomesQ.eq('unidade_id', unidadeId)
+    produtosQ      = produtosQ.eq('unidade_id', unidadeId)
     ultimasFichasQ = ultimasFichasQ.eq('unidade_id', unidadeId)
   }
 
-  const [
-    insumoRes, receitaRes, produtoRes,
-    insumoIdsRes, custosRes,
-    itensRes, nomesRes,
-    produtosRes, precoProdutoRes, custosReceitaRes,
-    ultimasFichasRes,
-  ] = await Promise.all([
-    insumoCountQ,
-    receitaCountQ,
-    produtoCountQ,
-    insumoIdsQ,
-    supabase.from('vw_insumo_custo_atual').select('insumo_id, custo_uso'),
-    supabase.from('receita_item').select('insumo_id, quantidade').not('insumo_id', 'is', null),
-    nomesQ,
-    produtosQ,
-    supabase.from('produto_preco').select('produto_id, preco_praticado'),
-    supabase.from('vw_custo_receita').select('id, custo_unitario, rendimento_unidade'),
-    // Tenta buscar com updated_at — silencia erro se coluna não existir
-    ultimasFichasQ,
+  // Fase 1: contagens e IDs (escopo já garantido via unidade_id + RLS)
+  const [insumoRes, receitaRes, produtoRes, insumoIdsRes, nomesRes, produtosRes, ultimasFichasRes] =
+    await Promise.all([
+      insumoCountQ,
+      receitaCountQ,
+      produtoCountQ,
+      insumoIdsQ,
+      nomesQ,
+      produtosQ,
+      ultimasFichasQ,
+    ])
+
+  type ProdutoRow = { id: string; nome: string; receita_id: string | null }
+
+  const insumoIds  = (insumoIdsRes.data ?? []).map((i) => i.id)
+  const produtoIds = (produtosRes.data as ProdutoRow[] ?? []).map((p) => p.id)
+  const receitaIds = [...new Set(
+    (produtosRes.data as ProdutoRow[] ?? []).filter((p) => p.receita_id).map((p) => p.receita_id as string)
+  )]
+
+  // Fase 2: dados dependentes com scoping defensivo pelos IDs conhecidos
+  // (protege contra ausência de RLS em tabelas secundárias/views)
+  const [custosRes, itensRes, precoProdutoRes, custosReceitaRes] = await Promise.all([
+    insumoIds.length > 0
+      ? supabase.from('vw_insumo_custo_atual').select('insumo_id, custo_uso').in('insumo_id', insumoIds)
+      : Promise.resolve({ data: [] }),
+    insumoIds.length > 0
+      ? supabase.from('receita_item').select('insumo_id, quantidade').not('insumo_id', 'is', null).in('insumo_id', insumoIds)
+      : Promise.resolve({ data: [] }),
+    produtoIds.length > 0
+      ? supabase.from('produto_preco').select('produto_id, preco_praticado').in('produto_id', produtoIds)
+      : Promise.resolve({ data: [] }),
+    receitaIds.length > 0
+      ? supabase.from('vw_custo_receita').select('id, custo_unitario, rendimento_unidade').in('id', receitaIds)
+      : Promise.resolve({ data: [] }),
   ])
 
-  const insumoCount = insumoRes.count ?? 0
+  const insumoCount  = insumoRes.count ?? 0
   const receitaCount = receitaRes.count ?? 0
   const produtoCount = produtoRes.error ? null : (produtoRes.count ?? 0)
 
-  type CustoUsoRow    = { insumo_id: string; custo_uso: number | null }
-  type CustoRRow      = { id: string; custo_unitario: number | null; rendimento_unidade: string }
-  type PrecoProdRow   = { produto_id: string; preco_praticado: number | null }
-  type ProdutoRow     = { id: string; nome: string; receita_id: string | null }
-  type NomeRow        = { id: string; nome: string }
-  type ItemRow        = { insumo_id: string | null; quantidade: number }
+  type CustoUsoRow  = { insumo_id: string; custo_uso: number | null }
+  type CustoRRow    = { id: string; custo_unitario: number | null; rendimento_unidade: string }
+  type PrecoProdRow = { produto_id: string; preco_praticado: number | null }
+  type NomeRow      = { id: string; nome: string }
+  type ItemRow      = { insumo_id: string | null; quantidade: number }
 
   // ── Atenção: insumos sem preço ─────────────────────────────────────────────
   const comCusto = new Set(
@@ -93,7 +108,7 @@ export default async function ResumePage() {
       .filter((c) => c.custo_uso && c.custo_uso > 0)
       .map((c) => c.insumo_id)
   )
-  const insumosSemPreco = (insumoIdsRes.data ?? []).filter((i) => !comCusto.has(i.id)).length
+  const insumosSemPreco = insumoIds.filter((id) => !comCusto.has(id)).length
 
   // ── Atenção: produtos no prejuízo ──────────────────────────────────────────
   const custoReceitaMap = new Map<string, { custo_unitario: number; rendimento_unidade: string }>(
