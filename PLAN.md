@@ -2,26 +2,31 @@
 
 ## ▶ Ponto de retomada (atualizado 24/06/2026)
 
-**Status:** todo o trabalho está **commitado** na `master` (auditoria → correções → RBAC granular → docs → migrations). **Nada foi aplicado no banco** — o sistema no ar está intacto. Não há remote git configurado (tudo local).
+**Status:** todo o trabalho está **commitado** na `master`. Não há remote git configurado (tudo local). O sistema no ar está intacto — nenhuma migration foi aplicada ao banco nas últimas sessões.
 
-**✅ Banco confirmado (25/06): é o Fornada** (slug `flor-do-trigo`). O "susto do sac_agrindus" foi alarme falso. **Nada foi aplicado em banco** (só leitura). Diagnóstico real:
-- O app em produção É **este repositório** (o Painel mostra "Valor do Portfólio", rename desta sessão).
-- O **Painel aparece vazio** porque faltam `vw_custo_receita` e `vw_produto_financeiro` no banco → criada a migration `20260625000000_views_custo_fornada.sql` que as cria (custo via função recursiva que o Postgres aceita).
-- RLS real = `p_emp` (por empresa) + por-unidade redundante + duplicatas → migration `20260624000001` está correta (faxina opcional).
+**Últimas sessões concluídas (24/06):**
+- ✅ Design da tela de login reformulado (wordmark Fornada em Playfair italic + cor creme `#ede9e1`, halo atmosférico, animações staggered)
+- ✅ Refinamentos visuais globais: textura de grão, nav ativo gradiente quente, card hover borda accent, scrollbar mais visível
+- ✅ Fix middleware `proxy.ts` — exclui `/images/` do matcher de auth (logo sumia no login)
+- ✅ RBAC: origem vazia em Nova Transferência corrigida (usa cookie → unidade → empresa_id)
+- ✅ RBAC: aba Resumo não aparece mais para usuários sem permissão
+- ✅ UnidadeSelector oculto em `/configuracoes` (evitava seletor duplicado)
+- ✅ **Auditoria sênior completa — 18 correções em 4 commits** (ver seção abaixo)
+
+**✅ Banco confirmado (25/06): é o Fornada** (slug `flor-do-trigo`). O "susto do sac_agrindus" foi alarme falso. Diagnóstico real:
+- O **Painel aparece vazio** porque faltam `vw_custo_receita` e `vw_produto_financeiro` no banco → criada a migration `20260625000000_views_custo_fornada.sql`.
 - Tabelas `linha`/`parametro_financeiro`/`despesa`/`vw_markup_linha` são de uma versão **antiga, não usada** por este app.
 
 **Próximos passos (um de cada vez — com calma):**
-1. ✅ **FEITO (25/06): aplicado** `20260625000000_views_custo_fornada.sql` → Painel acendeu. `vw_produto_financeiro` tem **1156 produtos**; `vw_custo_receita`/`vw_produto_financeiro` agora existem. Obs.: só ~8 produtos têm preço cadastrado (falta precificar) e o Painel carrega 1000 de 1156 (limite padrão do Supabase — habilitar paginação).
-2. ✅ **FEITO (26/06):** corrigido bug `unidade.ativa`→`ativo` no código; escritas as migrations de **isolamento por loja**:
-   - `20260626000000_cnpj_por_loja.sql` — CNPJ por loja (aditivo)
-   - `20260626000001_rls_por_loja.sql` — RLS por loja (admin global vê tudo; restrito só a sua loja; helpers `fn_user_unidades`/`fn_is_admin_global`)
-   - **Seletor de loja sem "Todas":** removida a aba "Todas" (não soma as lojas); sempre 1 loja selecionada por padrão (a primeira). Cada tela já filtra por `unidade_id` da loja escolhida. (`getUnidadePreferida` agora resolve a 1ª loja quando não há cookie.)
-3. ⬜ **Aplicar com BACKUP** (ordem): CNPJ → RLS por loja → conferir `pg_policies` (1 política `_loja` por tabela) → testar um usuário restrito (1 loja só).
-4. ⬜ Conferir margens no Painel; quando a Natali zerar/reimportar produtos, cadastrar por loja.
+1. ✅ **FEITO (25/06):** aplicado `20260625000000_views_custo_fornada.sql` → Painel acendeu. `vw_produto_financeiro` tem **1156 produtos**. Obs.: só ~8 produtos têm preço cadastrado e o Painel carrega 1000 de 1156 (limite padrão — paginação é roadmap).
+2. ✅ **FEITO (26/06):** migrations de **isolamento por loja** escritas (`cnpj_por_loja`, `rls_por_loja`); seletor sem "Todas"; `getUnidadePreferida` resolve a 1ª loja quando sem cookie.
+3. ⬜ **Aplicar com BACKUP** (ordem): CNPJ → RLS por loja → conferir `pg_policies` → testar usuário restrito a 1 loja.
+4. ⬜ Conferir margens no Painel; quando Natali zerar/reimportar produtos, cadastrar por loja.
 5. ⬜ Testar a **Priscila** (criar restrita à Centro) e a Natali trocando de loja no seletor.
 6. ⬜ (futuro) Módulo "contas a pagar/receber" por loja.
+7. ⬜ **Pendência arquitetural:** `isCentro` em `receber/page.tsx:31` detecta unidade pagadora por `nome.includes('centro')`. Frágil se a loja mudar de nome. Solução: coluna `is_pagadora BOOLEAN` na tabela `unidade`.
 
-> A "faxina de RLS por empresa" (`20260624000001`) está **DESCARTADA** — substituída pela RLS por loja (`20260626000001`). O backfill `20260624000000` (já corrigido p/ `ativo`) é opcional.
+> A "faxina de RLS por empresa" (`20260624000001`) está **DESCARTADA** — substituída pela RLS por loja (`20260626000001`). O backfill `20260624000000` é opcional.
 
 Nada disso é urgente — o que está no ar funciona.
 
@@ -122,6 +127,56 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [x] Botão "Confirmar" inline na tela Receber — busca itens via Supabase client e abre `ConfirmacaoDrawer`
 - [x] `ConfirmacaoDrawer` convertido de slide-right para **modal centralizado** (`max-w-[580px] max-h-[90vh]`)
 - [x] Default da rota: `ordem created_at` no banco (Morada do Sol primeiro); lazy initializer `useState(() => ...)` evita hydration mismatch
+
+### Sessão 7 — Design, RBAC fixes + Auditoria Sênior (24/06)
+> 4 commits, 18 arquivos corrigidos, build limpo em todos.
+
+#### Design
+- [x] **Login redesenhado:** wordmark "Fornada" em Playfair Display Bold Italic + `#ede9e1` (mesma cor/fonte do logo); fundo com 3 camadas (halo quente, gradiente frio, vinheta); linha decorativa fade-out nos lados; botão gradiente accent; animações staggered `fade-up` (0/120/260/380ms)
+- [x] **Grain texture** no `body` via SVG fractalNoise (3,5% de opacidade) — reforça identidade de padaria artesanal
+- [x] **Nav link ativo** com gradiente lateral quente (16% accent → transparente) + barra left com glow
+- [x] **Card hover:** borda quente + glow sutil via `card-surface:hover`
+- [x] **Scrollbar** mais visível (0,25 → 0,38 opacidade)
+- [x] **Fix autofill do browser:** `webkit-box-shadow` inset força background escuro nos inputs preenchidos automaticamente
+- [x] **Fix middleware `proxy.ts`:** `/images/` e extensões de imagem excluídas do matcher de auth (logo sumia no login porque `next/image unoptimized` serve a URL direta que era interceptada e redirecionada para `/login`)
+
+#### RBAC & Navegação
+- [x] **Nova Transferência — ORIGEM vazia** corrigida: usa `cookie → unidade.empresa_id → todas as unidades da empresa` (sem depender de join `usuario_unidade` que falhava silenciosamente via PostgREST)
+- [x] **Resumo sem permissão** não aparece mais (fix na lógica de filtro do sidebar)
+- [x] **UnidadeSelector oculto em `/configuracoes`** — a página já tem seu próprio seletor de escopo (Todas/Centro/Morada), o seletor global causava duplo seletor visível
+
+#### Auditoria Sênior — 18 correções
+**SEGURANÇA / DATA LEAK:**
+- [x] `transferencias/page.tsx` — query `unidade` sem `empresa_id` retornava unidades de todos os tenants → `.eq('empresa_id', empresaId)`
+- [x] `transferencias-tab.tsx` — `SELECT * FROM produto` sem filtro carregava todos os produtos do banco ao abrir drawer → `.in('id', prodIds)` com apenas IDs necessários
+- [x] `insumos/page.tsx` — `insumo_preco` e `receita_item` sem filtro algum → reestruturado em 2 fases: primeiro IDs, depois `.in('insumo_id', insumoIds)`
+- [x] `dashboard/page.tsx` (Resumo) — `vw_insumo_custo_atual`, `receita_item`, `produto_preco`, `vw_custo_receita` sem filtro → reestruturado em 2 fases (IDs na fase 1, dependentes filtrados na fase 2)
+
+**ESTABILIDADE — `.single()` que lança exceção com 0 linhas:**
+- [x] `receber/page.tsx` — `.single()` em `usuario_empresa`
+- [x] `permissoes.ts` — `.single()` em `usuario_empresa` dentro de try/catch de criação de usuário (causava rollback indevido)
+- [x] `transferencia.ts` — 4× `.single()` em `usuario_empresa` e `transferencia` (cancelar, excluir, confirmar)
+- [x] `receitas/actions.ts` — `getEmpresaId()` com `.single()`
+- [x] `insumos/actions.ts` — `getEmpresaId()` com `.single()`
+- [x] `receitas/[id]/page.tsx` — `.single()` em `vw_custo_receita` (crash se receita sem custo calculado)
+
+**PERMISSÕES:**
+- [x] `permissions-context.tsx` — `canAccess()` retornava `true` durante `isLoading`; se o fetch de permissões falhasse silenciosamente, acesso ficava liberado permanentemente → corrigido para `false`
+
+**PERFORMANCE / QUALIDADE:**
+- [x] `unidade-context.tsx` — `router.replace(pathname)` + `router.refresh()` causava double fetch ao trocar de unidade → removido `replace`, mantido apenas `refresh()`
+- [x] `dashboard/layout.tsx` — `getUnidadesDoUsuario()` sem try/catch; falha derrubava o layout inteiro → envolvido em try/catch → `[]`
+
+**DESIGN SYSTEM / CONTRASTE:**
+- [x] `status-badge.tsx` — `text-emerald-700`/`text-amber-700` têm ~3:1 contraste no dark theme (WCAG fail) → tokens `text-success`/`text-warning`
+
+**CSS / TOKENS:**
+- [x] `globals.css` — `--t-nav-bg` e `--t-nav-border` referenciados em `.app-nav` mas não definidos no `:root` → adicionados
+
+**ACESSIBILIDADE:**
+- [x] `sidebar.tsx` — botão "Sair →" sem `aria-label` → `aria-label="Sair do sistema"`
+- [x] `nova-transferencia-form.tsx` — botões X (fechar modal, remover item) sem `aria-label`; comentário ESLint de regra inexistente removido
+- [x] `transferencia-table.tsx` — `key={i}` em cabeçalhos estáticos → `key={h}`; botão Excluir recebe `aria-label` descritivo
 
 ### Sessão 6 — Auditoria v2 + RBAC granular (21/06)
 > Relatório: `AUDITORIA_FORNADA_v2.md` · Acompanhamento detalhado: `CORRECOES_FORNADA.md`

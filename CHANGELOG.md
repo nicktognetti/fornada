@@ -9,6 +9,55 @@ Formato: `tipo: descrição — detalhes`
 
 ---
 
+## 2026-06-24 — Auditoria Sênior + Design + RBAC fixes
+
+### Design & UX
+- **Login redesenhado** — wordmark "Fornada" em Playfair Display Bold Italic + `#ede9e1` (mesma fonte/cor do logo Flor do Trigo); fundo atmosférico com 3 camadas (halo quente bottom, gradiente frio top, vinheta radial); linha decorativa fade-out; botão com gradiente accent; animações staggered `fade-up` (delays 0/120/260/380ms)
+- **Grain texture** no `body` via SVG fractalNoise (3,5%) — textura artesanal coerente com identidade de padaria
+- **Nav link ativo** com gradiente lateral quente (16% accent → transparente) + barra left com `box-shadow` glow
+- **Card hover** com borda quente accent via `.card-surface:hover`
+- **Scrollbar** mais visível (thumb opacity 0,25 → 0,38)
+- **Fix autofill browser** — `webkit-box-shadow: inset` força dark background nos inputs auto-preenchidos
+- **Fix middleware `proxy.ts`** — `/images/` e extensões de imagem (png/jpg/svg/gif/webp/ico) excluídas do matcher de autenticação; root cause: `next/image unoptimized` serve URL direta que era interceptada e redirecionada para `/login` quando não havia sessão
+
+### RBAC & Navegação
+- **Nova Transferência — ORIGEM vazia** corrigida: `cookie → unidade.empresa_id → todas unidades da empresa` (substituiu join PostgREST `usuario_unidade` que falhava silenciosamente)
+- **Tab Resumo** não aparece mais para usuários sem permissão (`canAccess` durante `isLoading` retorna `false`)
+- **UnidadeSelector** oculto em `/configuracoes` (página tem seletor de escopo próprio — evitava duplo seletor)
+- **`router.replace()` removido** do `unidade-context.tsx` — `refresh()` sozinho é suficiente para reler o cookie nos Server Components; o `replace()` causava double fetch desnecessário
+
+### Segurança — Data Leak entre Tenants
+- `transferencias/page.tsx` — query `unidade` sem `empresa_id` retornava unidades de todos os tenants
+- `transferencias-tab.tsx` — `SELECT * FROM produto` sem filtro ao abrir drawer de confirmação → agora filtra por `.in('id', prodIds)`
+- `insumos/page.tsx` — `insumo_preco` e `receita_item` sem filtro → reestruturado em 2 fases (IDs → dependentes com `.in()`)
+- `dashboard/page.tsx` — `vw_insumo_custo_atual`, `receita_item`, `produto_preco`, `vw_custo_receita` sem filtro → reestruturado em 2 fases
+
+### Estabilidade — `.single()` → `.maybeSingle()`
+`.single()` lança exceção quando retorna 0 linhas; todos os usos problemáticos convertidos:
+- `receber/page.tsx` — `usuario_empresa`
+- `permissoes.ts` (criar usuário) — `usuario_empresa` dentro de try/catch causava rollback indevido do usuário recém-criado
+- `transferencia.ts` — 4 instâncias em `cancelar`, `excluir` e `confirmar recebimento`
+- `receitas/actions.ts` — `getEmpresaId()`
+- `insumos/actions.ts` — `getEmpresaId()`
+- `receitas/[id]/page.tsx` — `vw_custo_receita` (crash se receita sem custo calculado)
+
+### Permissões
+- `permissions-context.tsx` — `canAccess()` retornava `true` durante `isLoading`; se o fetch falhasse silenciosamente, acesso ficava liberado permanentemente → corrigido para `false`
+
+### Resiliência
+- `dashboard/layout.tsx` — `getUnidadesDoUsuario()` sem try/catch; falha de query derrubava o layout inteiro → envolvido em try/catch com retorno `[]`
+
+### Design System / Contraste
+- `status-badge.tsx` — `text-emerald-700`/`text-amber-700` têm ~3:1 contraste no dark (abaixo do WCAG AA) → substituídos por tokens `text-success`/`text-warning`/`bg-success`/`bg-warning`
+- `globals.css` — `--t-nav-bg` e `--t-nav-border` estavam referenciados em `.app-nav` mas não definidos no `:root`
+
+### Acessibilidade
+- `sidebar.tsx` — botão "Sair →" recebe `aria-label="Sair do sistema"`
+- `nova-transferencia-form.tsx` — botões X (fechar modal, remover item) recebem `aria-label`; ESLint disable de regra inexistente removido
+- `transferencia-table.tsx` — `key={i}` em cabeçalhos estáticos → `key={h}`; botão Excluir recebe `aria-label` descritivo
+
+---
+
 ## 2026-06-19 — FASE 5: RBAC & Limpeza
 
 **feat: RBAC completo — permissoes, server actions, UI de gerenciamento, Admin Global vs Personalizado**
