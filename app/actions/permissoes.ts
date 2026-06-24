@@ -34,11 +34,32 @@ async function syncUsuarioUnidade(targetUserId: string): Promise<void> {
     .select('unidade_id')
     .eq('usuario_id', targetUserId)
 
-  const desejadas = [...new Set(
-    ((perms ?? []) as { unidade_id: string | null }[])
-      .map((p) => p.unidade_id)
-      .filter((id): id is string => !!id)
-  )]
+  const permList = (perms ?? []) as { unidade_id: string | null }[]
+  const hasGlobal = permList.some((p) => p.unidade_id === null)
+
+  let desejadas: string[]
+
+  if (hasGlobal) {
+    // Permissão global (unidade_id=NULL): vincular a TODAS as unidades ativas da empresa
+    const { data: ue } = await supabaseAdmin
+      .from('usuario_empresa')
+      .select('empresa_id')
+      .eq('user_id', targetUserId)
+      .maybeSingle()
+    if (!ue?.empresa_id) return
+
+    const { data: todas } = await supabaseAdmin
+      .from('unidade')
+      .select('id')
+      .eq('empresa_id', ue.empresa_id)
+      .eq('ativa', true)
+    desejadas = ((todas ?? []) as { id: string }[]).map((u) => u.id)
+  } else {
+    desejadas = [...new Set(
+      permList.map((p) => p.unidade_id).filter((id): id is string => !!id)
+    )]
+  }
+
   if (desejadas.length === 0) return
 
   const { data: existentes } = await supabaseAdmin

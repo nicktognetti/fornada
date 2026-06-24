@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useUnidade } from '@/app/context/unidade-context'
 import {
   Shield, Loader2, Check, X, Plus, UserPlus,
   Pencil, KeyRound, UserX, ChevronLeft, Trash2,
@@ -77,6 +78,7 @@ function PermissaoGrade({
 
 // ── Componente principal ─────────────────────────────────────────────────────
 export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUserId }: Props) {
+  const { unidadeAtual } = useUnidade()
   const [usuarios, setUsuarios] = useState(usuariosIniciais)
 
   // Vista: 'lista' | 'editar' | 'novo' | 'reset' | 'desabilitar' | 'excluir'
@@ -155,7 +157,8 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     setNovaSenha('')
     setNovoTipoAcesso('admin_global')
     setNovoPerms({})
-    setNovoEscopo(null)
+    // Padrão: unidade atual (não global), assim não vira admin das duas lojas por acidente
+    setNovoEscopo(unidadeAtual?.id ?? (unidades[0]?.id ?? null))
     setErroModal('')
     setVista('novo')
   }
@@ -524,27 +527,23 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
 
           {novoTipoAcesso === 'personalizado' && (
             <>
-              {unidades.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-medium text-secondary mr-1">Escopo:</span>
-                  <button
-                    type="button"
-                    onClick={() => setNovoEscopo(null)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${novoEscopo === null ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
-                  >
-                    Todas as unidades
-                  </button>
-                  {unidades.map((u) => (
-                    <button
-                      type="button"
-                      key={u.id}
-                      onClick={() => setNovoEscopo(u.id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${novoEscopo === u.id ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
-                    >
-                      {u.nome}
-                    </button>
-                  ))}
-                </div>
+              {unidades.length > 1 && (
+                <label className="flex items-start gap-3 p-3 rounded-lg border border-subtle bg-canvas/50 cursor-pointer hover:bg-input/40 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={novoEscopo === null}
+                    onChange={(e) => setNovoEscopo(e.target.checked ? null : (unidadeAtual?.id ?? unidades[0]?.id ?? null))}
+                    className="mt-0.5 w-4 h-4 accent-amber-500 cursor-pointer"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-primary">Aplicar em todas as unidades</p>
+                    <p className="text-xs text-secondary mt-0.5">
+                      {novoEscopo === null
+                        ? 'O colaborador terá as mesmas permissões nas duas lojas.'
+                        : `Permissões apenas em: ${unidades.find((u) => u.id === novoEscopo)?.nome ?? ''}`}
+                    </p>
+                  </div>
+                </label>
               )}
               <PermissaoGrade
                 permissoes={novoPerms}

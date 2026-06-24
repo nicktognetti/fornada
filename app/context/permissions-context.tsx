@@ -51,10 +51,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const admin = isGlobalAdmin(map)
+  // Qualquer permissão com unidade_id=null significa acesso a todas as unidades
+  const hasPermGlobal = Object.values(map).some((p) => p.unidade_id === null)
 
-  // null = sem filtro (admin global OU permissões ainda não carregadas/erro)
+  // null = sem filtro (admin, permissão global, mapa vazio/erro)
   const unidadesPermitidas: string[] | null =
-    admin || Object.keys(map).length === 0
+    admin || Object.keys(map).length === 0 || hasPermGlobal
       ? null
       : Object.values(map)
           .filter((p) => p.unidade_id !== null)
