@@ -1,10 +1,23 @@
 # ERP Fornada — Plano de Desenvolvimento
 
-## ▶ Ponto de retomada (atualizado 24/06/2026)
+## ▶ Ponto de retomada (atualizado 25/06/2026)
 
 **Status:** todo o trabalho está **commitado** na `master`. Não há remote git configurado (tudo local). O sistema no ar está intacto — nenhuma migration foi aplicada ao banco nas últimas sessões.
 
-**Últimas sessões concluídas (24/06):**
+**Últimas sessões concluídas (25/06):**
+- ✅ **Módulo Transferências — sessão completa (4 commits, 92a2738 → 72884b2):**
+  - Formulário sem preço: operadores informam só produto + quantidade (un); preço auto-buscado server-side
+  - RBAC financeiro: valor total e preços só visíveis para admin (`temAcesso transferencias/admin`)
+  - Lista de recebimento: nomes dos produtos inline, valor total oculto para não-admin
+  - Drawer de confirmação: UX compacto — itens default "Recebido", expande só ao clicar "Divergência"
+  - Auto-detecção de status por qtd: diferente → DIFERENÇA, zero → AUSENTE, igual → RECEBIDO (colapsa)
+  - Origem carregada via `usuario_unidade` + `usuario_empresa` (mais robusto)
+  - `isCentro` substituído por coluna `is_pagadora BOOLEAN` na tabela `unidade` (migration `20260626000002`)
+  - Listagem filtra por unidade selecionada via `.or(origem.eq.X,destino.eq.X)`
+  - Paleta legada removida do CSS (`marrom-*`, `creme-*`, `madrugada-*`, `croissant`, `demerara`) — −95 linhas
+  - `ThemeProvider` e `html.creme-quente` removidos (código inerte, toggle já tinha sido removido)
+
+**Sessões anteriores concluídas (24/06):**
 - ✅ Design da tela de login reformulado (wordmark Fornada em Playfair italic + cor creme `#ede9e1`, halo atmosférico, animações staggered)
 - ✅ Refinamentos visuais globais: textura de grão, nav ativo gradiente quente, card hover borda accent, scrollbar mais visível
 - ✅ Fix middleware `proxy.ts` — exclui `/images/` do matcher de auth (logo sumia no login)
@@ -24,7 +37,7 @@
 4. ⬜ Conferir margens no Painel; quando Natali zerar/reimportar produtos, cadastrar por loja.
 5. ⬜ Testar a **Priscila** (criar restrita à Centro) e a Natali trocando de loja no seletor.
 6. ⬜ (futuro) Módulo "contas a pagar/receber" por loja.
-7. ⬜ **Pendência arquitetural:** `isCentro` em `receber/page.tsx:31` detecta unidade pagadora por `nome.includes('centro')`. Frágil se a loja mudar de nome. Solução: coluna `is_pagadora BOOLEAN` na tabela `unidade`.
+7. ✅ **CORRIGIDO (25/06):** `isCentro` substituído por `is_pagadora BOOLEAN` na `unidade`. Migration `20260626000002` — ⚠️ aplicar no Supabase Dashboard.
 
 > A "faxina de RLS por empresa" (`20260624000001`) está **DESCARTADA** — substituída pela RLS por loja (`20260626000001`). O backfill `20260624000000` é opcional.
 
@@ -232,9 +245,8 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [ ] `20260620000012_fix_constraint_cancelada_rpc.sql` — recria `confirmar_recebimento` sem `p.insumo_id`, idem constraint
 
 ### UnidadeSelector nas telas de Transferência
-- [ ] A tela `/dashboard/transferencias` (listagem) não filtra por unidade selecionada — mostra todas da empresa
-- [ ] A tela `/dashboard/transferencias/receber` usa `usuario_unidade` diretamente mas ignora o cookie `unidade_preferida`
-- [ ] Decisão de produto: filtrar transferências pelo `UnidadeSelector` ou sempre mostrar todas?
+- [x] ~~A tela `/dashboard/transferencias` (listagem) não filtra por unidade selecionada~~ — **CORRIGIDO (25/06)**
+- [x] ~~A tela `/dashboard/transferencias/receber` ignora cookie `unidade_preferida`~~ — já usava `getUnidadePreferida()`
 
 ### FASE 3 — Estoque Simplificado
 - [ ] Entradas manuais de estoque por unidade
@@ -249,8 +261,8 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [ ] **"Receber"** deve virar entrada de **NFe de fornecedor** (que alimenta custo) ou seguir só como conferência de transferência interna? (decisão de produto pendente)
 
 ### Limpeza técnica remanescente
-- [ ] **Paleta clara do `@theme`** (`marrom-*`, `creme-*`, `madrugada-*`, `croissant`, `demerara`) — agora sem uso; pode ser removida para enxugar o CSS.
-- [ ] **ThemeProvider** (`app/context/theme-provider.tsx`) e o bloco `html.creme-quente` — inertes após remoção do toggle.
+- [x] ~~**Paleta clara do `@theme`**~~ — **REMOVIDA (25/06):** `marrom-*`, `creme-*`, `madrugada-*`, `croissant`, `demerara`, `ouro`, `terracota`, `oliva` deletados (−95 linhas).
+- [x] ~~**ThemeProvider**~~ — **REMOVIDO (25/06):** arquivo deletado, `html.creme-quente` removido do CSS, layout simplificado.
 - [ ] Skeleton/error states no núcleo (loading boundaries, Suspense com fallback visual).
 - [ ] Tabular-nums nas colunas de R$ em todas as tabelas.
 
