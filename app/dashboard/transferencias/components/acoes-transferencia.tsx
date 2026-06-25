@@ -20,6 +20,7 @@ interface Props {
   podeCancelar: boolean
   podeExcluir: boolean
   itens: ItemAcao[]
+  isAdmin?: boolean
 }
 
 function ConfirmModal({
@@ -65,7 +66,7 @@ function ConfirmModal({
 export function AcoesTransferencia({
   transferenciaId, userId,
   podeConferir, podeCancelar, podeExcluir,
-  itens,
+  itens, isAdmin = false,
 }: Props) {
   const router = useRouter()
 
@@ -137,6 +138,7 @@ export function AcoesTransferencia({
           transferenciaId={transferenciaId}
           userId={userId}
           itens={itens}
+          isAdmin={isAdmin}
           onClose={() => setDrawerOpen(false)}
           onSuccess={() => { setDrawerOpen(false); router.refresh() }}
         />

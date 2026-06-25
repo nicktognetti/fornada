@@ -13,11 +13,12 @@ interface Props {
   userId: string
   totalAReceber: number
   isCentro: boolean
+  isAdmin: boolean
 }
 
 type Aba = 'transferencias' | 'compras'
 
-export function ReceberHub({ transferencias, compras, unidadeId, userId, totalAReceber, isCentro }: Props) {
+export function ReceberHub({ transferencias, compras, unidadeId, userId, totalAReceber, isCentro, isAdmin }: Props) {
   const [aba, setAba] = useState<Aba>('transferencias')
 
   return (
@@ -71,6 +72,7 @@ export function ReceberHub({ transferencias, compras, unidadeId, userId, totalAR
           totalAReceber={totalAReceber}
           isCentro={isCentro}
           userId={userId}
+          isAdmin={isAdmin}
         />
       )}
       {aba === 'compras' && (

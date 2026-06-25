@@ -18,7 +18,7 @@ export async function createTransferenciaAction(data: {
   unidade_destino_id: string
   tipo: 'TRANSFERENCIA' | 'DEVOLUCAO'
   observacao?: string
-  itens: Array<{ produto_id: string; quantidade_enviada: number; preco_unitario: number }>
+  itens: Array<{ produto_id: string; quantidade_enviada: number }>
 }): Promise<ActionResult> {
   const supabase = await createClient()
   const {
@@ -42,7 +42,23 @@ export async function createTransferenciaAction(data: {
   }
   const codigo = codigoData as string
 
-  const valorTotal = data.itens.reduce(
+  // Busca preços da unidade de origem para registro financeiro (transparente ao operador)
+  const prodIds = data.itens.map((i) => i.produto_id)
+  const { data: precos } = await supabase
+    .from('produto_preco')
+    .select('produto_id, preco_praticado')
+    .in('produto_id', prodIds)
+    .eq('unidade_id', data.unidade_origem_id)
+
+  const precoMap = new Map<string, number>()
+  for (const p of precos ?? []) precoMap.set(p.produto_id, p.preco_praticado)
+
+  const itensComPreco = data.itens.map((item) => ({
+    ...item,
+    preco_unitario: precoMap.get(item.produto_id) ?? 0,
+  }))
+
+  const valorTotal = itensComPreco.reduce(
     (acc, item) => acc + item.quantidade_enviada * item.preco_unitario,
     0
   )
@@ -70,7 +86,7 @@ export async function createTransferenciaAction(data: {
   }
 
   // Inserir itens
-  const itens = data.itens.map((item) => ({
+  const itens = itensComPreco.map((item) => ({
     transferencia_id: transferencia.id,
     produto_id: item.produto_id,
     quantidade_enviada: item.quantidade_enviada,

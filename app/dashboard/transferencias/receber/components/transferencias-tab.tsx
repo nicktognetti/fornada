@@ -41,13 +41,14 @@ interface Props {
   totalAReceber: number
   isCentro: boolean
   userId: string
+  isAdmin: boolean
 }
 
 function todayISO() {
   return new Date().toISOString().split('T')[0]
 }
 
-export function TransferenciasTab({ transferencias, totalAReceber, isCentro, userId }: Props) {
+export function TransferenciasTab({ transferencias, totalAReceber, isCentro, userId, isAdmin }: Props) {
   const router = useRouter()
   const [drawerTransferencia, setDrawerTransferencia] = useState<TransferenciaReceber | null>(null)
   const [drawerItens,         setDrawerItens]         = useState<ItemDrawer[]>([])
@@ -125,11 +126,11 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
       ) : (
       <div className="bg-surface border border-subtle rounded-lg shadow-lg shadow-black/20 overflow-hidden">
         {/* Cabeçalho */}
-        <div className="hidden sm:grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-subtle bg-canvas">
+        <div className={`hidden sm:grid gap-4 px-5 py-3 border-b border-subtle bg-canvas ${isAdmin ? 'grid-cols-[1fr_1fr_auto_auto_auto]' : 'grid-cols-[1fr_1fr_auto_auto]'}`}>
           <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Data / Código</span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Origem</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Origem · Produtos</span>
           <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-center w-16">Itens</span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-right w-28">Valor Total</span>
+          {isAdmin && <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary text-right w-28">Valor Total</span>}
           <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-36"></span>
         </div>
 
@@ -140,7 +141,7 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
             return (
               <div
                 key={t.id}
-                className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto_auto] items-center gap-3 px-5 py-4 hover:bg-input transition-colors"
+                className={`grid grid-cols-1 items-center gap-3 px-5 py-4 hover:bg-input transition-colors ${isAdmin ? 'sm:grid-cols-[1fr_1fr_auto_auto_auto]' : 'sm:grid-cols-[1fr_1fr_auto_auto]'}`}
               >
                 {/* Data + código */}
                 <div className="min-w-0">
@@ -153,11 +154,18 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
                   <p className="text-xs text-secondary mt-0.5">{formatDate(t.created_at)}</p>
                 </div>
 
-                {/* Origem */}
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-sm font-medium text-ink-soft truncate">{t.unidade_origem_nome}</span>
-                  <ArrowRight size={11} className="text-accent-primary/40 shrink-0" />
-                  <span className="text-xs text-secondary truncate">Esta unidade</span>
+                {/* Origem + produtos */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-ink-soft truncate">{t.unidade_origem_nome}</span>
+                    <ArrowRight size={11} className="text-accent-primary/40 shrink-0" />
+                    <span className="text-xs text-secondary truncate">Esta unidade</span>
+                  </div>
+                  {t.produtos.length > 0 && (
+                    <p className="text-xs text-faint mt-0.5 truncate">
+                      {t.produtos.slice(0, 2).join(', ')}{t.produtos.length > 2 ? ` +${t.produtos.length - 2}` : ''}
+                    </p>
+                  )}
                 </div>
 
                 {/* Qtd itens */}
@@ -167,16 +175,18 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
                   </span>
                 </div>
 
-                {/* Valor total */}
-                <div className="hidden sm:flex justify-end w-28">
-                  {t.valor_total > 0 ? (
-                    <span className="text-sm font-semibold text-primary tabular-nums">
-                      R$ {formatBRL(t.valor_total)}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-faint">—</span>
-                  )}
-                </div>
+                {/* Valor total — só admin */}
+                {isAdmin && (
+                  <div className="hidden sm:flex justify-end w-28">
+                    {t.valor_total > 0 ? (
+                      <span className="text-sm font-semibold text-primary tabular-nums">
+                        R$ {formatBRL(t.valor_total)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-faint">—</span>
+                    )}
+                  </div>
+                )}
 
                 {/* Ações */}
                 <div className="flex items-center justify-end gap-2 w-36">
@@ -229,6 +239,7 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
           transferenciaId={drawerTransferencia.id}
           userId={userId}
           itens={drawerItens}
+          isAdmin={isAdmin}
           onClose={() => setDrawerTransferencia(null)}
           onSuccess={() => {
             setDrawerTransferencia(null)

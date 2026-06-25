@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/format'
+import { temAcesso } from '@/app/lib/authz'
 import { StatusBadgeTransferencia, StatusBadgeItem } from '../components/status-badge'
 import { AcoesTransferencia } from '../components/acoes-transferencia'
 import type { StatusTransferencia, StatusItem } from '../components/status-badge'
@@ -41,12 +42,13 @@ export default async function TransferenciaDetalhePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) notFound()
 
-  // Carregar dados em paralelo
-  const [tRes, iRes, uRes, vinculosRes] = await Promise.all([
+  // Carregar dados em paralelo (check admin junto para evitar round-trip extra)
+  const [tRes, iRes, uRes, vinculosRes, isAdmin] = await Promise.all([
     supabase.from('transferencia').select('*').eq('id', id).single(),
     supabase.from('transferencia_item').select('*').eq('transferencia_id', id),
     supabase.from('unidade').select('id, nome'),
     supabase.from('usuario_unidade').select('unidade_id').eq('user_id', user.id),
+    temAcesso(user.id, ['transferencias'], { nivel: 'admin' }),
   ])
 
   if (!tRes.data) notFound()
@@ -129,7 +131,7 @@ export default async function TransferenciaDetalhePage({
             <p className="text-sm text-secondary">
               {transferencia.tipo === 'TRANSFERENCIA' ? 'Transferência de produtos' : 'Devolução de produtos'}
             </p>
-            {transferencia.valor_total > 0 && (
+            {isAdmin && transferencia.valor_total > 0 && (
               <span className="text-sm font-semibold text-primary tabular-nums">
                 R$ {formatBRL(transferencia.valor_total)}
               </span>
@@ -145,6 +147,7 @@ export default async function TransferenciaDetalhePage({
           podeCancelar={podeCancelar}
           podeExcluir={podeExcluir}
           itens={itensParaAcoes}
+          isAdmin={isAdmin}
         />
       </div>
 
@@ -220,8 +223,8 @@ export default async function TransferenciaDetalhePage({
               <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-secondary">Produto</th>
               <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-secondary">Enviado</th>
               <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-secondary hidden sm:table-cell">Recebido</th>
-              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-secondary hidden md:table-cell">Preço unit.</th>
-              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-secondary hidden md:table-cell">Subtotal</th>
+              {isAdmin && <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-secondary hidden md:table-cell">Preço unit.</th>}
+              {isAdmin && <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-secondary hidden md:table-cell">Subtotal</th>}
               <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-secondary">Status</th>
               <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-secondary hidden lg:table-cell">Divergência</th>
             </tr>
@@ -241,12 +244,16 @@ export default async function TransferenciaDetalhePage({
                 <td className="px-4 py-3 text-right text-secondary tabular-nums hidden sm:table-cell">
                   {item.quantidade_recebida !== null ? item.quantidade_recebida.toLocaleString('pt-BR') : '—'}
                 </td>
-                <td className="px-4 py-3 text-right text-secondary tabular-nums hidden md:table-cell">
-                  R$ {formatBRL(item.preco_unitario ?? 0)}
-                </td>
-                <td className="px-4 py-3 text-right font-medium text-primary tabular-nums hidden md:table-cell">
-                  R$ {formatBRL(item.subtotal ?? item.quantidade_enviada * (item.preco_unitario ?? 0))}
-                </td>
+                {isAdmin && (
+                  <td className="px-4 py-3 text-right text-secondary tabular-nums hidden md:table-cell">
+                    R$ {formatBRL(item.preco_unitario ?? 0)}
+                  </td>
+                )}
+                {isAdmin && (
+                  <td className="px-4 py-3 text-right font-medium text-primary tabular-nums hidden md:table-cell">
+                    R$ {formatBRL(item.subtotal ?? item.quantidade_enviada * (item.preco_unitario ?? 0))}
+                  </td>
+                )}
                 <td className="px-4 py-3">
                   <StatusBadgeItem status={item.status_item} />
                 </td>
@@ -258,7 +265,7 @@ export default async function TransferenciaDetalhePage({
           </tbody>
         </table>
 
-        {transferencia.valor_total > 0 && (
+        {isAdmin && transferencia.valor_total > 0 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-subtle bg-canvas">
             <span className="text-xs font-semibold uppercase tracking-wider text-secondary">Valor total</span>
             <span className="font-playfair text-xl font-bold text-primary tabular-nums">

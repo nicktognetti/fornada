@@ -11,6 +11,7 @@ export interface TransferenciaReceber {
   unidade_origem_nome: string
   unidade_destino_id: string
   total_itens: number
+  produtos: string[]
   created_at: string
 }
 

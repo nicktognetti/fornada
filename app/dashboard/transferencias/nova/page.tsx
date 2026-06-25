@@ -10,47 +10,37 @@ export default async function NovaTransferenciaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user?.id ?? ''
 
-  // Origem = unidade do cookie (selecionada pelo usuário)
   const cookieId = await getUnidadePreferida()
 
-  // Busca a unidade do cookie para obter empresa_id — não depende de usuario_empresa
-  // (pode estar vazia para usuários criados antes da migration de insert automático)
-  const { data: cookieUnit } = cookieId
-    ? await supabaseAdmin.from('unidade').select('id, nome, empresa_id').eq('id', cookieId).maybeSingle()
-    : { data: null }
+  // empresa_id via usuario_empresa (fonte mais confiável — funciona independente de RLS)
+  const { data: ueRow } = await supabaseAdmin
+    .from('usuario_empresa')
+    .select('empresa_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle()
+  const empresaIdFinal = ueRow?.empresa_id ?? ''
 
-  const empresaId = cookieUnit?.empresa_id ?? ''
+  // Unidades via usuario_unidade (não depende de empresa_id na tabela unidade)
+  const { data: vinculos } = await supabaseAdmin
+    .from('usuario_unidade')
+    .select('unidade_id')
+    .eq('user_id', userId)
+  const unidadeIds = vinculos?.map((v: { unidade_id: string }) => v.unidade_id) ?? []
 
-  // Fallback: busca empresa via usuario_unidade se cookie não resolveu
-  let empresaIdFinal = empresaId
-  if (!empresaIdFinal) {
-    const { data: uuRows } = await supabaseAdmin
-      .from('usuario_unidade')
-      .select('unidade_id')
-      .eq('user_id', userId)
-      .limit(1)
-    const primeiraUnidadeId = uuRows?.[0]?.unidade_id
-    if (primeiraUnidadeId) {
-      const { data: u } = await supabaseAdmin
-        .from('unidade').select('empresa_id').eq('id', primeiraUnidadeId).maybeSingle()
-      empresaIdFinal = u?.empresa_id ?? ''
-    }
-  }
-
-  // Todas as unidades da empresa + produtos em paralelo
   const [todasResult, produtosResult] = await Promise.all([
-    empresaIdFinal
-      ? supabaseAdmin.from('unidade').select('id, nome').eq('empresa_id', empresaIdFinal).order('created_at')
-      : { data: [] },
+    unidadeIds.length > 0
+      ? supabaseAdmin.from('unidade').select('id, nome').in('id', unidadeIds).order('nome')
+      : { data: [] as { id: string; nome: string }[] },
     empresaIdFinal
       ? supabaseAdmin.from('produto').select('id, nome').eq('empresa_id', empresaIdFinal).eq('ativo', true).order('nome')
-      : { data: [] },
+      : { data: [] as { id: string; nome: string }[] },
   ])
 
   const todasUnidades = (todasResult.data ?? []) as { id: string; nome: string }[]
   const produtos      = (produtosResult.data ?? []) as { id: string; nome: string }[]
 
-  // Origem padrão = unidade do cookie (se ainda estiver na lista da empresa)
+  // Origem padrão = unidade do cookie (se ainda estiver na lista)
   const minhaUnidade = todasUnidades.find((u) => u.id === cookieId) ?? todasUnidades[0] ?? null
 
   return (

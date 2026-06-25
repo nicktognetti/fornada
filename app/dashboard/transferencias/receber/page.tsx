@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUnidadePreferida } from '@/app/actions/unidade'
+import { temAcesso } from '@/app/lib/authz'
 import { ReceberHub } from './components/receber-hub'
 import type { TransferenciaReceber, Compra, StatusFinanceiro } from './types'
 
@@ -7,6 +8,8 @@ export default async function ReceberPage() {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  const isAdmin = user ? await temAcesso(user.id, ['transferencias'], { nivel: 'admin' }) : false
 
   // Empresa do usuário
   const { data: ue } = await supabase
@@ -43,17 +46,29 @@ export default async function ReceberPage() {
       .order('created_at', { ascending: true })
 
     if (tList && tList.length > 0) {
-      // Contar itens por transferência
       const ids = tList.map((t: { id: string }) => t.id)
+
+      // Itens: contagem + produto_id para nomes
       const { data: itemRows } = await supabase
         .from('transferencia_item')
-        .select('transferencia_id')
+        .select('transferencia_id, produto_id')
         .in('transferencia_id', ids)
 
       const countMap = new Map<string, number>()
-      for (const r of (itemRows ?? []) as { transferencia_id: string }[]) {
+      const prodIdsPorTransf = new Map<string, string[]>()
+      for (const r of (itemRows ?? []) as { transferencia_id: string; produto_id: string }[]) {
         countMap.set(r.transferencia_id, (countMap.get(r.transferencia_id) ?? 0) + 1)
+        const arr = prodIdsPorTransf.get(r.transferencia_id) ?? []
+        arr.push(r.produto_id)
+        prodIdsPorTransf.set(r.transferencia_id, arr)
       }
+
+      // Nomes dos produtos
+      const allProdIds = [...new Set((itemRows ?? []).map((i: { produto_id: string }) => i.produto_id))]
+      const { data: prodRows } = allProdIds.length > 0
+        ? await supabase.from('produto').select('id, nome').in('id', allProdIds)
+        : { data: [] }
+      const prodMap = new Map((prodRows ?? []).map((p: { id: string; nome: string }) => [p.id, p.nome]))
 
       type TRec = {
         id: string; codigo: string; tipo: 'TRANSFERENCIA' | 'DEVOLUCAO'; status: string
@@ -71,6 +86,7 @@ export default async function ReceberPage() {
         unidade_origem_nome: unidadeMap.get(t.unidade_origem_id) ?? '—',
         unidade_destino_id:  t.unidade_destino_id,
         total_itens:         countMap.get(t.id) ?? 0,
+        produtos:            (prodIdsPorTransf.get(t.id) ?? []).map((id) => prodMap.get(id) ?? '').filter(Boolean),
         created_at:          t.created_at,
       }))
     }
@@ -101,6 +117,7 @@ export default async function ReceberPage() {
       userId={user?.id ?? ''}
       totalAReceber={totalAReceber}
       isCentro={isCentro}
+      isAdmin={isAdmin}
     />
   )
 }
