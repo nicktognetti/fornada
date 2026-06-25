@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import { TransferenciaTable } from './components/transferencia-table'
 import type { TransferenciaRow } from './components/transferencia-table'
 import type { StatusTransferencia } from './components/status-badge'
@@ -17,28 +18,28 @@ export default async function TransferenciasPage({
 
   if (!user?.id) return <div />
 
-  const { data: ue } = await supabase
-    .from('usuario_empresa')
-    .select('empresa_id')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  const [ueRes, minhaUnidadeId] = await Promise.all([
+    supabase.from('usuario_empresa').select('empresa_id').eq('user_id', user.id).maybeSingle(),
+    getUnidadePreferida(),
+  ])
 
-  const empresaId = ue?.empresa_id
+  const empresaId = ueRes.data?.empresa_id
 
-  const { data: transferencias } = empresaId
+  const { data: transferencias } = empresaId && minhaUnidadeId
     ? await supabase
         .from('transferencia')
         .select('*')
         .eq('empresa_id', empresaId)
+        .or(`unidade_origem_id.eq.${minhaUnidadeId},unidade_destino_id.eq.${minhaUnidadeId}`)
         .order('created_at', { ascending: false })
-        .limit(50)
+        .limit(100)
     : { data: [] }
 
-  // Filtro por empresa garante que não vaza unidades de outros tenants
   const { data: unidades } = empresaId
     ? await supabase.from('unidade').select('id, nome').eq('empresa_id', empresaId)
     : { data: [] }
   const unidadeMap = new Map((unidades ?? []).map((u) => [u.id, u.nome]))
+  const minhaUnidadeNome = minhaUnidadeId ? (unidadeMap.get(minhaUnidadeId) ?? '') : ''
 
   type TRow = {
     id: string; codigo: string; tipo: 'TRANSFERENCIA' | 'DEVOLUCAO'
@@ -66,7 +67,11 @@ export default async function TransferenciasPage({
             <ArrowLeftRight size={22} className="text-accent-primary shrink-0" />
             <h1 className="text-2xl font-semibold text-primary">Transferências</h1>
           </div>
-          <p className="text-sm text-secondary ml-9">Movimentações entre unidades</p>
+          <p className="text-sm text-secondary ml-9">
+            {minhaUnidadeNome
+              ? <>Transferências de/para <span className="text-ink-soft font-medium">{minhaUnidadeNome}</span></>
+              : 'Movimentações entre unidades'}
+          </p>
         </div>
         <Link
           href="/dashboard/transferencias/nova"
