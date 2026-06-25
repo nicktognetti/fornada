@@ -22,16 +22,16 @@ export default async function ReceberPage() {
   // Unidade selecionada pelo usuário (cookie) — respeita o tab ativo
   const minhaUnidadeId = await getUnidadePreferida()
 
-  // Todas as unidades da empresa para montar nomes
+  // Todas as unidades da empresa para montar nomes + detectar pagadora
   const { data: unidades } = await supabase
     .from('unidade')
-    .select('id, nome')
+    .select('id, nome, is_pagadora')
     .eq('empresa_id', empresaId ?? '')
   const unidadeMap = new Map((unidades ?? []).map((u) => [u.id, u.nome]))
 
-  // Detectar se é "Centro" (a unidade que paga) — qualquer unidade com "centro" no nome
-  const minhaUnidadeNome = minhaUnidadeId ? (unidadeMap.get(minhaUnidadeId) ?? '') : ''
-  const isCentro = minhaUnidadeNome.toLowerCase().includes('centro')
+  // is_pagadora: coluna explícita na tabela — sem depender do nome da loja
+  const minhaUnidade = (unidades ?? []).find((u) => u.id === minhaUnidadeId)
+  const isCentro = minhaUnidade?.is_pagadora ?? false
 
   // Transferências com status_financeiro = 'a_receber' destinadas à unidade do usuário
   let transferencias: TransferenciaReceber[] = []
