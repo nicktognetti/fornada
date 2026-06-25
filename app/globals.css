@@ -1,50 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Cores base ── */
-  --color-croissant: #ac6137;
-  --color-madrugada: #16161d;
-  --color-creme: #ede9e1;
-  --color-demerara: #9f9383;
-
-  /* ── Escala Marrom Croissant ── */
-  --color-marrom-50:  #fdf5f0;
-  --color-marrom-100: #f7e6db;
-  --color-marrom-200: #eec9b5;
-  --color-marrom-300: #e0a88a;
-  --color-marrom-400: #cc8a66;
-  --color-marrom-500: #ac6137;
-  --color-marrom-600: #8c4f2d;
-  --color-marrom-700: #6e3d23;
-  --color-marrom-800: #542f1b;
-  --color-marrom-900: #3d2213;
-
-  /* ── Escala Creme ── */
-  --color-creme-50:  #faf8f4;
-  --color-creme-100: #f5f1ea;
-  --color-creme-200: #ede9e1;
-  --color-creme-300: #e0d9ce;
-  --color-creme-400: #c9c0b2;
-  --color-creme-500: #b0a494;
-
-  /* ── Escala Madrugada ── */
-  --color-madrugada-50:  #f0f0f1;
-  --color-madrugada-100: #d6d6da;
-  --color-madrugada-200: #b3b3ba;
-  --color-madrugada-300: #898a96;
-  --color-madrugada-400: #5e5f6e;
-  --color-madrugada-500: #3c3d4a;
-  --color-madrugada-600: #2a2b35;
-  --color-madrugada-700: #1e1e26;
-  --color-madrugada-800: #16161d;
-  --color-madrugada-900: #0e0e12;
-
-  /* ── Acentos ── */
-  --color-ouro:      #c9a94e;
-  --color-terracota: #c0392b;
-  --color-oliva:     #5a7d3a;
-
-  /* ── Tema escuro — tokens semânticos (módulo Transferências) ──────────────
+  /* ── Tema escuro — tokens semânticos ─────────────────────────────────────
      Geram utilitários Tailwind (bg-canvas, bg-surface, text-primary…).
      O fundo de página tem token próprio (`bg-canvas`), evitando a colisão
      `bg-primary`/`text-primary` do Tailwind v4. */
@@ -105,15 +62,6 @@
   --t-success:     #5f9a5f;
   --t-warning:     #d9a441;
   --t-error:       #c74a4a;
-}
-
-/* ── Creme Quente — variante levemente mais quente (mantém escuro) ──────────── */
-
-html.creme-quente {
-  --t-page-bg:     #1c1a1d;
-  --t-card-bg:     #252226;
-  --t-inset-bg:    #1e1c26;
-  --t-input-bg:    #2c292e;
 }
 
 /* ── Tema escuro global ───────────────────────────────────────────────────── */
