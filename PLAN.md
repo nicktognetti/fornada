@@ -1,8 +1,8 @@
 # ERP Fornada — Plano de Desenvolvimento
 
-## ▶ Ponto de retomada (atualizado 25/06/2026)
+## ▶ Ponto de retomada (atualizado 26/06/2026)
 
-**Status:** todo o trabalho está **commitado** na `master`. Não há remote git configurado (tudo local). O sistema no ar está intacto — nenhuma migration foi aplicada ao banco nas últimas sessões.
+**Status:** todo o trabalho está **commitado** na `master`. Não há remote git configurado (tudo local). **Todas as migrations pendentes foram aplicadas ao banco em 26/06.**
 
 **Últimas sessões concluídas (25/06):**
 - ✅ **Módulo Transferências — sessão completa (4 commits, 92a2738 → 72884b2):**
@@ -32,12 +32,12 @@
 
 **Próximos passos (um de cada vez — com calma):**
 1. ✅ **FEITO (25/06):** aplicado `20260625000000_views_custo_fornada.sql` → Painel acendeu. `vw_produto_financeiro` tem **1156 produtos**. Obs.: só ~8 produtos têm preço cadastrado e o Painel carrega 1000 de 1156 (limite padrão — paginação é roadmap).
-2. ✅ **FEITO (26/06):** migrations de **isolamento por loja** escritas (`cnpj_por_loja`, `rls_por_loja`); seletor sem "Todas"; `getUnidadePreferida` resolve a 1ª loja quando sem cookie.
-3. ⬜ **Aplicar com BACKUP** (ordem): CNPJ → RLS por loja → conferir `pg_policies` → testar usuário restrito a 1 loja.
-4. ⬜ Conferir margens no Painel; quando Natali zerar/reimportar produtos, cadastrar por loja.
+2. ✅ **FEITO (26/06):** migrations de **isolamento por loja** escritas e **APLICADAS**: `cnpj_por_loja`, `rls_por_loja`, `unidade_is_pagadora`.
+3. ✅ **FEITO (26/06):** `20260620000011` (constraint CANCELADA + GRANT sequences) e `20260620000012` (RPC `confirmar_recebimento` sem `p.insumo_id`) **APLICADAS**.
+4. ✅ **FEITO (26/06):** Fix `teste@agrindus.com.br` — permissões globais (NULL) removidas via SQL. Re-salvar por unidade em Configurações se necessário.
 5. ⬜ Testar a **Priscila** (criar restrita à Centro) e a Natali trocando de loja no seletor.
-6. ⬜ (futuro) Módulo "contas a pagar/receber" por loja.
-7. ✅ **CORRIGIDO (25/06):** `isCentro` substituído por `is_pagadora BOOLEAN` na `unidade`. Migration `20260626000002` — ⚠️ aplicar no Supabase Dashboard.
+6. ⬜ Conferir margens no Painel; quando Natali zerar/reimportar produtos, cadastrar por loja.
+7. ⬜ (futuro) Módulo "contas a pagar/receber" por loja.
 
 > A "faxina de RLS por empresa" (`20260624000001`) está **DESCARTADA** — substituída pela RLS por loja (`20260626000001`). O backfill `20260624000000` é opcional.
 
@@ -240,9 +240,7 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 ## 🚧 Pendências reais
 
 ### Migrations pendentes de aplicação manual no Supabase
-> Estas migrations estão no repositório mas **ainda precisam ser rodadas** no SQL Editor do Supabase:
-- [ ] `20260620000011_cancelar_excluir_transferencia.sql` — constraint `CANCELADA` + `GRANT USAGE ON SEQUENCES`
-- [ ] `20260620000012_fix_constraint_cancelada_rpc.sql` — recria `confirmar_recebimento` sem `p.insumo_id`, idem constraint
+> ✅ **TODAS APLICADAS em 26/06/2026.** Nenhuma migration pendente no momento.
 
 ### UnidadeSelector nas telas de Transferência
 - [x] ~~A tela `/dashboard/transferencias` (listagem) não filtra por unidade selecionada~~ — **CORRIGIDO (25/06)**

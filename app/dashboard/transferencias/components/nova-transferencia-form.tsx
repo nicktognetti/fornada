@@ -29,7 +29,8 @@ const CARD = 'bg-surface border border-subtle rounded-lg shadow-lg shadow-black/
 interface Props {
   minhaUnidade: Unidade | null
   origemViaVinculo: boolean
-  todasUnidades: Unidade[]
+  todasUnidades: Unidade[]       // unidades acessíveis como ORIGEM (por usuario_unidade)
+  unidadesDestino: Unidade[]     // todas as unidades da empresa (para destino)
   produtos: Produto[]
   empresaId: string
 }
@@ -38,6 +39,7 @@ export function NovaTransferenciaForm({
   minhaUnidade,
   origemViaVinculo,
   todasUnidades,
+  unidadesDestino,
   produtos,
   empresaId,
 }: Props) {
@@ -48,7 +50,7 @@ export function NovaTransferenciaForm({
   const [origemId,   setOrigemId]  = useState(() => minhaUnidade?.id ?? todasUnidades[0]?.id ?? '')
   const [destinoId,  setDestinoId] = useState(() => {
     const origem = minhaUnidade?.id ?? todasUnidades[0]?.id ?? ''
-    return todasUnidades.find((u) => u.id !== origem)?.id ?? ''
+    return unidadesDestino.find((u) => u.id !== origem)?.id ?? ''
   })
   const [observacao, setObservacao] = useState('')
   const [itens,      setItens]     = useState<ItemForm[]>([])
@@ -62,23 +64,25 @@ export function NovaTransferenciaForm({
   const [sucesso,    setSucesso]   = useState<string | null>(null)
 
   const unidadeOrigem  = todasUnidades.find((u) => u.id === origemId) ?? todasUnidades[0]
-  const unidadeDestino = todasUnidades.find((u) => u.id === destinoId)
-    ?? todasUnidades.find((u) => u.id !== origemId)
-    ?? todasUnidades[1]
+  const unidadeDestino = unidadesDestino.find((u) => u.id === destinoId)
+    ?? unidadesDestino.find((u) => u.id !== origemId)
 
   function handleTipoChange(novoTipo: 'TRANSFERENCIA' | 'DEVOLUCAO') {
+    // Troca origem/destino só se o usuário tem acesso a ambas as unidades como origem
     if (novoTipo !== tipo && todasUnidades.length === 2 && unidadeDestino) {
       const novaOrigem = unidadeDestino.id
-      const novoDestino = todasUnidades.find((u) => u.id !== novaOrigem)?.id ?? ''
-      setOrigemId(novaOrigem)
-      setDestinoId(novoDestino)
+      if (todasUnidades.some((u) => u.id === novaOrigem)) {
+        const novoDestino = unidadesDestino.find((u) => u.id !== novaOrigem)?.id ?? ''
+        setOrigemId(novaOrigem)
+        setDestinoId(novoDestino)
+      }
     }
     setTipo(novoTipo)
   }
 
   function handleOrigemChange(novaOrigem: string) {
     setOrigemId(novaOrigem)
-    const outro = todasUnidades.find((u) => u.id !== novaOrigem)
+    const outro = unidadesDestino.find((u) => u.id !== novaOrigem)
     if (outro) setDestinoId(outro.id)
   }
 
@@ -221,7 +225,7 @@ export function NovaTransferenciaForm({
 
           <div className="flex-1">
             <label className={LABEL}>Destino</label>
-            {todasUnidades.length <= 2 ? (
+            {unidadesDestino.filter((u) => u.id !== origemId).length <= 1 ? (
               <div className={`${INPUT} opacity-60 cursor-default select-none`}>
                 {unidadeDestino?.nome ?? '—'}
               </div>
@@ -231,7 +235,7 @@ export function NovaTransferenciaForm({
                 onChange={(e) => setDestinoId(e.target.value)}
                 className={INPUT}
               >
-                {todasUnidades
+                {unidadesDestino
                   .filter((u) => u.id !== origemId)
                   .map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
               </select>

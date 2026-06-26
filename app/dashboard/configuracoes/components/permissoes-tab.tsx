@@ -97,8 +97,9 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
   const [novoNome, setNovoNome] = useState('')
   const [novaSenha, setNovaSenha] = useState('')
   const [novoTipoAcesso, setNovoTipoAcesso] = useState<'admin_global' | 'personalizado'>('admin_global')
-  const [novoPerms, setNovoPerms] = useState<Record<string, NivelAcesso | 'none'>>({})
-  const [novoEscopo, setNovoEscopo] = useState<string | null>(null)
+  // Map: '__global__' | unidade_id → permissoes do escopo
+  const [novoPermsMap, setNovoPermsMap] = useState<Record<string, Record<string, NivelAcesso | 'none'>>>({})
+  const [novoEscopoAtivo, setNovoEscopoAtivo] = useState<string | null>(null)
   const [criando, setCriando] = useState(false)
   const [erroModal, setErroModal] = useState('')
 
@@ -156,9 +157,9 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     setNovoNome('')
     setNovaSenha('')
     setNovoTipoAcesso('admin_global')
-    setNovoPerms({})
-    // Padrão: unidade atual (não global), assim não vira admin das duas lojas por acidente
-    setNovoEscopo(unidadeAtual?.id ?? (unidades[0]?.id ?? null))
+    setNovoPermsMap({})
+    // Padrão: primeira unidade (não global), para não virar admin das duas lojas por acidente
+    setNovoEscopoAtivo(unidadeAtual?.id ?? unidades[0]?.id ?? null)
     setErroModal('')
     setVista('novo')
   }
@@ -210,15 +211,18 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     setCriando(true)
     setErroModal('')
 
+    // Achata o map de permissões por escopo em array plano para a action
+    const permissoesPersonalizadas = Object.entries(novoPermsMap).flatMap(([scopeKey, perms]) => {
+      const unidade_id = scopeKey === '__global__' ? null : scopeKey
+      return Object.entries(perms)
+        .filter(([, v]) => v !== 'none')
+        .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso, unidade_id }))
+    })
+
     const permissaoInicial: PermissaoInicialInput =
       novoTipoAcesso === 'admin_global'
         ? { tipo: 'admin_global' }
-        : {
-            tipo: 'personalizado',
-            permissoes: Object.entries(novoPerms)
-              .filter(([, v]) => v !== 'none')
-              .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso, unidade_id: novoEscopo })),
-          }
+        : { tipo: 'personalizado', permissoes: permissoesPersonalizadas }
 
     const result = await createUserAction(novoEmail.trim(), novaSenha, novoNome.trim(), permissaoInicial)
     setCriando(false)
@@ -229,9 +233,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
       const permsNovo =
         novoTipoAcesso === 'admin_global'
           ? [{ tela: '*', acesso: 'admin' as NivelAcesso, unidade_id: null }]
-          : Object.entries(novoPerms)
-              .filter(([, v]) => v !== 'none')
-              .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso, unidade_id: novoEscopo }))
+          : permissoesPersonalizadas.map((p) => ({ tela: p.tela, acesso: p.acesso, unidade_id: p.unidade_id ?? null }))
 
       const novo: UsuarioComPermissoes = {
         id: result.data.id,
@@ -520,28 +522,38 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
 
           {novoTipoAcesso === 'personalizado' && (
             <>
-              {unidades.length > 1 && (
-                <label className="flex items-start gap-3 p-3 rounded-lg border border-subtle bg-canvas/50 cursor-pointer hover:bg-input/40 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={novoEscopo === null}
-                    onChange={(e) => setNovoEscopo(e.target.checked ? null : (unidadeAtual?.id ?? unidades[0]?.id ?? null))}
-                    className="mt-0.5 w-4 h-4 accent-amber-500 cursor-pointer"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-primary">Aplicar em todas as unidades</p>
-                    <p className="text-xs text-secondary mt-0.5">
-                      {novoEscopo === null
-                        ? 'O colaborador terá as mesmas permissões nas duas lojas.'
-                        : `Permissões apenas em: ${unidades.find((u) => u.id === novoEscopo)?.nome ?? ''}`}
-                    </p>
-                  </div>
-                </label>
+              {unidades.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-secondary mr-1">Escopo:</span>
+                  <button
+                    onClick={() => setNovoEscopoAtivo(null)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${novoEscopoAtivo === null ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
+                  >
+                    Todas as unidades
+                  </button>
+                  {unidades.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => setNovoEscopoAtivo(u.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${novoEscopoAtivo === u.id ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
+                    >
+                      {u.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {novoEscopoAtivo !== null && (
+                <p className="text-[11px] text-faint -mt-1">
+                  Permissões aplicadas só a esta unidade. &quot;Admin global&quot; existe apenas em &quot;Todas as unidades&quot;.
+                </p>
               )}
               <PermissaoGrade
-                permissoes={novoPerms}
-                hideGlobal={novoEscopo !== null}
-                onChange={(tela, valor) => setNovoPerms((p) => ({ ...p, [tela]: valor }))}
+                permissoes={novoPermsMap[novoEscopoAtivo === null ? '__global__' : novoEscopoAtivo] ?? {}}
+                hideGlobal={novoEscopoAtivo !== null}
+                onChange={(tela, valor) => {
+                  const key = novoEscopoAtivo === null ? '__global__' : novoEscopoAtivo
+                  setNovoPermsMap((prev) => ({ ...prev, [key]: { ...(prev[key] ?? {}), [tela]: valor } }))
+                }}
               />
             </>
           )}

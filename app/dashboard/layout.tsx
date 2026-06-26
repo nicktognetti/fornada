@@ -46,6 +46,13 @@ export default async function DashboardLayout({
 
   if (!user) redirect('/login')
 
+  // Usuário desabilitado: sem nenhuma permissão na tabela permissao
+  const { count: permCount } = await supabase
+    .from('permissao')
+    .select('id', { count: 'exact', head: true })
+    .eq('usuario_id', user.id)
+  if ((permCount ?? 0) === 0) redirect('/login')
+
   const [unidades, initialUnidadeId, empresas, initialEmpresaId] = await Promise.all([
     getUnidadesDoUsuario(user.id),
     getUnidadePreferida(),
