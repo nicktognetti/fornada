@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
 
@@ -265,4 +266,50 @@ export async function excluirTransferenciaAction(transferenciaId: string): Promi
 
   revalidatePath('/dashboard/transferencias')
   return { success: true }
+}
+
+// ── Itens de uma transferência com nomes de produtos ────────────────────────
+// Usa supabaseAdmin para contornar RLS de produto por loja
+// (o destinatário precisa ver nomes de produtos originados em outra loja)
+
+export type ItemTransferencia = {
+  id: string
+  produto_nome: string
+  quantidade_enviada: number
+  preco_unitario: number
+}
+
+export async function getTransferenciaItensAction(
+  transferenciaId: string
+): Promise<{ data?: ItemTransferencia[]; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: itensRaw, error: itensErr } = await supabaseAdmin
+    .from('transferencia_item')
+    .select('id, produto_id, quantidade_enviada, preco_unitario')
+    .eq('transferencia_id', transferenciaId)
+
+  if (itensErr) return { error: itensErr.message }
+
+  const prodIds = (itensRaw ?? []).map((i: { produto_id: string }) => i.produto_id)
+  const { data: produtos } = prodIds.length > 0
+    ? await supabaseAdmin.from('produto').select('id, nome').in('id', prodIds)
+    : { data: [] }
+
+  const prodMap = new Map(
+    ((produtos ?? []) as { id: string; nome: string }[]).map((p) => [p.id, p.nome])
+  )
+
+  return {
+    data: (itensRaw ?? []).map((i: {
+      id: string; produto_id: string; quantidade_enviada: number; preco_unitario: number
+    }) => ({
+      id: i.id,
+      produto_nome: prodMap.get(i.produto_id) ?? '—',
+      quantidade_enviada: i.quantidade_enviada,
+      preco_unitario: i.preco_unitario,
+    })),
+  }
 }

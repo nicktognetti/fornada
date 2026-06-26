@@ -51,7 +51,12 @@ export default async function DashboardLayout({
     .from('permissao')
     .select('id', { count: 'exact', head: true })
     .eq('usuario_id', user.id)
-  if ((permCount ?? 0) === 0) redirect('/login?error=desabilitado')
+  if ((permCount ?? 0) === 0) {
+    // Encerra sessão antes de redirecionar para que o middleware não devolva
+    // o usuário autenticado de volta ao dashboard (criaria loop infinito)
+    await supabase.auth.signOut()
+    redirect('/login?error=desabilitado')
+  }
 
   const [unidades, initialUnidadeId, empresas, initialEmpresaId] = await Promise.all([
     getUnidadesDoUsuario(user.id),

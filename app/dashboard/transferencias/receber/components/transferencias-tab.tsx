@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, PackageCheck, TrendingDown, Loader2, CalendarDays, X } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { formatBRL } from '@/lib/format'
+import { getTransferenciaItensAction } from '@/app/actions/transferencia'
 import { ConfirmacaoDrawer } from '../../components/confirmacao-drawer'
 import type { TransferenciaReceber, StatusFinanceiro } from '../types'
 
@@ -61,30 +61,11 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
 
   async function abrirConfirmar(t: TransferenciaReceber) {
     setLoadingId(t.id)
-    const supabase = createClient()
-
-    const { data: itensRaw } = await supabase
-      .from('transferencia_item')
-      .select('id, produto_id, quantidade_enviada, preco_unitario')
-      .eq('transferencia_id', t.id)
-
-    const prodIds = (itensRaw ?? []).map((i: { produto_id: string }) => i.produto_id)
-    const { data: produtos } = prodIds.length > 0
-      ? await supabase.from('produto').select('id, nome').in('id', prodIds)
-      : { data: [] }
-
-    const prodMap = new Map((produtos ?? []).map((p: { id: string; nome: string }) => [p.id, p.nome]))
-
-    setDrawerItens((itensRaw ?? []).map((i: {
-      id: string; produto_id: string; quantidade_enviada: number; preco_unitario: number
-    }) => ({
-      id: i.id,
-      produto_nome: prodMap.get(i.produto_id) ?? '—',
-      quantidade_enviada: i.quantidade_enviada,
-      preco_unitario: i.preco_unitario,
-    })))
-
-    setDrawerTransferencia(t)
+    const result = await getTransferenciaItensAction(t.id)
+    if (result.data) {
+      setDrawerItens(result.data)
+      setDrawerTransferencia(t)
+    }
     setLoadingId(null)
   }
 

@@ -12,13 +12,13 @@ type ActionResult<T = void> = T extends void
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function assertAdmin(userId: string): Promise<boolean> {
-  // Não usar .single() — permissao pode ter duplicatas com unidade_id NULL
-  // (PostgreSQL permite múltiplos NULLs no mesmo índice UNIQUE)
+  // Aceita admin global (tela='*') OU admin de configurações (tela='configuracoes')
+  // — ambos têm direito de gerenciar usuários e permissões
   const { data, error } = await supabaseAdmin
     .from('permissao')
     .select('id')
     .eq('usuario_id', userId)
-    .eq('tela', '*')
+    .in('tela', ['*', 'configuracoes'])
     .eq('acesso', 'admin')
     .is('unidade_id', null)
     .limit(1)

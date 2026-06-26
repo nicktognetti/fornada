@@ -11,7 +11,7 @@ import { logout } from '@/app/login/actions'
 import { usePermissions } from '@/app/context/permissions-context'
 
 const ALL_NAV_ITEMS = [
-  { href: '/dashboard',                           icon: LayoutDashboard, label: 'Resumo',          tela: 'resumo',          exact: true },
+  { href: '/dashboard/resumo',                     icon: LayoutDashboard, label: 'Resumo',          tela: 'resumo'           },
   { href: '/dashboard/receitas',                  icon: BookOpen,        label: 'Fichas',           tela: 'receitas'         },
   { href: '/dashboard/insumos',                   icon: Package,         label: 'Insumos',          tela: 'insumos'          },
   { href: '/dashboard/precos',                    icon: Tag,             label: 'Preços',           tela: 'precos'           },
@@ -72,7 +72,7 @@ export function Sidebar({ userEmail }: SidebarProps) {
             href={item.href}
             icon={item.icon}
             label={item.label}
-            exact={item.exact}
+            exact={'exact' in item ? (item.exact as boolean) : undefined}
             onClick={() => setMobileOpen(false)}
           />
         ))}
