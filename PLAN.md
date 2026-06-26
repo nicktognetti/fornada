@@ -34,12 +34,18 @@
 1. ✅ **FEITO (25/06):** aplicado `20260625000000_views_custo_fornada.sql` → Painel acendeu. `vw_produto_financeiro` tem **1156 produtos**. Obs.: só ~8 produtos têm preço cadastrado e o Painel carrega 1000 de 1156 (limite padrão — paginação é roadmap).
 2. ✅ **FEITO (26/06):** migrations de **isolamento por loja** escritas e **APLICADAS**: `cnpj_por_loja`, `rls_por_loja`, `unidade_is_pagadora`.
 3. ✅ **FEITO (26/06):** `20260620000011` (constraint CANCELADA + GRANT sequences) e `20260620000012` (RPC `confirmar_recebimento` sem `p.insumo_id`) **APLICADAS**.
-4. ✅ **FEITO (26/06):** Fix `teste@agrindus.com.br` — permissões globais (NULL) removidas via SQL. Re-salvar por unidade em Configurações se necessário.
-5. ⬜ Testar a **Priscila** (criar restrita à Centro) e a Natali trocando de loja no seletor.
-6. ⬜ Conferir margens no Painel; quando Natali zerar/reimportar produtos, cadastrar por loja.
-7. ⬜ (futuro) Módulo "contas a pagar/receber" por loja.
+4. ✅ **FEITO (26/06):** Fix `teste@agrindus.com.br` — permissões globais (NULL) removidas via SQL.
+5. ✅ **FEITO (26/06):** 5 bugs corrigidos pós-teste de usuários (commit f952cd7):
+   - Tela preta ao logar desabilitado → redireciona com `?error=desabilitado`, login exibe mensagem
+   - Resumo aparecia para todos → removido `FALLBACK_TELAS` do sidebar (Resumo respeita RBAC como as demais)
+   - Admin Global não restringia Configurações → grade desabilita telas individuais quando `*=admin` ativo + aviso
+   - Dados cruzados entre lojas → `syncUsuarioUnidade` agora remove entradas obsoletas (era só additive) + SQL de limpeza do banco aplicado manualmente
+   - Transferência não aparecia no Receber → `receber/page.tsx` usa `supabaseAdmin` para todas as queries (antes usava cliente RLS que podia bloquear)
+6. ⬜ Testar com os logins de Centro e Morada para confirmar isolamento correto de dados.
+7. ⬜ Conferir margens no Painel; quando Natali zerar/reimportar produtos, cadastrar por loja.
+8. ⬜ (futuro) Módulo "contas a pagar/receber" por loja.
 
-> A "faxina de RLS por empresa" (`20260624000001`) está **DESCARTADA** — substituída pela RLS por loja (`20260626000001`). O backfill `20260624000000` é opcional.
+> A "faxina de RLS por empresa" (`20260624000001`) está **DESCARTADA** — substituída pela RLS por loja (`20260626000001`). Junto com o backfill opcional `20260624000000`, foi **movida para `supabase/migrations/_descartadas/`** (26/06) para sair do caminho de execução do CLI. Ver README de lá.
 
 Nada disso é urgente — o que está no ar funciona.
 
@@ -271,13 +277,11 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 - [x] **"Receber"** segue como Compra simples (fornecedor + valor) por ora; pipeline NFe→custo é roadmap.
 - [ ] **Resumo/Painel** devem respeitar também a **empresa** selecionada? (hoje filtram por unidade via cookie; empresa só via RLS) — ainda em aberto
 
-### Pendências de banco — auditoria v2 (⚠️ REVERIFICAR — diagnóstico foi no banco errado)
-> As migrations `20260624*` foram ajustadas para um diagnóstico que, descobriu-se, foi feito no banco **errado (`sac_agrindus`)**. **NÃO aplicar.** Primeiro refazer o diagnóstico no banco do Fornada (ver "Ponto de retomada") e então corrigir/validar as migrations. Detalhes em `CORRECOES_FORNADA.md` §B.
-- [ ] **Refazer diagnóstico no banco do Fornada** (políticas, colunas, views) — confirmar identidade (`empresa.slug = 'flor-do-trigo'`) antes
-- [ ] Revisar `20260624000001_consolidar_rls_por_empresa.sql` com os **nomes reais** das políticas do Fornada
-- [ ] Revisar `20260624000000_correcoes_auditoria_v2.sql` com as **colunas reais**
-- [ ] Verificar se `vw_custo_receita` / `vw_produto_financeiro` existem no Fornada; criar/corrigir conforme necessário
-- [ ] Confirmar se a tabela `permissao` tem `unidade_id` — base do RBAC por unidade
+### Pendências de banco — auditoria v2 (RESOLVIDO/ARQUIVADO)
+> As migrations `20260624*` (geração "por empresa") foram **arquivadas em `supabase/migrations/_descartadas/`** (26/06) — conflitavam com a RLS por loja vigente e nunca foram aplicadas em produção. As demais verificações abaixo já foram confirmadas no banco `flor-do-trigo`:
+- [x] Diagnóstico no banco do Fornada confirmado (identidade `empresa.slug = 'flor-do-trigo'`)
+- [x] `vw_custo_receita` / `vw_produto_financeiro` criadas (`20260625000000_views_custo_fornada.sql`)
+- [x] `permissao.unidade_id` existe — base do RBAC por unidade
 
 ## 🔧 TypeScript
 - Strict mode ativo; `tsc --noEmit` sem erros.
