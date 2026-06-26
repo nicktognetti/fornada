@@ -51,7 +51,7 @@ export default async function DashboardLayout({
     .from('permissao')
     .select('id', { count: 'exact', head: true })
     .eq('usuario_id', user.id)
-  if ((permCount ?? 0) === 0) redirect('/login')
+  if ((permCount ?? 0) === 0) redirect('/login?error=desabilitado')
 
   const [unidades, initialUnidadeId, empresas, initialEmpresaId] = await Promise.all([
     getUnidadesDoUsuario(user.id),

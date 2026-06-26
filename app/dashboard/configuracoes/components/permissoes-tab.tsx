@@ -40,6 +40,9 @@ function PermissaoGrade({
   onChange: (tela: string, valor: NivelAcesso | 'none') => void
   hideGlobal?: boolean
 }) {
+  // Admin Global ativo bloqueia edição das telas individuais
+  const adminGlobalAtivo = !hideGlobal && permissoes['*'] === 'admin'
+
   return (
     <div className="rounded-xl overflow-hidden border border-subtle">
       <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-2.5 bg-canvas border-b border-subtle">
@@ -49,21 +52,38 @@ function PermissaoGrade({
           <span key={o.value} className="text-[10px] font-semibold uppercase tracking-wider text-secondary w-16 text-center">{o.label}</span>
         ))}
       </div>
+
+      {adminGlobalAtivo && (
+        <p className="px-4 py-2 text-[11px] text-accent-primary/80 bg-accent-primary/5 border-b border-subtle">
+          Admin Global ativo — acesso total a todas as telas. Para restringir uma tela específica, remova Admin Global primeiro.
+        </p>
+      )}
+
       <div className="divide-y divide-subtle">
         {(['*', ...TELAS] as const).filter((tela) => !hideGlobal || tela !== '*').map((tela) => {
           const label = tela === '*' ? '★ Admin global (todas as telas)' : TELA_LABEL[tela]
           const efetivo = permissoes[tela] ?? 'none'
+          // Telas individuais ficam desabilitadas enquanto Admin Global estiver ativo
+          const desabilitada = adminGlobalAtivo && tela !== '*'
           return (
-            <div key={tela} className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2 px-4 py-2.5 ${tela === '*' ? 'bg-accent-primary/5' : 'hover:bg-input/40'}`}>
+            <div key={tela} className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2 px-4 py-2.5 ${tela === '*' ? 'bg-accent-primary/5' : desabilitada ? 'opacity-40' : 'hover:bg-input/40'}`}>
               <span className={`text-sm ${tela === '*' ? 'font-semibold text-accent-primary' : 'text-primary'}`}>{label}</span>
               <div className="w-16 flex justify-center">
-                <button onClick={() => onChange(tela, 'none')} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${efetivo === 'none' ? 'border-danger bg-danger/20 text-danger' : 'border-subtle text-faint hover:border-subtle/80'}`}>
+                <button
+                  onClick={() => !desabilitada && onChange(tela, 'none')}
+                  disabled={desabilitada}
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${efetivo === 'none' ? 'border-danger bg-danger/20 text-danger' : 'border-subtle text-faint hover:border-subtle/80'} ${desabilitada ? 'cursor-not-allowed' : ''}`}
+                >
                   {efetivo === 'none' && <X size={9} />}
                 </button>
               </div>
               {ACESSO_OPTS.map((opt) => (
                 <div key={opt.value} className="w-16 flex justify-center">
-                  <button onClick={() => onChange(tela, opt.value)} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${efetivo === opt.value ? opt.value === 'admin' ? 'border-accent-primary bg-accent-primary/20 text-accent-primary' : 'border-success bg-success/20 text-success' : 'border-subtle text-faint hover:border-subtle/80'}`}>
+                  <button
+                    onClick={() => !desabilitada && onChange(tela, opt.value)}
+                    disabled={desabilitada}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${efetivo === opt.value ? opt.value === 'admin' ? 'border-accent-primary bg-accent-primary/20 text-accent-primary' : 'border-success bg-success/20 text-success' : 'border-subtle text-faint hover:border-subtle/80'} ${desabilitada ? 'cursor-not-allowed' : ''}`}
+                  >
                     {efetivo === opt.value && <Check size={9} />}
                   </button>
                 </div>

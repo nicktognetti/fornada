@@ -24,9 +24,6 @@ const ALL_NAV_ITEMS = [
   { href: '/dashboard/configuracoes',             icon: Shield,          label: 'Configurações',    tela: 'configuracoes'    },
 ]
 
-// Tela sempre visível como fallback
-const FALLBACK_TELAS = new Set(['resumo'])
-
 interface SidebarProps {
   userEmail: string
 }
@@ -35,10 +32,10 @@ export function Sidebar({ userEmail }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { canAccess, isLoading } = usePermissions()
 
-  // Durante carregamento mostra todos (otimista); após carregamento filtra
+  // Durante carregamento mostra todos (otimista); após carregamento filtra por permissão real
   const navItems = isLoading
     ? ALL_NAV_ITEMS
-    : ALL_NAV_ITEMS.filter((item) => FALLBACK_TELAS.has(item.tela) || canAccess(item.tela))
+    : ALL_NAV_ITEMS.filter((item) => canAccess(item.tela))
 
   const panel = (
     <aside className="flex flex-col h-full w-[260px] bg-canvas">

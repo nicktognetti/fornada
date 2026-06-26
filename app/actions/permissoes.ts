@@ -60,7 +60,7 @@ async function syncUsuarioUnidade(targetUserId: string): Promise<void> {
     )]
   }
 
-  if (desejadas.length === 0) return
+  const desejadaSet = new Set(desejadas)
 
   const { data: existentes } = await supabaseAdmin
     .from('usuario_unidade')
@@ -68,11 +68,22 @@ async function syncUsuarioUnidade(targetUserId: string): Promise<void> {
     .eq('user_id', targetUserId)
   const jaTem = new Set(((existentes ?? []) as { unidade_id: string }[]).map((r) => r.unidade_id))
 
+  // Adiciona unidades novas
   const novas = desejadas.filter((id) => !jaTem.has(id))
   if (novas.length > 0) {
     await supabaseAdmin
       .from('usuario_unidade')
       .insert(novas.map((unidade_id) => ({ user_id: targetUserId, unidade_id })))
+  }
+
+  // Remove unidades que o usuário não tem mais permissão
+  const obsoletas = [...jaTem].filter((id) => !desejadaSet.has(id))
+  if (obsoletas.length > 0) {
+    await supabaseAdmin
+      .from('usuario_unidade')
+      .delete()
+      .eq('user_id', targetUserId)
+      .in('unidade_id', obsoletas)
   }
 }
 
