@@ -9,6 +9,30 @@ Formato: `tipo: descrição — detalhes`
 
 ---
 
+## 2026-06-26 — Bugs pós-teste + Auditoria de segurança (8 commits)
+
+### Bugs encontrados em teste de usuários
+- **Loop ao logar desabilitado** (`f952cd7`, `157afe7`) — `dashboard/layout.tsx` agora faz `supabase.auth.signOut()` antes de redirecionar; sem sessão ativa o `proxy.ts` não devolve ao dashboard. Login exibe "Usuário sem permissão de acesso" via `?error=desabilitado`
+- **Resumo aparecia para todos** — removido `FALLBACK_TELAS` do sidebar; Resumo respeita RBAC como as demais. Movido de `/dashboard` para `/dashboard/resumo`; `/dashboard` virou landing page com logo
+- **Admin Global não restringia Configurações** — grade de permissões desabilita telas individuais quando `*=admin` está ativo + aviso
+- **Dados cruzados entre lojas** — `syncUsuarioUnidade` agora remove vínculos obsoletos de `usuario_unidade` (era só aditivo) + SQL de limpeza aplicado no banco
+- **Transferência não aparecia no Receber** / **nome do produto vazio no drawer** — `receber/page.tsx` e `getTransferenciaItensAction` usam `supabaseAdmin` (RLS de produto por loja bloqueava leitura do destinatário)
+- **Configurações inacessível para admin de config** — `assertAdmin` aceita `tela='configuracoes'` além de `tela='*'`
+
+### Segurança (auditoria sênior)
+- **#1 Vazamento intra-tenant** (`1f83bc0`) — novo `getUnidadeAutorizada()` valida o cookie de loja contra `usuario_unidade`. Crítico nas páginas com `supabaseAdmin` (receber, nova-transferência), onde o RLS é bypassado e o filtro de loja era a única barreira — antes, trocar o cookie revelava dados de loja-irmã da mesma empresa
+- **#2 Granularidade módulo × loja na escrita** (`772a0f9`) — actions de escrita (insumos, receitas + itens, preços, criar produto) passam a unidade-alvo para `temAcesso({ unidadeId })`; novo helper `unidadeDoRegistro()` resolve a loja real via `supabaseAdmin` (para poder NEGAR mesmo sem vínculo). Antes, usuário multi-loja com permissão de módulo só na Loja A escrevia na B trocando o cookie
+- **#3 Migrations conflitantes** (`9b01f3d`) — `20260624*` (RLS por empresa) movidas para `supabase/migrations/_descartadas/` — conflitavam com a RLS por loja vigente
+- **#5 Testes de autorização** (`51025ed`) — núcleo puro `authz-core.ts` (`avaliaAcesso`/`isAdminGlobal`, sem imports de servidor) + 26 testes cobrindo escopo por loja, hierarquia de nível, admin global, desabilitado. Suíte: 26 → 52 testes
+
+### Robustez & coerência
+- **#6** (`dad87b7`) — `app/dashboard/error.tsx` (boundary com Tentar novamente/Voltar) e `app/not-found.tsx` (404 com identidade visual)
+- **#7** (`dad87b7`) — tela `produtos` adicionada ao enum `TELAS` + `TELA_LABEL` e às actions de produto (estava no sidebar mas fora do enum → `canAccess` sempre negava)
+
+> Adiado por decisão de produto: **#4** — isolamento de `insumo_saldo`/`compra`/`despesa_fixa_empresa`/`config_geral` (hoje por empresa, não por loja).
+
+---
+
 ## 2026-06-24 — Auditoria Sênior + Design + RBAC fixes
 
 ### Design & UX

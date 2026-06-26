@@ -2,7 +2,18 @@
 
 ## ▶ Ponto de retomada (atualizado 26/06/2026)
 
-**Status:** todo o trabalho está **commitado** na `master`. Não há remote git configurado (tudo local). **Todas as migrations pendentes foram aplicadas ao banco em 26/06.**
+**Status:** todo o trabalho está **commitado** na `master`. Não há remote git configurado (tudo local). **Todas as migrations pendentes foram aplicadas ao banco em 26/06.** Build de produção, `tsc` e 52 testes ✅ limpos.
+
+**Sessão 26/06 (tarde) — Bugs pós-teste + Auditoria de segurança (8 commits, detalhes no CHANGELOG):**
+- ✅ 6 bugs de teste de usuários: loop login desabilitado, Resumo sempre visível (movido p/ `/dashboard/resumo`; `/dashboard` virou landing), Admin Global não restringia config, dados cruzados entre lojas (`syncUsuarioUnidade` bidirecional), transferência/produto sumindo no Receber, Configurações inacessível para admin de config
+- ✅ **Auditoria de segurança — achados #1, #2, #3, #5, #6, #7 fechados:**
+  - **#1** `getUnidadeAutorizada()` valida cookie de loja contra `usuario_unidade` (fecha vazamento intra-tenant nas páginas com `supabaseAdmin`)
+  - **#2** granularidade módulo×loja na escrita (`temAcesso({ unidadeId })` + helper `unidadeDoRegistro`)
+  - **#3** migrations `20260624*` (RLS por empresa) arquivadas em `_descartadas/`
+  - **#5** núcleo de autorização testável `authz-core.ts` + 26 testes (suíte 26→52)
+  - **#6** `error.tsx` + `not-found.tsx`; **#7** tela `produtos` virou permissão real
+- ⏸️ **#4 ADIADO (decisão de produto):** isolamento de estoque/compras/despesas/config — hoje por empresa, não por loja. Retomar quando decidir se essas tabelas são por loja ou por empresa.
+- 🔲 **Pendente de teste real:** validar com logins Centro/Morada que (a) cada um vê só os recebimentos da própria loja e (b) usuário com módulo só numa loja não escreve na outra.
 
 **Últimas sessões concluídas (25/06):**
 - ✅ **Módulo Transferências — sessão completa (4 commits, 92a2738 → 72884b2):**
