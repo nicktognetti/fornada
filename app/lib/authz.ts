@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-
-type Nivel = 'leitura' | 'escrita' | 'admin'
-const RANK: Record<string, number> = { leitura: 1, escrita: 2, admin: 3 }
+import { avaliaAcesso, type Nivel } from './authz-core'
 
 /**
  * Autorização server-side baseada na tabela `permissao` (RBAC).
@@ -22,7 +20,6 @@ export async function temAcesso(
   telas: string[],
   opts?: { unidadeId?: string | null; nivel?: Nivel },
 ): Promise<boolean> {
-  const nivel = opts?.nivel ?? 'escrita'
   const supabase = await createClient()
   const { data } = await supabase
     .from('permissao')
@@ -30,18 +27,7 @@ export async function temAcesso(
     .eq('usuario_id', userId)
 
   const lista = (data ?? []) as { tela: string; acesso: string; unidade_id: string | null }[]
-
-  // Admin global sobrepõe tudo
-  if (lista.some((p) => p.tela === '*' && p.acesso === 'admin' && p.unidade_id === null)) {
-    return true
-  }
-
-  return lista.some(
-    (p) =>
-      telas.includes(p.tela) &&
-      (RANK[p.acesso] ?? 0) >= RANK[nivel] &&
-      (p.unidade_id === null || opts?.unidadeId == null || p.unidade_id === opts.unidadeId),
-  )
+  return avaliaAcesso(lista, telas, opts)
 }
 
 /**
