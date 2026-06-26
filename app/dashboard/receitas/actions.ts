@@ -4,8 +4,8 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
-import { getUnidadePreferida } from '@/app/actions/unidade'
-import { temAcesso } from '@/app/lib/authz'
+import { getUnidadeAutorizada } from '@/app/actions/unidade'
+import { temAcesso, unidadeDoRegistro } from '@/app/lib/authz'
 import type { ActionResult } from './types'
 
 function isPositiveNum(val: unknown) {
@@ -31,7 +31,7 @@ async function getUnidadeEscrita(
   supabase: Awaited<ReturnType<typeof createClient>>,
   empresaId: string
 ): Promise<string | null> {
-  const pref = await getUnidadePreferida()
+  const pref = await getUnidadeAutorizada()
   if (pref) {
     const { data } = await supabase
       .from('unidade').select('id').eq('id', pref).eq('empresa_id', empresaId).maybeSingle()
@@ -65,12 +65,13 @@ export async function createReceita(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['receitas']))) return { error: 'Sem permissão para editar fichas' }
 
   const empresaId = await getEmpresaId(user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
+    return { error: 'Sem permissão para criar fichas nesta unidade' }
 
   const raw = {
     nome: formData.get('nome'),
@@ -109,10 +110,13 @@ export async function updateReceita(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['receitas']))) return { error: 'Sem permissão para editar fichas' }
 
   const id = formData.get('id') as string
   if (!id) return { error: 'ID não informado' }
+
+  const unidadeId = await unidadeDoRegistro('receita', id)
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
+    return { error: 'Sem permissão para editar fichas nesta unidade' }
 
   const raw = {
     nome: formData.get('nome'),
@@ -146,7 +150,10 @@ export async function deleteReceita(id: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['receitas']))) return { error: 'Sem permissão para excluir fichas' }
+
+  const unidadeId = await unidadeDoRegistro('receita', id)
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
+    return { error: 'Sem permissão para excluir fichas nesta unidade' }
 
   // Bloquear se usada como sub-receita em outra ficha
   const { data: refs } = await supabase
@@ -204,7 +211,6 @@ export async function addItem(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['receitas']))) return { error: 'Sem permissão para editar fichas' }
 
   const raw = {
     receita_id: formData.get('receita_id'),
@@ -213,6 +219,10 @@ export async function addItem(
 
   const base = ItemSchema.safeParse(raw)
   if (!base.success) return { error: base.error.issues[0].message }
+
+  const unidadeId = await unidadeDoRegistro('receita', base.data.receita_id)
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
+    return { error: 'Sem permissão para editar fichas nesta unidade' }
 
   const insumo_id = (formData.get('insumo_id') as string) || null
   const sub_receita_id = (formData.get('sub_receita_id') as string) || null
@@ -257,11 +267,14 @@ export async function updateItem(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['receitas']))) return { error: 'Sem permissão para editar fichas' }
 
   const id = formData.get('id') as string
   const receita_id = formData.get('receita_id') as string
   if (!id || !receita_id) return { error: 'IDs não informados' }
+
+  const unidadeId = await unidadeDoRegistro('receita', receita_id)
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
+    return { error: 'Sem permissão para editar fichas nesta unidade' }
 
   const quantidade = formData.get('quantidade') as string
   if (!isPositiveNum(quantidade)) return { error: 'Quantidade deve ser maior que zero' }
@@ -301,7 +314,10 @@ export async function removeItem(id: string, receitaId: string): Promise<ActionR
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['receitas']))) return { error: 'Sem permissão para editar fichas' }
+
+  const unidadeId = await unidadeDoRegistro('receita', receitaId)
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
+    return { error: 'Sem permissão para editar fichas nesta unidade' }
 
   const { error } = await supabase.from('receita_item').delete().eq('id', id)
   if (error) return { error: 'Erro ao remover item: ' + error.message }

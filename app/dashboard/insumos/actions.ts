@@ -4,8 +4,8 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
-import { getUnidadePreferida } from '@/app/actions/unidade'
-import { temAcesso } from '@/app/lib/authz'
+import { getUnidadeAutorizada } from '@/app/actions/unidade'
+import { temAcesso, unidadeDoRegistro } from '@/app/lib/authz'
 import type { ActionResult, InsumoPreco } from './types'
 
 function parseNum(val: unknown): number {
@@ -44,13 +44,14 @@ async function getEmpresaId(userId: string): Promise<string | null> {
   return data?.empresa_id ?? null
 }
 
-// Unidade a usar ao criar registros: a preferida (cookie) se válida para a
-// empresa, senão a primeira unidade ativa da empresa.
+// Unidade a usar ao criar registros: a AUTORIZADA (cookie validado contra os
+// vínculos do usuário) se pertencer à empresa, senão a primeira unidade ativa
+// da empresa. A permissão de módulo nesta loja é checada à parte via temAcesso.
 async function getUnidadeEscrita(
   supabase: Awaited<ReturnType<typeof createClient>>,
   empresaId: string
 ): Promise<string | null> {
-  const pref = await getUnidadePreferida()
+  const pref = await getUnidadeAutorizada()
   if (pref) {
     const { data } = await supabase
       .from('unidade').select('id').eq('id', pref).eq('empresa_id', empresaId).maybeSingle()
@@ -77,12 +78,13 @@ export async function createInsumo(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['insumos']))) return { error: 'Sem permissão para editar insumos' }
 
   const empresaId = await getEmpresaId(user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+  if (!(await temAcesso(user.id, ['insumos'], { unidadeId })))
+    return { error: 'Sem permissão para criar insumos nesta unidade' }
 
   const raw = getFormFields(formData, [
     'nome',
@@ -132,10 +134,13 @@ export async function updateInsumo(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['insumos']))) return { error: 'Sem permissão para editar insumos' }
 
   const id = formData.get('id') as string
   if (!id) return { error: 'ID não informado' }
+
+  const unidadeId = await unidadeDoRegistro('insumo', id)
+  if (!(await temAcesso(user.id, ['insumos'], { unidadeId })))
+    return { error: 'Sem permissão para editar insumos nesta unidade' }
 
   const raw = getFormFields(formData, ['nome', 'categoria', 'unidade_uso'])
   const result = InsumoSchema.safeParse(raw)
@@ -163,10 +168,13 @@ export async function addPreco(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['insumos']))) return { error: 'Sem permissão para editar insumos' }
 
   const insumo_id = formData.get('insumo_id') as string
   if (!insumo_id) return { error: 'Insumo não informado' }
+
+  const unidadeId = await unidadeDoRegistro('insumo', insumo_id)
+  if (!(await temAcesso(user.id, ['insumos'], { unidadeId })))
+    return { error: 'Sem permissão para editar insumos nesta unidade' }
 
   const raw = getFormFields(formData, [
     'unidade_compra',
