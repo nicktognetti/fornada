@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { getUnidadePreferida } from '@/app/actions/unidade'
+import { getUnidadeAutorizada } from '@/app/actions/unidade'
 import { temAcesso } from '@/app/lib/authz'
 import { ReceberHub } from './components/receber-hub'
 import type { TransferenciaReceber, Compra, StatusFinanceiro } from './types'
@@ -20,8 +20,10 @@ export default async function ReceberPage() {
     .maybeSingle()
   const empresaId = ue?.empresa_id
 
-  // Unidade selecionada pelo usuário (cookie) — respeita o tab ativo
-  const minhaUnidadeId = await getUnidadePreferida()
+  // Unidade ativa AUTORIZADA (cookie validado contra usuario_unidade) — como a
+  // query de transferências usa supabaseAdmin (sem RLS), este é o único filtro
+  // que impede ver recebimentos de uma loja-irmã da mesma empresa.
+  const minhaUnidadeId = await getUnidadeAutorizada()
 
   // Todas as unidades da empresa para montar nomes + detectar pagadora
   const { data: unidades } = await supabaseAdmin

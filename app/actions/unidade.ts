@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 const COOKIE_NAME = 'unidade_preferida'
@@ -63,6 +64,54 @@ export async function getUnidadePreferida(): Promise<string | null> {
   // isoladas; sempre uma loja selecionada por vez).
   const unidades = await getUserUnidadesAction()
   return unidades[0]?.id ?? null
+}
+
+/**
+ * Unidade ativa AUTORIZADA para o usuário logado.
+ *
+ * Diferente de `getUnidadePreferida()` (que devolve o cookie cru, manipulável),
+ * esta função VALIDA o valor contra `usuario_unidade`. É a fonte de verdade que
+ * deve ser usada por toda página/action que decide QUAL loja o usuário está
+ * operando — especialmente quando a consulta usa `supabaseAdmin` (bypassa RLS) e
+ * o filtro de loja é a única barreira de isolamento.
+ *
+ * Regras:
+ * - Admin global → o cookie é aceito como veio (vê todas as lojas).
+ * - Demais → o cookie só vale se estiver entre os vínculos do usuário em
+ *   `usuario_unidade`; caso contrário, cai para a PRIMEIRA loja vinculada.
+ * - Sem vínculo nenhum (desabilitado) → `null`.
+ *
+ * Usar SOMENTE em Server Components/Actions (depende de `next/headers`).
+ */
+export async function getUnidadeAutorizada(): Promise<string | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const jar = await cookies()
+  const cookieVal = jar.get(COOKIE_NAME)?.value ?? null
+
+  // Admin global vê todas as lojas: aceita o cookie como veio.
+  const { data: adminRows } = await supabaseAdmin
+    .from('permissao')
+    .select('id')
+    .eq('usuario_id', user.id)
+    .eq('tela', '*')
+    .eq('acesso', 'admin')
+    .is('unidade_id', null)
+    .limit(1)
+  if (adminRows && adminRows.length > 0) return cookieVal
+
+  // Demais: o cookie precisa estar entre os vínculos reais.
+  const { data: vinculos } = await supabaseAdmin
+    .from('usuario_unidade')
+    .select('unidade_id')
+    .eq('user_id', user.id)
+    .order('created_at')
+  const ids = (vinculos ?? []).map((v: { unidade_id: string }) => v.unidade_id)
+
+  if (cookieVal && ids.includes(cookieVal)) return cookieVal
+  return ids[0] ?? null
 }
 
 // ── Cópia entre unidades ──────────────────────────────────────────────────────

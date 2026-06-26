@@ -3,14 +3,14 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NovaTransferenciaForm } from '../components/nova-transferencia-form'
-import { getUnidadePreferida } from '@/app/actions/unidade'
+import { getUnidadeAutorizada } from '@/app/actions/unidade'
 
 export default async function NovaTransferenciaPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user?.id ?? ''
 
-  const cookieId = await getUnidadePreferida()
+  const cookieId = await getUnidadeAutorizada()
 
   // empresa_id via usuario_empresa (fonte mais confiável — funciona independente de RLS)
   const { data: ueRow } = await supabaseAdmin
