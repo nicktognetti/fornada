@@ -182,8 +182,8 @@ export async function savePrecoVenda(
   if (prod.empresa_id !== empresaId) return { error: 'Acesso negado' }
   if (!prod.unidade_id) return { error: 'Produto sem unidade definida' }
 
-  // Permissão de preços/painel NA LOJA do produto
-  if (!(await temAcesso(user.id, ['painel', 'precos'], { unidadeId: prod.unidade_id })))
+  // Permissão de preços/painel/produtos NA LOJA do produto
+  if (!(await temAcesso(user.id, ['painel', 'precos', 'produtos'], { unidadeId: prod.unidade_id })))
     return { error: 'Sem permissão para alterar preços nesta unidade' }
 
   const { error } = await supabase
@@ -236,7 +236,7 @@ export async function savePrecoVendaLote(
   )]
   const unidadesPermitidas = new Set<string>()
   for (const uid of unidadesLote) {
-    if (await temAcesso(user.id, ['painel', 'precos'], { unidadeId: uid })) {
+    if (await temAcesso(user.id, ['painel', 'precos', 'produtos'], { unidadeId: uid })) {
       unidadesPermitidas.add(uid)
     }
   }
@@ -297,7 +297,7 @@ export async function createProdutoRevenda(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['painel', 'precos'], { unidadeId })))
+  if (!(await temAcesso(user.id, ['painel', 'precos', 'produtos'], { unidadeId })))
     return { error: 'Sem permissão para criar produtos nesta unidade' }
 
   const empresaId = await getEmpresaId(supabase, user.id)
