@@ -8,7 +8,9 @@
 - ✅ **Polimentos**: 5 `loading.tsx` (skeletons) + `tabular-nums` nas tabelas de R$ (commit b8a6260).
 - ✅ **Ilha de demonstração** no banco (Bolo de Cenoura + Brownie + Pão Doce + Cookie, todos "(demo)") — 5 produtos precificados, Painel 100% vivo (KPIs, gráficos, alerta de prejuízo). **Remover com `node _demo_cleanup.mjs`.** Ver memória [[dados-e-demo-fornada]].
 - 🔎 **Achado importante p/ Natali:** as 129 fichas importadas têm **quantidades/unidades furadas** (300 ovos num omelete) e nomes duplicados — precisam de limpeza antes de precificar de verdade. `insumo_preco` estava 100% vazio.
-- 🔲 **Pendente:** teste de isolamento RBAC (Centro/Morada) e preparação de deploy (decidido: preparar, deploy depois).
+- ✅ **Teste de isolamento RBAC — FEITO e APROVADO:** criados 2 usuários QA (`qa.centro@` / `qa.morada@flordotrigo.app`, senha `Teste@2026`, removíveis com `node _demo_cleanup.mjs`). Validado: nav filtra por permissão; centro vê 0 insumos / morada vê 229 (RLS por loja isola 100%); escrita cruzada bloqueada por `temAcesso`.
+- ✅ **Gap de segurança corrigido (commit do guard):** acesso via URL direta a telas não concedidas agora é barrado no `proxy.ts` (mapa rota→tela + redirect; admin `*` passa). Antes só o menu escondia. Dados/escrita já estavam protegidos por RLS/temAcesso — era exposição de visualização do módulo.
+- 🔲 **Pendente:** preparação de deploy (decidido: preparar, deploy depois).
 
 ---
 
