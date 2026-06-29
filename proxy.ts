@@ -1,6 +1,29 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Mapeia uma rota do dashboard para a "tela" de permissão correspondente.
+// Retorna null para rotas livres (landing) ou desconhecidas (fail-open: a
+// página + RLS + temAcesso continuam protegendo dados e escrita).
+function telaParaRota(pathname: string): string | null {
+  if (pathname === '/dashboard' || pathname === '/dashboard/') return null
+  // Ordem importa: /receber é mais específico que /transferencias
+  if (pathname.startsWith('/dashboard/transferencias/receber')) return 'receber'
+  if (pathname.startsWith('/dashboard/transferencias')) return 'transferencias'
+  const seg = pathname.split('/')[2] // segmento após /dashboard/
+  const mapa: Record<string, string> = {
+    resumo: 'resumo',
+    insumos: 'insumos',
+    receitas: 'receitas',
+    precos: 'precos',
+    produtos: 'produtos',
+    painel: 'painel',
+    cadastros: 'cadastros',
+    simulador: 'simulador',
+    configuracoes: 'configuracoes',
+  }
+  return mapa[seg] ?? null
+}
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -43,6 +66,30 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
+  }
+
+  // Guard de permissão por tela: o menu esconde telas não concedidas, mas sem
+  // isto a rota ainda abriria via URL direta (exposição de visualização do
+  // módulo dentro da própria loja). Aqui barramos no servidor, central.
+  if (user) {
+    const tela = telaParaRota(pathname)
+    if (tela) {
+      const { data: perms, error } = await supabase
+        .from('permissao')
+        .select('tela')
+        .eq('usuario_id', user.id)
+      // Fail-open em erro transitório (dados/escrita seguem protegidos por RLS/temAcesso)
+      if (!error && Array.isArray(perms)) {
+        const telas = new Set(perms.map((p: { tela: string }) => p.tela))
+        const autorizado = telas.has('*') || telas.has(tela)
+        if (!autorizado) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/dashboard'
+          url.search = ''
+          return NextResponse.redirect(url)
+        }
+      }
+    }
   }
 
   return supabaseResponse
