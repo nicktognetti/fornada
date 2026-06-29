@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
+import { getReceitaComposicao, type ReceitaComposicao } from '@/app/dashboard/receitas/composicao'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,25 @@ export type DespesaFixa = {
 
 // Mantém compatibilidade com componentes que ainda usam FichaFinanceira
 export type FichaFinanceira = ProdutoFinanceiro
+
+export type ProdutoDetalhe = {
+  produto_id: string
+  nome: string
+  tipo: 'produzido' | 'revenda'
+  categoria: string | null
+  unidade_nome: string | null
+  receita_id: string | null
+  custo_compra: number | null
+  custo_embalagem: number
+  custo_total: number
+  preco: number
+  volume_mensal: number
+  margem_rs: number
+  margem_percentual: number
+  markup_percentual: number
+  /** Composição de custo da ficha (só para produtos produzidos com receita). */
+  composicao: ReceitaComposicao | null
+}
 
 type ActionResult<T = void> = T extends void
   ? { error?: string; success?: boolean }
@@ -284,6 +304,70 @@ export async function getProdutos(opts?: {
       ? (r.data?.fichas ?? []).filter((f) => f.preco_venda === 0)
       : r.data?.fichas,
   }))
+}
+
+// ── getProdutoDetalhe ─────────────────────────────────────────────────────────
+
+export async function getProdutoDetalhe(
+  produtoId: string,
+): Promise<ActionResult<ProdutoDetalhe>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const [prodRes, finRes, precoRes] = await Promise.all([
+    supabase
+      .from('produto')
+      .select('id, nome, tipo, categoria, receita_id, custo_compra, custo_embalagem')
+      .eq('id', produtoId)
+      .maybeSingle(),
+    supabase
+      .from('vw_produto_financeiro')
+      .select('custo_total, preco_venda, margem_rs, margem_percentual, markup_percentual, unidade_nome')
+      .eq('produto_id', produtoId)
+      .maybeSingle(),
+    supabase
+      .from('produto_preco')
+      .select('preco_praticado, volume_mensal')
+      .eq('produto_id', produtoId)
+      .maybeSingle(),
+  ])
+
+  const prod = prodRes.data as {
+    id: string; nome: string; tipo: 'produzido' | 'revenda'; categoria: string | null
+    receita_id: string | null; custo_compra: number | null; custo_embalagem: number | null
+  } | null
+  if (!prod) return { error: 'Produto não encontrado' }
+
+  const fin = finRes.data as {
+    custo_total: number | null; preco_venda: number | null; margem_rs: number | null
+    margem_percentual: number | null; markup_percentual: number | null; unidade_nome: string | null
+  } | null
+
+  const composicao =
+    prod.tipo === 'produzido' && prod.receita_id
+      ? await getReceitaComposicao(prod.receita_id)
+      : null
+
+  return {
+    data: {
+      produto_id: prod.id,
+      nome: prod.nome,
+      tipo: prod.tipo,
+      categoria: prod.categoria,
+      unidade_nome: fin?.unidade_nome ?? null,
+      receita_id: prod.receita_id,
+      custo_compra: prod.custo_compra,
+      custo_embalagem: prod.custo_embalagem ?? 0,
+      custo_total: fin?.custo_total ?? 0,
+      preco: fin?.preco_venda ?? 0,
+      volume_mensal: precoRes.data?.volume_mensal ?? 0,
+      margem_rs: fin?.margem_rs ?? 0,
+      margem_percentual: fin?.margem_percentual ?? 0,
+      markup_percentual: fin?.markup_percentual ?? 0,
+      composicao,
+    },
+  }
 }
 
 // ── createProdutoRevenda ──────────────────────────────────────────────────────

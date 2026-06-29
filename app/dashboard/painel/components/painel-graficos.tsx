@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import type { ProdutoFinanceiro } from '@/app/actions/painel'
 import { formatBRL } from '@/lib/format'
+import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
 import type { ChartFilter } from './painel-client'
 
 interface Props {
@@ -29,6 +31,7 @@ function GraficoVazio({ icon, titulo, desc }: { icon: string; titulo: string; de
 }
 
 export function PainelGraficos({ fichas, chartFilter, onChartFilter }: Props) {
+  const [detalheId, setDetalheId] = useState<string | null>(null)
   const comPreco = fichas.filter((f) => f.preco_venda > 0 && f.custo_total > 0)
   const totalProdutos = fichas.length
   const totalComPreco = comPreco.length
@@ -82,6 +85,7 @@ export function PainelGraficos({ fichas, chartFilter, onChartFilter }: Props) {
   }
 
   return (
+    <>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
       {/* ── Top 10 por margem ───────────────────────��─────────────────── */}
@@ -96,7 +100,7 @@ export function PainelGraficos({ fichas, chartFilter, onChartFilter }: Props) {
             <p className="text-[10px] font-semibold uppercase tracking-wider text-secondary">
               Top 10 por Margem
             </p>
-            <p className="text-[10px] text-faint">clique numa barra para filtrar</p>
+            <p className="text-[10px] text-faint">clique para ver detalhe</p>
           </div>
           <div className="space-y-2">
             {topMargem.map((f, i) => {
@@ -108,7 +112,8 @@ export function PainelGraficos({ fichas, chartFilter, onChartFilter }: Props) {
               return (
                 <button
                   key={f.produto_id}
-                  onClick={() => onChartFilter({ tipo: 'produto', id: f.produto_id, label: f.produto_nome })}
+                  onClick={() => setDetalheId(f.produto_id)}
+                  title="Ver detalhe do produto"
                   className={`w-full flex items-center gap-2 rounded-lg px-1 py-0.5 transition-all group ${
                     ativo ? 'bg-input ring-1 ring-subtle' : 'hover:bg-input/40'
                   }`}
@@ -256,5 +261,7 @@ export function PainelGraficos({ fichas, chartFilter, onChartFilter }: Props) {
       )}
 
     </div>
+    <ProdutoDetalheDrawer produtoId={detalheId} onClose={() => setDetalheId(null)} />
+    </>
   )
 }

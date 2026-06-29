@@ -6,6 +6,7 @@ import { Check, X, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown } from 'luci
 import { formatBRL, parseDecimalBR } from '@/lib/format'
 import { savePrecoVenda, savePrecoVendaLote } from '@/app/actions/painel'
 import { usePermission } from '@/app/context/permissions-context'
+import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
 import type { ProdutoFinanceiro } from '@/app/actions/painel'
 import type { AlertaFiltro, ChartFilter } from './painel-client'
 
@@ -186,7 +187,7 @@ function PrecoCell({ f, canWrite }: { f: ProdutoFinanceiro; canWrite: boolean })
 
   if (editing) {
     return (
-      <div className="flex items-center gap-1 w-28 justify-end">
+      <div className="flex items-center gap-1 w-28 justify-end" onClick={(e) => e.stopPropagation()}>
         <input
           ref={inputRef}
           type="text"
@@ -209,7 +210,7 @@ function PrecoCell({ f, canWrite }: { f: ProdutoFinanceiro; canWrite: boolean })
 
   return (
     <button
-      onClick={startEdit}
+      onClick={(e) => { e.stopPropagation(); startEdit() }}
       title={comPreco ? 'Clique para editar' : 'Clique para adicionar preço'}
       className={`w-28 text-right transition-all group ${flash ? 'text-success' : ''}`}
     >
@@ -285,6 +286,7 @@ export function PainelTabela({ fichas, alertaFiltro, chartFilter, onClearChartFi
   const [sortCol, setSortCol] = useState<SortCol>('margem_percentual')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [page, setPage] = useState(0)
+  const [detalheId, setDetalheId] = useState<string | null>(null)
   const { canWrite } = usePermission('painel')
 
   function handleSort(col: SortCol) {
@@ -399,7 +401,9 @@ export function PainelTabela({ fichas, alertaFiltro, chartFilter, onClearChartFi
             return (
               <div
                 key={f.produto_id}
-                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center px-5 py-3 border-b border-subtle last:border-0 hover:bg-canvas/40 transition-colors"
+                onClick={() => setDetalheId(f.produto_id)}
+                title="Ver detalhe do produto"
+                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center px-5 py-3 border-b border-subtle last:border-0 hover:bg-canvas/40 transition-colors cursor-pointer"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -493,6 +497,8 @@ export function PainelTabela({ fichas, alertaFiltro, chartFilter, onClearChartFi
           onClose={() => setLoteOpen(false)}
         />
       )}
+
+      <ProdutoDetalheDrawer produtoId={detalheId} onClose={() => setDetalheId(null)} />
     </section>
   )
 }

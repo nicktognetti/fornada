@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, AlertTriangle } from 'lucide-react'
 import { formatBRL } from '@/lib/format'
+import { KpiDetalheDrawer, type KpiTipo } from './kpi-detalhe-drawer'
 import type { PainelIndicadores, ProdutoFinanceiro } from '@/app/actions/painel'
 import type { AlertaFiltro } from './painel-client'
 
@@ -19,6 +21,7 @@ function classifyFaixa(custo: number): 'alta' | 'media' | 'baixa' {
 }
 
 export function PainelKpis({ indicadores: ind, fichas, alertaFiltro, onAlertaClick }: Props) {
+  const [kpiDrawer, setKpiDrawer] = useState<KpiTipo | null>(null)
   // Produtos sem preço, agrupados por faixa de custo
   const semPreco = fichas.filter((f) => f.preco_venda <= 0 && f.custo_total > 0)
   const contagem = { alta: 0, media: 0, baixa: 0 }
@@ -48,10 +51,15 @@ export function PainelKpis({ indicadores: ind, fichas, alertaFiltro, onAlertaCli
   const totalAlertas = semPreco.length + ind.produtos_margem_negativa
 
   return (
+    <>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
       {/* Faturamento estimado */}
-      <div className="card-surface px-4 py-4">
+      <div
+        onClick={() => setKpiDrawer('portfolio')}
+        title="Ver composição do portfólio"
+        className="card-surface px-4 py-4 cursor-pointer hover:bg-input/40 transition-colors"
+      >
         <div className="flex items-center gap-2 mb-3">
           <DollarSign size={13} className="text-accent-primary shrink-0" />
           <p
@@ -70,7 +78,11 @@ export function PainelKpis({ indicadores: ind, fichas, alertaFiltro, onAlertaCli
       </div>
 
       {/* Custo total */}
-      <div className="card-surface px-4 py-4">
+      <div
+        onClick={() => setKpiDrawer('custo')}
+        title="Ver custo por produto"
+        className="card-surface px-4 py-4 cursor-pointer hover:bg-input/40 transition-colors"
+      >
         <div className="flex items-center gap-2 mb-3">
           <TrendingDown size={13} className="text-secondary shrink-0" />
           <p className="text-[10px] font-semibold uppercase tracking-wider text-secondary">
@@ -86,7 +98,11 @@ export function PainelKpis({ indicadores: ind, fichas, alertaFiltro, onAlertaCli
       </div>
 
       {/* Margem média */}
-      <div className="card-surface px-4 py-4">
+      <div
+        onClick={() => setKpiDrawer('margem')}
+        title="Entender o cálculo da margem"
+        className="card-surface px-4 py-4 cursor-pointer hover:bg-input/40 transition-colors"
+      >
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp size={13} className={`shrink-0 ${
             ind.margem_media_percentual >= 40 ? 'text-success' :
@@ -185,5 +201,8 @@ export function PainelKpis({ indicadores: ind, fichas, alertaFiltro, onAlertaCli
       </div>
 
     </div>
+
+    <KpiDetalheDrawer kpi={kpiDrawer} onClose={() => setKpiDrawer(null)} fichas={fichas} indicadores={ind} />
+    </>
   )
 }

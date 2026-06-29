@@ -4,6 +4,7 @@ import { SectionLabel } from '@/app/components/ui/section-label'
 import { formatBRL } from '@/lib/format'
 import { getPainelFinanceiro } from '@/app/actions/painel'
 import { getUnidadePreferida } from '@/app/actions/unidade'
+import { PrecosComPrecoList } from './components/precos-com-preco-list'
 import Link from 'next/link'
 
 export default async function PrecosPage() {
@@ -49,39 +50,7 @@ export default async function PrecosPage() {
       {comPreco.length > 0 && (
         <div className="space-y-3 mb-8">
           <SectionLabel icon={BookOpen}>Com preço definido</SectionLabel>
-          <div className="space-y-2">
-            {comPreco.map((p) => {
-              const prejuizo = p.margem_percentual < 0
-              return (
-                <div key={p.produto_id} className="card-surface px-5 py-4 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-playfair text-primary text-[17px] font-semibold leading-tight truncate">
-                      {p.produto_nome}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                      <span className="text-secondary text-xs">
-                        custo: R$ {formatBRL(p.custo_total)}
-                      </span>
-                      <span className="text-secondary text-xs">
-                        preço: <span className="text-primary">R$ {formatBRL(p.preco_venda)}</span>
-                      </span>
-                      {p.unidade_nome && (
-                        <span className="text-faint text-xs">{p.unidade_nome}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className={`font-playfair text-[22px] font-bold leading-none tabular-nums ${prejuizo ? 'text-red-400' : 'text-emerald-400'}`}>
-                      {p.margem_percentual.toFixed(1)}%
-                    </p>
-                    <p className={`text-[11px] mt-0.5 ${prejuizo ? 'text-red-400/70' : 'text-emerald-400/70'}`}>
-                      {prejuizo ? 'PREJUÍZO' : 'margem'}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <PrecosComPrecoList produtos={comPreco} />
         </div>
       )}
 

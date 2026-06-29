@@ -5,6 +5,7 @@ import { Pencil, Package, ShoppingBag, Search, Plus } from 'lucide-react'
 import { formatBRL } from '@/lib/format'
 import type { ProdutoFinanceiro } from '@/app/actions/painel'
 import { NovoProdutoModal } from './novo-produto-modal'
+import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
 
 interface Props {
   produtos: ProdutoFinanceiro[]
@@ -21,6 +22,7 @@ export function ProdutoList({ produtos, unidades, receitas }: Props) {
   const [search, setSearch] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'produzido' | 'revenda'>('todos')
   const [modalOpen, setModalOpen] = useState(false)
+  const [detalheId, setDetalheId] = useState<string | null>(null)
 
   const filtered = produtos.filter((p) => {
     const matchNome = !search || p.produto_nome.toLowerCase().includes(search.toLowerCase())
@@ -90,7 +92,12 @@ export function ProdutoList({ produtos, unidades, receitas }: Props) {
             const margem = comPreco ? p.margem_percentual : null
 
             return (
-              <div key={p.produto_id} className="card-surface flex items-center gap-4 px-5 py-4">
+              <div
+                key={p.produto_id}
+                onClick={() => setDetalheId(p.produto_id)}
+                title="Ver detalhe do produto"
+                className="card-surface flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-input transition-colors"
+              >
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{ backgroundColor: 'var(--color-input)' }}>
                   <Icon size={16} className="text-secondary" />
@@ -138,8 +145,9 @@ export function ProdutoList({ produtos, unidades, receitas }: Props) {
                 </div>
 
                 <button
+                  onClick={(e) => { e.stopPropagation(); setDetalheId(p.produto_id) }}
                   className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-secondary/40 hover:text-accent-primary hover:bg-accent-primary/10 border border-transparent hover:border-accent-primary/20 transition-all"
-                  title="Editar produto"
+                  title="Ver detalhe do produto"
                 >
                   <Pencil size={15} />
                 </button>
@@ -164,6 +172,8 @@ export function ProdutoList({ produtos, unidades, receitas }: Props) {
           onClose={() => setModalOpen(false)}
         />
       )}
+
+      <ProdutoDetalheDrawer produtoId={detalheId} onClose={() => setDetalheId(null)} />
     </>
   )
 }
