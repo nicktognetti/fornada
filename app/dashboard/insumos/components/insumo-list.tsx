@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo, useRef } from 'react'
-import { Plus, Pencil, Package, Search, ChevronDown } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Pencil, Package, Search, ChevronDown, Tag } from 'lucide-react'
 import { normalizeSearch, formatCustoUso } from '@/lib/format'
 import type { InsumoComCusto } from '../types'
 import { InsumoModal } from './insumo-modal'
@@ -101,6 +102,14 @@ export function InsumoList({ insumos, categorias }: Props) {
           </select>
           <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary/60 pointer-events-none" />
         </div>
+
+        <Link
+          href="/dashboard/insumos/precificar"
+          className="inline-flex items-center justify-center gap-2 shrink-0 px-4 rounded-xl text-sm font-semibold border border-subtle text-ink-soft hover:text-primary hover:bg-input transition-colors"
+        >
+          <Tag size={15} />
+          Precificar em lote
+        </Link>
 
         <button onClick={openCreate} className="btn-primary shrink-0">
           <Plus size={16} />

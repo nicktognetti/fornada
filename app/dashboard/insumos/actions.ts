@@ -198,6 +198,66 @@ export async function addPreco(
   return { success: true }
 }
 
+// ─── Registrar preços em LOTE (precificação em massa) ──────────────────────────
+
+export interface PrecoLoteItem {
+  insumo_id: string
+  unidade_compra: string
+  preco_compra: string
+  qtd_uso_por_compra: string
+}
+
+export async function addPrecosLote(
+  items: PrecoLoteItem[]
+): Promise<ActionResult & { salvos?: number; erros?: number }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (items.length === 0) return { error: 'Nenhum preço para salvar' }
+
+  // Unidade de cada insumo, em uma query — para checar permissão por loja
+  const ids = [...new Set(items.map((i) => i.insumo_id))]
+  const { data: insumoRows } = await supabase
+    .from('insumo').select('id, unidade_id').in('id', ids)
+  const unidadeDoInsumo = new Map<string, string | null>(
+    ((insumoRows ?? []) as { id: string; unidade_id: string | null }[]).map((r) => [r.id, r.unidade_id])
+  )
+
+  // Checa temAcesso uma vez por unidade distinta (normalmente só uma)
+  const unidadesDistintas = [...new Set([...unidadeDoInsumo.values()].filter((u): u is string => !!u))]
+  const permitidas = new Set<string>()
+  for (const u of unidadesDistintas) {
+    if (await temAcesso(user.id, ['insumos'], { unidadeId: u })) permitidas.add(u)
+  }
+
+  const hoje = new Date().toISOString().split('T')[0]
+  const rows: { insumo_id: string; unidade_compra: string; preco_compra: number; qtd_uso_por_compra: number; vigente_desde: string }[] = []
+  let erros = 0
+
+  for (const item of items) {
+    const preco = parseNum(item.preco_compra)
+    const qtd = parseNum(item.qtd_uso_por_compra)
+    const uId = unidadeDoInsumo.get(item.insumo_id)
+    const ok = !isNaN(preco) && preco > 0 && !isNaN(qtd) && qtd > 0 && uId != null && permitidas.has(uId)
+    if (!ok) { erros++; continue }
+    rows.push({
+      insumo_id: item.insumo_id,
+      unidade_compra: item.unidade_compra.trim() || 'Compra',
+      preco_compra: preco,
+      qtd_uso_por_compra: qtd,
+      vigente_desde: hoje,
+    })
+  }
+
+  if (rows.length === 0) return { error: 'Nenhum preço válido para salvar', salvos: 0, erros }
+
+  const { error } = await supabase.from('insumo_preco').insert(rows)
+  if (error) return { error: 'Erro ao salvar: ' + error.message }
+
+  revalidatePath('/dashboard/insumos')
+  return { success: true, salvos: rows.length, erros }
+}
+
 // ─── Buscar histórico de preços (Server Function chamado do cliente) ───────────
 
 export async function getPrecoHistorico(insumoId: string): Promise<InsumoPreco[]> {
