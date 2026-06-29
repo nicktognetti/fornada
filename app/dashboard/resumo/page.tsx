@@ -159,7 +159,7 @@ export default async function ResumePage() {
     { label: 'INSUMOS CADASTRADOS', icon: Package, href: '/dashboard/insumos', valueStr: insumoCount.toString(), sub: 'matérias-primas com custo' },
     { label: 'FICHAS TÉCNICAS', icon: BookOpen, href: '/dashboard/receitas', valueStr: receitaCount.toString(), sub: 'receitas e sub-receitas' },
     { label: 'PRODUTOS ATIVOS', icon: ShoppingBag, href: '/dashboard/precos', valueStr: produtoCount != null ? produtoCount.toString() : null, sub: 'cadastrados para venda' },
-    { label: 'PAINEL FINANCEIRO', icon: TrendingUp, href: '/dashboard/painel', valueStr: null, sub: null },
+    { label: 'PAINEL FINANCEIRO', icon: TrendingUp, href: '/dashboard/painel', valueStr: precoProdutoMap.size.toString(), sub: 'produtos com preço · ver margens' },
   ]
 
   return (
