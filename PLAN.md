@@ -1,6 +1,18 @@
 # ERP Fornada — Plano de Desenvolvimento
 
-## ▶ Ponto de retomada (atualizado 26/06/2026)
+## ▶ Ponto de retomada (atualizado 29/06/2026)
+
+**Sessão 29/06 — Review visual completo + demo + polimentos (3 commits):**
+- ✅ **Tour por todas as 11 telas** rodando local (preview): sistema sólido, coeso e estável (zero erros de console). Veredito: pronto pra apresentar.
+- ✅ **Fix card "Em breve"** do Resumo → mostra contagem de produtos precificados (commit 2ddfd34).
+- ✅ **Polimentos**: 5 `loading.tsx` (skeletons) + `tabular-nums` nas tabelas de R$ (commit b8a6260).
+- ✅ **Ilha de demonstração** no banco (Bolo de Cenoura + Brownie + Pão Doce + Cookie, todos "(demo)") — 5 produtos precificados, Painel 100% vivo (KPIs, gráficos, alerta de prejuízo). **Remover com `node _demo_cleanup.mjs`.** Ver memória [[dados-e-demo-fornada]].
+- 🔎 **Achado importante p/ Natali:** as 129 fichas importadas têm **quantidades/unidades furadas** (300 ovos num omelete) e nomes duplicados — precisam de limpeza antes de precificar de verdade. `insumo_preco` estava 100% vazio.
+- 🔲 **Pendente:** teste de isolamento RBAC (Centro/Morada) e preparação de deploy (decidido: preparar, deploy depois).
+
+---
+
+## ▶ Retomada anterior (26/06/2026)
 
 **Status:** todo o trabalho está **commitado** na `master`. Não há remote git configurado (tudo local). **Todas as migrations pendentes foram aplicadas ao banco em 26/06.** Build de produção, `tsc` e 52 testes ✅ limpos.
 
@@ -278,8 +290,8 @@ Há também variáveis semânticas `--t-*` (no `:root` do mesmo arquivo) que dir
 ### Limpeza técnica remanescente
 - [x] ~~**Paleta clara do `@theme`**~~ — **REMOVIDA (25/06):** `marrom-*`, `creme-*`, `madrugada-*`, `croissant`, `demerara`, `ouro`, `terracota`, `oliva` deletados (−95 linhas).
 - [x] ~~**ThemeProvider**~~ — **REMOVIDO (25/06):** arquivo deletado, `html.creme-quente` removido do CSS, layout simplificado.
-- [ ] Skeleton/error states no núcleo (loading boundaries, Suspense com fallback visual).
-- [ ] Tabular-nums nas colunas de R$ em todas as tabelas.
+- [x] ~~Skeleton/error states no núcleo~~ — **FEITO (29/06):** `loading.tsx` adicionado em resumo, precos, produtos, cadastros e configuracoes (já existiam em insumos/painel/receitas/transferencias). `error.tsx` na raiz cobre todas as filhas.
+- [x] ~~Tabular-nums nas colunas de R$~~ — **FEITO (29/06):** aplicado em ficha-view, produto-list, precos e receita-list (Painel/transferências/simulador já tinham).
 
 ### Decisões de produto — respondidas (21/06)
 - [x] **Isolamento = RBAC granular** por módulo + empresa/unidade (ex.: admin total vs. "só Receber na Centro"). Implementado: seletor de escopo na UI + `temAcesso` server-side.
