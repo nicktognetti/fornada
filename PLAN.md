@@ -10,7 +10,9 @@
 - 🔎 **Achado importante p/ Natali:** as 129 fichas importadas têm **quantidades/unidades furadas** (300 ovos num omelete) e nomes duplicados — precisam de limpeza antes de precificar de verdade. `insumo_preco` estava 100% vazio.
 - ✅ **Teste de isolamento RBAC — FEITO e APROVADO:** criados 2 usuários QA (`qa.centro@` / `qa.morada@flordotrigo.app`, senha `Teste@2026`, removíveis com `node _demo_cleanup.mjs`). Validado: nav filtra por permissão; centro vê 0 insumos / morada vê 229 (RLS por loja isola 100%); escrita cruzada bloqueada por `temAcesso`.
 - ✅ **Gap de segurança corrigido (commit do guard):** acesso via URL direta a telas não concedidas agora é barrado no `proxy.ts` (mapa rota→tela + redirect; admin `*` passa). Antes só o menu escondia. Dados/escrita já estavam protegidos por RLS/temAcesso — era exposição de visualização do módulo.
-- 🔲 **Pendente:** preparação de deploy (decidido: preparar, deploy depois).
+- ✅ **Drill-down por clique** (drawers de produto + KPIs) — commit c54647a.
+- ✅ **Precificação de insumos em lote** (`/dashboard/insumos/precificar`) — grade editável com preview de custo ao vivo e `addPrecosLote`. Desbloqueia a entrada dos 229 preços. Validado end-to-end.
+- 🔲 **Pendente:** preparação de deploy (decidido: preparar, deploy depois). Antes: remover ilha-demo + usuários QA do banco (`node _demo_cleanup.mjs`), ligar monitoramento/erros, confirmar backup do Supabase.
 
 ---
 
