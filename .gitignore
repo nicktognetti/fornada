@@ -38,6 +38,9 @@ backup_*.sql
 *.dump
 *.sql.gz
 
+# scripts auxiliares de seed/demo (não versionar)
+_demo_*
+
 # vercel
 .vercel
 
