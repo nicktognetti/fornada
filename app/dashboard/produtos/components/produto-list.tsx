@@ -121,11 +121,11 @@ export function ProdutoList({ produtos, unidades, receitas }: Props) {
                 <div className="shrink-0 text-right">
                   {comPreco ? (
                     <>
-                      <p className="font-playfair text-primary text-[18px] font-bold leading-none">
+                      <p className="font-playfair text-primary text-[18px] font-bold leading-none tabular-nums">
                         R$ {formatBRL(p.preco_venda)}
                       </p>
                       {margem !== null && (
-                        <p className={`text-[11px] mt-0.5 ${margem < 0 ? 'text-danger' : margem < 20 ? 'text-amber-400' : 'text-success'}`}>
+                        <p className={`text-[11px] mt-0.5 tabular-nums ${margem < 0 ? 'text-danger' : margem < 20 ? 'text-amber-400' : 'text-success'}`}>
                           {margem.toFixed(1)}% margem
                         </p>
                       )}

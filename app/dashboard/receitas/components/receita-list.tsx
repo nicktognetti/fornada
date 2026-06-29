@@ -132,11 +132,11 @@ export function ReceitaList({ receitas }: Props) {
                 <div className="shrink-0 sm:text-right">
                   {receita.custo_total != null && receita.custo_total > 0 ? (
                     <div>
-                      <p className="font-playfair text-accent-primary text-[22px] sm:text-[26px] font-bold leading-none">
+                      <p className="font-playfair text-accent-primary text-[22px] sm:text-[26px] font-bold leading-none tabular-nums">
                         R$ {formatBRL(receita.custo_total)}
                       </p>
                       {receita.custo_unitario != null && (
-                        <p className="text-secondary text-[12px] mt-0.5">
+                        <p className="text-secondary text-[12px] mt-0.5 tabular-nums">
                           R$ {formatBRL(receita.custo_unitario)}/{receita.rendimento_unidade}
                         </p>
                       )}

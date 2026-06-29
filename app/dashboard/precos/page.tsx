@@ -71,7 +71,7 @@ export default async function PrecosPage() {
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className={`font-playfair text-[22px] font-bold leading-none ${prejuizo ? 'text-red-400' : 'text-emerald-400'}`}>
+                    <p className={`font-playfair text-[22px] font-bold leading-none tabular-nums ${prejuizo ? 'text-red-400' : 'text-emerald-400'}`}>
                       {p.margem_percentual.toFixed(1)}%
                     </p>
                     <p className={`text-[11px] mt-0.5 ${prejuizo ? 'text-red-400/70' : 'text-emerald-400/70'}`}>

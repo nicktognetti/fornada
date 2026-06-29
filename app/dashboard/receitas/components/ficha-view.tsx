@@ -74,11 +74,11 @@ export function FichaView({ receita, custo, itens }: Props) {
           {custo?.custo_total != null && custo.custo_total > 0 && (
             <div className="shrink-0 text-right">
               <p className="field-label mb-1">Custo total</p>
-              <p className="font-playfair text-accent-primary text-[30px] sm:text-[36px] font-bold leading-none">
+              <p className="font-playfair text-accent-primary text-[30px] sm:text-[36px] font-bold leading-none tabular-nums">
                 R$ {formatBRL(custo.custo_total)}
               </p>
               {custo.custo_unitario != null && (
-                <p className="text-secondary text-xs mt-1">
+                <p className="text-secondary text-xs mt-1 tabular-nums">
                   R$ {formatBRL(custo.custo_unitario)}/{receita.rendimento_unidade}
                 </p>
               )}
@@ -181,12 +181,12 @@ export function FichaView({ receita, custo, itens }: Props) {
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right text-primary">{item.quantidade}</td>
+                      <td className="px-4 py-3 text-right text-primary tabular-nums">{item.quantidade}</td>
                       <td className="px-2 py-3 text-secondary">{item.unidade}</td>
-                      <td className="px-4 py-3 text-right text-secondary text-xs">
+                      <td className="px-4 py-3 text-right text-secondary text-xs tabular-nums">
                         {item.custo_unitario != null ? formatCustoUso(item.custo_unitario, item.unidade) : '—'}
                       </td>
-                      <td className="px-5 py-3 text-right font-playfair font-semibold text-[15px] text-primary">
+                      <td className="px-5 py-3 text-right font-playfair font-semibold text-[15px] text-primary tabular-nums">
                         {item.custo_item != null ? `R$ ${formatBRL(item.custo_item)}` : '—'}
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -263,7 +263,7 @@ export function FichaView({ receita, custo, itens }: Props) {
             {custo?.custo_total != null && custo.custo_total > 0 && (
               <div className="flex items-center justify-between px-5 py-4 border-t border-accent-primary/10 bg-input">
                 <span className="text-secondary text-sm">Total da ficha</span>
-                <span className="font-playfair text-accent-primary text-[22px] font-bold leading-none">
+                <span className="font-playfair text-accent-primary text-[22px] font-bold leading-none tabular-nums">
                   R$ {formatBRL(custo.custo_total)}
                 </span>
               </div>
