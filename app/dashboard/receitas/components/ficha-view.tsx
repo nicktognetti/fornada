@@ -7,6 +7,7 @@ import { deleteReceita, removeItem } from '../actions'
 import { formatBRL, formatCustoUso } from '@/lib/format'
 import { ReceitaModal } from './receita-modal'
 import { ItemModal } from './item-modal'
+import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 import type { Receita, ReceitaItemComCusto } from '../types'
 
 interface Props {
@@ -91,6 +92,7 @@ export function FichaView({ receita, custo, itens }: Props) {
             <Pencil size={13} />
             Editar ficha
           </button>
+          <BotaoImprimir className="text-xs px-4 py-2" />
           {!confirmDelete ? (
             <button
               onClick={() => setConfirmDelete(true)}
@@ -278,6 +280,42 @@ export function FichaView({ receita, custo, itens }: Props) {
       {itemModal.open && (
         <ItemModal key={itemModal.key} receitaId={receita.id} item={itemModal.item} onClose={() => setItemModal(m => ({ ...m, open: false }))} />
       )}
+
+      {/* Documento de impressão (oculto na tela) */}
+      <DocumentoImpressao
+        titulo={`Ficha Técnica — ${receita.nome}`}
+        subtitulo={`Rende ${receita.rendimento} ${receita.rendimento_unidade} · ${TIPO_LABEL[receita.tipo] ?? receita.tipo}`}
+      >
+        <table style={T.table}>
+          <thead>
+            <tr>
+              <th style={T.th}>Ingrediente</th>
+              <th style={T.thRight}>Qtd</th>
+              <th style={T.th}>Un</th>
+              <th style={T.thRight}>Custo/un</th>
+              <th style={T.thRight}>Custo item</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...pendentes, ...normais].map((item) => (
+              <tr key={item.id}>
+                <td style={T.td}>{item.nome_display}</td>
+                <td style={T.tdRight}>{item.quantidade}</td>
+                <td style={T.td}>{item.unidade}</td>
+                <td style={T.tdRight}>{item.custo_unitario != null ? formatCustoUso(item.custo_unitario, item.unidade) : '—'}</td>
+                <td style={T.tdRight}>{item.custo_item != null ? `R$ ${formatBRL(item.custo_item)}` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {custo?.custo_total != null && custo.custo_total > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '8px', borderTop: '2px solid #1a1a1a', fontWeight: 700, fontSize: '14px' }}>
+            <span>Custo total</span>
+            <span>R$ {formatBRL(custo.custo_total)}{custo.custo_unitario != null ? ` (R$ ${formatBRL(custo.custo_unitario)}/${receita.rendimento_unidade})` : ''}</span>
+          </div>
+        )}
+        {receita.observacao && <p style={{ marginTop: '12px', fontSize: '11px', color: '#555' }}>Obs.: {receita.observacao}</p>}
+      </DocumentoImpressao>
     </>
   )
 }

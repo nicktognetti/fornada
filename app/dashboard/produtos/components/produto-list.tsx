@@ -6,6 +6,7 @@ import { formatBRL } from '@/lib/format'
 import type { ProdutoFinanceiro } from '@/app/actions/painel'
 import { NovoProdutoModal } from './novo-produto-modal'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
+import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 
 interface Props {
   produtos: ProdutoFinanceiro[]
@@ -59,6 +60,8 @@ export function ProdutoList({ produtos, unidades, receitas }: Props) {
             </button>
           ))}
         </div>
+        <BotaoImprimir label="Imprimir" className="px-4" />
+
         <button onClick={() => setModalOpen(true)} className="btn-primary shrink-0">
           <Plus size={16} />
           Novo Produto
@@ -174,6 +177,32 @@ export function ProdutoList({ produtos, unidades, receitas }: Props) {
       )}
 
       <ProdutoDetalheDrawer produtoId={detalheId} onClose={() => setDetalheId(null)} />
+
+      {/* Documento de impressão — tabela de preços (respeita busca/filtro atuais) */}
+      <DocumentoImpressao titulo="Tabela de Preços" subtitulo={`${filtered.length} produto${filtered.length !== 1 ? 's' : ''}`}>
+        <table style={T.table}>
+          <thead>
+            <tr>
+              <th style={T.th}>Produto</th>
+              <th style={T.th}>Categoria</th>
+              <th style={T.thRight}>Custo</th>
+              <th style={T.thRight}>Preço</th>
+              <th style={T.thRight}>Margem</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p) => (
+              <tr key={p.produto_id}>
+                <td style={T.td}>{p.produto_nome}</td>
+                <td style={T.td}>{p.categoria ?? '—'}</td>
+                <td style={T.tdRight}>{p.custo_total > 0 ? `R$ ${formatBRL(p.custo_total)}` : '—'}</td>
+                <td style={T.tdRight}>{p.preco_venda > 0 ? `R$ ${formatBRL(p.preco_venda)}` : '—'}</td>
+                <td style={T.tdRight}>{p.preco_venda > 0 ? `${p.margem_percentual.toFixed(1)}%` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </DocumentoImpressao>
     </>
   )
 }

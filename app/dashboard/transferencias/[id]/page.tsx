@@ -6,6 +6,7 @@ import { formatBRL } from '@/lib/format'
 import { temAcesso } from '@/app/lib/authz'
 import { StatusBadgeTransferencia, StatusBadgeItem } from '../components/status-badge'
 import { AcoesTransferencia } from '../components/acoes-transferencia'
+import { TransferenciaPrint } from '../components/transferencia-print'
 import type { StatusTransferencia, StatusItem } from '../components/status-badge'
 
 type StatusFinanceiro = 'pendente' | 'a_receber' | 'recebido' | 'cancelado'
@@ -139,16 +140,34 @@ export default async function TransferenciaDetalhePage({
           </div>
         </div>
 
-        {/* Botões de ação — Client Component */}
-        <AcoesTransferencia
-          transferenciaId={id}
-          userId={user.id}
-          podeConferir={podeConferir}
-          podeCancelar={podeCancelar}
-          podeExcluir={podeExcluir}
-          itens={itensParaAcoes}
-          isAdmin={isAdmin}
-        />
+        {/* Botões de ação + impressão — Client Components */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <TransferenciaPrint
+            codigo={transferencia.codigo}
+            tipoLabel={transferencia.tipo === 'TRANSFERENCIA' ? 'Transferência' : 'Devolução'}
+            origem={unidadeMap.get(transferencia.unidade_origem_id) ?? '—'}
+            destino={unidadeMap.get(transferencia.unidade_destino_id) ?? '—'}
+            criadaEm={formatDate(transferencia.created_at)}
+            observacao={transferencia.observacao}
+            itens={itens.map((i) => ({
+              nome: produtoMap.get(i.produto_id) ?? '—',
+              enviada: i.quantidade_enviada,
+              recebida: i.quantidade_recebida,
+              preco: i.preco_unitario,
+            }))}
+            isAdmin={isAdmin}
+            valorTotal={transferencia.valor_total}
+          />
+          <AcoesTransferencia
+            transferenciaId={id}
+            userId={user.id}
+            podeConferir={podeConferir}
+            podeCancelar={podeCancelar}
+            podeExcluir={podeExcluir}
+            itens={itensParaAcoes}
+            isAdmin={isAdmin}
+          />
+        </div>
       </div>
 
       {/* Informações */}
