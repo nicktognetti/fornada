@@ -124,10 +124,15 @@ export type CopiarResult = {
   copiados?: { fichas?: number; insumos?: number; precos?: number }
 }
 
+// Seletor opcional: quando informado, copia só os itens escolhidos (por id).
+// Sem seletor, mantém o comportamento antigo (copia tudo do tipo).
+export type CopiaSeletor = { insumoIds?: string[]; receitaIds?: string[] }
+
 export async function copiarEntreUnidades(
   deUnidadeId: string,
   paraUnidadeId: string,
   tipo: TipoCopia,
+  seletor?: CopiaSeletor,
 ): Promise<CopiarResult> {
   if (deUnidadeId === paraUnidadeId) return { error: 'Origem e destino são a mesma unidade' }
 
@@ -158,11 +163,13 @@ export async function copiarEntreUnidades(
 
   // ── Copiar Insumos ────────────────────────────────────────────────────────
   if (tipo === 'insumos' || tipo === 'tudo') {
-    const { data: insumosOrig } = await supabase
+    let insumoQ = supabase
       .from('insumo')
       .select('*')
       .eq('unidade_id', deUnidadeId)
       .eq('ativo', true)
+    if (seletor?.insumoIds && seletor.insumoIds.length > 0) insumoQ = insumoQ.in('id', seletor.insumoIds)
+    const { data: insumosOrig } = await insumoQ
 
     if (insumosOrig && insumosOrig.length > 0) {
       const { data: existentes } = await supabase
@@ -196,11 +203,13 @@ export async function copiarEntreUnidades(
 
   // ── Copiar Fichas Técnicas ────────────────────────────────────────────────
   if (tipo === 'fichas' || tipo === 'tudo') {
-    const { data: receitasOrig } = await supabase
+    let receitaQ = supabase
       .from('receita')
       .select('*, receita_item(*)')
       .eq('unidade_id', deUnidadeId)
       .eq('ativo', true)
+    if (seletor?.receitaIds && seletor.receitaIds.length > 0) receitaQ = receitaQ.in('id', seletor.receitaIds)
+    const { data: receitasOrig } = await receitaQ
 
     if (receitasOrig && receitasOrig.length > 0) {
       const { data: existentes } = await supabase
@@ -313,4 +322,37 @@ export async function copiarEntreUnidades(
 
   revalidatePath('/dashboard', 'layout')
   return { success: true, copiados }
+}
+
+// ── Listar itens copiáveis (para seleção no modal) ──────────────────────────────
+
+export type ItemCopiavel = { id: string; nome: string; grupo: string; jaExiste: boolean }
+
+export async function getItensParaCopiar(
+  deUnidadeId: string,
+  paraUnidadeId: string,
+  tipo: 'insumos' | 'fichas',
+): Promise<{ error?: string; itens?: ItemCopiavel[] }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const tabela = tipo === 'insumos' ? 'insumo' : 'receita'
+  const campoGrupo = tipo === 'insumos' ? 'categoria' : 'tipo'
+
+  const [origem, destino] = await Promise.all([
+    supabase.from(tabela).select(`id, nome, ${campoGrupo}`).eq('unidade_id', deUnidadeId).eq('ativo', true).order('nome'),
+    supabase.from(tabela).select('nome').eq('unidade_id', paraUnidadeId).eq('ativo', true),
+  ])
+  if (origem.error) return { error: origem.error.message }
+
+  const existentes = new Set((destino.data ?? []).map((d: { nome: string }) => d.nome))
+  const TIPO_LABEL: Record<string, string> = { final: 'Produto (final)', base: 'Base' }
+
+  const itens: ItemCopiavel[] = ((origem.data ?? []) as Record<string, unknown>[]).map((r) => {
+    const grupoRaw = (r[campoGrupo] as string | null) ?? null
+    const grupo = tipo === 'fichas' ? (TIPO_LABEL[grupoRaw ?? ''] ?? grupoRaw ?? '—') : (grupoRaw ?? 'Sem categoria')
+    return { id: r.id as string, nome: r.nome as string, grupo, jaExiste: existentes.has(r.nome as string) }
+  })
+  return { itens }
 }
