@@ -36,13 +36,9 @@ export function DocumentoImpressao({ titulo, subtitulo, unidade, children }: Pro
       {/* Cabeçalho */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '2px solid #1a1a1a', paddingBottom: '10px', marginBottom: '16px' }}>
         <div>
-          <div style={{
-            display: 'inline-block', background: '#1a1a1d', padding: '10px 16px', borderRadius: '8px',
-            WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact',
-          } as React.CSSProperties}>
-            <Image src="/images/LOGO2claro.png" alt="Flor do Trigo — desde 1948" width={560} height={280} unoptimized style={{ width: '150px', height: 'auto', display: 'block' }} />
-          </div>
-          <p style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#666', marginTop: '6px' }}>
+          {/* Logo cor invertida (creme → preto) para impressão em fundo branco */}
+          <Image src="/images/LOGO2claro.png" alt="Flor do Trigo — desde 1948" width={560} height={280} unoptimized style={{ width: '150px', height: 'auto', display: 'block', filter: 'brightness(0)' }} />
+          <p style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#666', marginTop: '8px' }}>
             Fornada · Sistema de Gestão
           </p>
         </div>
