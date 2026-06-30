@@ -57,7 +57,7 @@ export function Sidebar({ userEmail }: SidebarProps) {
         </div>
         <button
           onClick={() => setMobileOpen(false)}
-          className="lg:hidden text-secondary hover:text-ink-soft p-1.5 rounded transition-colors shrink-0 ml-2"
+          className="md:hidden text-secondary hover:text-ink-soft p-1.5 rounded transition-colors shrink-0 ml-2"
           aria-label="Fechar menu"
         >
           <X size={16} />
@@ -106,14 +106,14 @@ export function Sidebar({ userEmail }: SidebarProps) {
   return (
     <>
       {/* Desktop: fixo à esquerda */}
-      <div className="hidden lg:block fixed top-0 left-0 h-screen z-30">
+      <div className="hidden md:block fixed top-0 left-0 h-screen z-30">
         {panel}
       </div>
 
       {/* Mobile: botão hamburger flutuante */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-40 w-10 h-10 rounded-xl bg-canvas shadow-lg flex items-center justify-center text-secondary hover:text-ink-soft transition-colors"
+        className="md:hidden fixed top-4 left-4 z-40 w-10 h-10 rounded-xl bg-canvas shadow-lg flex items-center justify-center text-secondary hover:text-ink-soft transition-colors"
         aria-label="Abrir menu"
       >
         <Menu size={18} />
@@ -121,7 +121,7 @@ export function Sidebar({ userEmail }: SidebarProps) {
 
       {/* Mobile: overlay */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        <div className="md:hidden fixed inset-0 z-50 flex">
           {panel}
           <div
             className="flex-1 bg-black/50 backdrop-blur-sm"
