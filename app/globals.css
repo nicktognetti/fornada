@@ -268,21 +268,14 @@ input:-webkit-autofill:active {
 }
 
 /* ── Impressão de documentos ───────────────────────────────────────────────
-   O app é tema escuro; ao imprimir, escondemos a UI e mostramos só o
-   documento (.print-doc), que tem layout claro próprio. */
+   O documento (.print-doc) é renderizado via portal como filho direto do
+   <body>. Na tela fica oculto; ao imprimir, escondemos TODO o resto do body
+   (display:none, sem deixar espaço/páginas em branco) e mostramos só ele. */
 .print-doc { display: none; }
 
 @media print {
-  body * { visibility: hidden; }
-  .print-doc, .print-doc * { visibility: visible; }
-  .print-doc {
-    display: block;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    background: #fff;
-  }
+  body > *:not(.print-portal) { display: none !important; }
+  .print-doc { display: block; background: #fff; }
   .no-print { display: none !important; }
 }
 

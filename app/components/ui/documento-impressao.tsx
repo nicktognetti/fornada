@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { Printer } from 'lucide-react'
 
@@ -31,8 +33,12 @@ interface Props {
  */
 export function DocumentoImpressao({ titulo, subtitulo, unidade, children }: Props) {
   const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  return (
-    <div className="print-doc" style={{ color: '#1a1a1a', fontSize: '12px', lineHeight: 1.45 }}>
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted) return null
+
+  return createPortal(
+    <div className="print-doc print-portal" style={{ color: '#1a1a1a', fontSize: '12px', lineHeight: 1.45 }}>
       {/* Cabeçalho */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '2px solid #1a1a1a', paddingBottom: '10px', marginBottom: '16px' }}>
         <div>
@@ -62,7 +68,8 @@ export function DocumentoImpressao({ titulo, subtitulo, unidade, children }: Pro
         <span>Flor do Trigo · desde 1948</span>
         <span>Emitido em {hoje}</span>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
