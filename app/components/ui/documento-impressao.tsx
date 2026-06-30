@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Printer } from 'lucide-react'
 
 /** Botão "Imprimir" — dispara o diálogo de impressão do navegador. */
@@ -34,13 +35,16 @@ export function DocumentoImpressao({ titulo, subtitulo, unidade, children }: Pro
     <div className="print-doc" style={{ color: '#1a1a1a', fontSize: '12px', lineHeight: 1.45 }}>
       {/* Cabeçalho */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '2px solid #1a1a1a', paddingBottom: '10px', marginBottom: '16px' }}>
-        <div>
-          <p style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: '22px', fontWeight: 700, lineHeight: 1 }}>
-            Flor do Trigo
-          </p>
-          <p style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#666', marginTop: '3px' }}>
-            Fornada · Sistema de Gestão
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Image src="/images/logo-flor-do-trigo.svg" alt="Flor do Trigo" width={46} height={46} unoptimized style={{ display: 'block', flexShrink: 0 }} />
+          <div>
+            <p style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: '22px', fontWeight: 700, lineHeight: 1 }}>
+              Flor do Trigo
+            </p>
+            <p style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#666', marginTop: '3px' }}>
+              Fornada · Sistema de Gestão
+            </p>
+          </div>
         </div>
         <div style={{ textAlign: 'right', fontSize: '11px', color: '#444' }}>
           {unidade && <p style={{ fontWeight: 600 }}>{unidade}</p>}
