@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, ChefHat, PackageCheck, CheckCircle2, CalendarClock, Loader2 } from 'lucide-react'
+import { Trash2, ChefHat, PackageCheck, CheckCircle2, CalendarClock, Loader2, Pencil } from 'lucide-react'
 import { formatBRL } from '@/lib/format'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 import { atualizarStatusEncomenda, excluirEncomenda, type EncomendaDetalhe, type EncomendaStatus } from '@/app/actions/encomenda'
@@ -69,6 +70,11 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
             </button>
           )}
           <BotaoImprimir label="Imprimir comanda" className="text-xs px-4 py-2" />
+          {e.podeVerValores && (
+            <Link href={`/dashboard/encomendas/${e.id}/editar`} className="btn-ghost text-xs px-4 py-2 min-h-[36px] text-secondary hover:text-primary inline-flex items-center gap-1">
+              <Pencil size={13} /> Editar
+            </Link>
+          )}
           {e.status !== 'cancelada' && e.status !== 'entregue' && (
             <button onClick={() => mudarStatus('cancelada')} disabled={busy} className="btn-ghost text-xs px-4 py-2 min-h-[36px] text-secondary hover:text-primary">
               Cancelar encomenda

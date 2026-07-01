@@ -6,22 +6,24 @@ import { FileText, Plus, Search } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { formatBRL, normalizeSearch } from '@/lib/format'
 import { StatusBadgeOrcamento } from './components/status-badge-orcamento'
-import type { OrcamentoListItem, OrcamentoStatus } from '@/app/actions/orcamento'
+import { statusExibicao, type OrcamentoStatusDisplay } from '@/lib/orcamento-status'
+import type { OrcamentoListItem } from '@/app/actions/orcamento'
 
 function formatData(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const TABS: { value: OrcamentoStatus | 'todos'; label: string }[] = [
+const TABS: { value: OrcamentoStatusDisplay | 'todos'; label: string }[] = [
   { value: 'todos', label: 'Todos' },
   { value: 'aguardando', label: 'Aguardando' },
   { value: 'aprovado', label: 'Aprovado' },
   { value: 'recusado', label: 'Recusado' },
+  { value: 'expirado', label: 'Expirado' },
 ]
 
 export function OrcamentosList({ inicial }: { inicial: OrcamentoListItem[] }) {
   const [busca, setBusca] = useState('')
-  const [tab, setTab] = useState<OrcamentoStatus | 'todos'>('todos')
+  const [tab, setTab] = useState<OrcamentoStatusDisplay | 'todos'>('todos')
   const [de, setDe] = useState('')
   const [ate, setAte] = useState('')
 
@@ -29,8 +31,9 @@ export function OrcamentosList({ inicial }: { inicial: OrcamentoListItem[] }) {
     const t = normalizeSearch(busca)
     return inicial.filter((o) => {
       const dia = o.created_at.slice(0, 10)
+      const disp = statusExibicao(o.status, o.created_at, o.validade_dias)
       const mBusca = !t || normalizeSearch(o.cliente_nome).includes(t)
-      const mTab = tab === 'todos' || o.status === tab
+      const mTab = tab === 'todos' || disp === tab
       const mDe = !de || dia >= de
       const mAte = !ate || dia <= ate
       return mBusca && mTab && mDe && mAte
@@ -84,7 +87,7 @@ export function OrcamentosList({ inicial }: { inicial: OrcamentoListItem[] }) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-secondary text-xs tabular-nums">Nº {o.numero}</span>
                   <p className="font-playfair text-primary text-[17px] font-semibold leading-tight truncate">{o.cliente_nome}</p>
-                  <StatusBadgeOrcamento status={o.status} size="sm" />
+                  <StatusBadgeOrcamento status={statusExibicao(o.status, o.created_at, o.validade_dias)} size="sm" />
                 </div>
                 <p className="text-secondary text-xs mt-1">{formatData(o.created_at)} · validade {o.validade_dias} dias</p>
               </div>

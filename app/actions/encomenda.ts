@@ -49,7 +49,7 @@ export type EncomendaDetalhe = EncomendaListItem & {
   unidade_nome: string | null
   /** true se o usuário pode ver valores (nível admin na tela encomenda). Produção não vê. */
   podeVerValores: boolean
-  itens: { id: string; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null }[]
+  itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null }[]
 }
 
 async function getEmpresaId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
@@ -156,7 +156,7 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
 
   const [encRes, itensRes] = await Promise.all([
     supabase.from('encomenda').select('*, unidade:unidade_id ( nome )').eq('id', id).maybeSingle(),
-    supabase.from('encomenda_item').select('id, descricao, quantidade, preco_unitario, subtotal, observacao').eq('encomenda_id', id),
+    supabase.from('encomenda_item').select('id, produto_id, descricao, quantidade, preco_unitario, subtotal, observacao').eq('encomenda_id', id),
   ])
   const e = encRes.data as (Record<string, unknown> & { unidade: { nome: string } | null }) | null
   if (!e) return { error: 'Encomenda não encontrada' }
@@ -184,6 +184,61 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
       itens,
     },
   }
+}
+
+// ── Editar encomenda (atualiza campos + substitui itens) ────────────────────────
+// Requer nível admin na tela (podeVerValores): quem não vê valores zeraria os preços.
+export async function atualizarEncomenda(
+  id: string,
+  dados: EncomendaDados,
+  itens: EncomendaItemInput[],
+): Promise<ActionResult<{ id: string }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!dados.cliente_nome.trim()) return { error: 'Informe o nome do cliente' }
+  if (!dados.data_entrega) return { error: 'Informe a data de entrega' }
+  if (itens.length === 0) return { error: 'Adicione ao menos um item' }
+  if (!(await temAcesso(user.id, ['encomenda'], { nivel: 'admin' })))
+    return { error: 'Sem permissão para editar esta encomenda' }
+
+  const { data: atual } = await supabase.from('encomenda').select('empresa_id, unidade_id').eq('id', id).maybeSingle()
+  if (!atual) return { error: 'Encomenda não encontrada' }
+
+  const itensCalc = itens
+    .filter((i) => i.quantidade > 0 && i.descricao.trim())
+    .map((i) => ({ ...i, subtotal: subtotalItem(i.quantidade, i.preco_unitario) }))
+  if (itensCalc.length === 0) return { error: 'Nenhum item válido' }
+  const total = totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
+
+  const { error: e1 } = await supabase.from('encomenda').update({
+    cliente_nome: dados.cliente_nome.trim(),
+    cliente_contato: dados.cliente_contato?.trim() || null,
+    data_entrega: dados.data_entrega,
+    hora_entrega: dados.hora_entrega?.trim() || null,
+    com_valor: true,
+    total,
+    observacao: dados.observacao?.trim() || null,
+  }).eq('id', id)
+  if (e1) return { error: 'Erro ao salvar: ' + e1.message }
+
+  const { error: eDel } = await supabase.from('encomenda_item').delete().eq('encomenda_id', id)
+  if (eDel) return { error: 'Erro ao atualizar itens: ' + eDel.message }
+  const { error: e2 } = await supabase.from('encomenda_item').insert(
+    itensCalc.map((i) => ({
+      encomenda_id: id, produto_id: i.produto_id,
+      descricao: i.descricao.trim(), quantidade: i.quantidade,
+      preco_unitario: i.preco_unitario, subtotal: i.subtotal,
+      observacao: i.observacao?.trim() || null,
+    }))
+  )
+  if (e2) return { error: 'Erro ao gravar itens: ' + e2.message }
+
+  await upsertCliente(supabase, atual.empresa_id as string, atual.unidade_id as string, dados.cliente_nome, dados.cliente_contato)
+
+  revalidatePath('/dashboard/encomendas')
+  revalidatePath(`/dashboard/encomendas/${id}`)
+  return { data: { id } }
 }
 
 // ── Atualizar status ────────────────────────────────────────────────────────────

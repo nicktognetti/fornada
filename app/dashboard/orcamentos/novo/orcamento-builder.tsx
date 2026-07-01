@@ -7,7 +7,7 @@ import { PageTitle } from '@/app/components/ui/page-title'
 import { ProdutoPicker } from '@/app/components/ui/produto-picker'
 import { parseDecimalBR, formatBRL } from '@/lib/format'
 import { precoComAjuste, subtotalItem, totalPedido } from '@/lib/pedido-calc'
-import { criarOrcamento, type ProdutoOrcamento } from '@/app/actions/orcamento'
+import { criarOrcamento, atualizarOrcamento, type ProdutoOrcamento } from '@/app/actions/orcamento'
 import type { ClienteAutocomplete } from '@/app/actions/cliente'
 
 interface Linha {
@@ -20,16 +20,35 @@ interface Linha {
   preco: string      // preço unitário efetivo
 }
 
-export function OrcamentoBuilder({ produtos, clientes }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[] }) {
+export type OrcamentoEdicao = {
+  id: string
+  cliente_nome: string
+  cliente_contato: string | null
+  validade_dias: number
+  observacao: string | null
+  itens: { produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number }[]
+}
+
+export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[]; edicao?: OrcamentoEdicao }) {
   const router = useRouter()
-  const [cliente, setCliente] = useState('')
-  const [contato, setContato] = useState('')
-  const [validade, setValidade] = useState('7')
-  const [obs, setObs] = useState('')
-  const [linhas, setLinhas] = useState<Linha[]>([])
+  const keyRef = useState(() => ({ n: 0 }))[0]
+  const [cliente, setCliente] = useState(edicao?.cliente_nome ?? '')
+  const [contato, setContato] = useState(edicao?.cliente_contato ?? '')
+  const [validade, setValidade] = useState(String(edicao?.validade_dias ?? 7))
+  const [obs, setObs] = useState(edicao?.observacao ?? '')
+  const [linhas, setLinhas] = useState<Linha[]>(() =>
+    (edicao?.itens ?? []).map((it) => ({
+      key: (keyRef.n += 1),
+      produto_id: it.produto_id,
+      descricao: it.descricao,
+      base: it.preco_unitario,
+      quantidade: String(it.quantidade),
+      ajustePct: '',
+      preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '',
+    })),
+  )
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const keyRef = useState(() => ({ n: 0 }))[0]
 
   function addProduto(p: ProdutoOrcamento) {
     setLinhas((prev) => [...prev, {
@@ -85,10 +104,10 @@ export function OrcamentoBuilder({ produtos, clientes }: { produtos: ProdutoOrca
       quantidade: parseDecimalBR(l.quantidade),
       preco_unitario: parseDecimalBR(l.preco),
     }))
-    const res = await criarOrcamento(
-      { cliente_nome: cliente, cliente_contato: contato, validade_dias: parseInt(validade) || 7, observacao: obs },
-      itens,
-    )
+    const payload = { cliente_nome: cliente, cliente_contato: contato, validade_dias: parseInt(validade) || 7, observacao: obs }
+    const res = edicao
+      ? await atualizarOrcamento(edicao.id, payload, itens)
+      : await criarOrcamento(payload, itens)
     setSaving(false)
     if (res.error || !res.data) { setErro(res.error ?? 'Erro ao salvar'); return }
     router.push(`/dashboard/orcamentos/${res.data.id}`)
@@ -98,7 +117,7 @@ export function OrcamentoBuilder({ produtos, clientes }: { produtos: ProdutoOrca
 
   return (
     <div className="max-w-3xl space-y-6">
-      <PageTitle icon={FileText} subtitle="Monte um orçamento e ajuste preços por item">Novo orçamento</PageTitle>
+      <PageTitle icon={FileText} subtitle="Monte um orçamento e ajuste preços por item">{edicao ? 'Editar orçamento' : 'Novo orçamento'}</PageTitle>
 
       {/* Dados do cliente */}
       <div className="card-surface p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -158,9 +177,9 @@ export function OrcamentoBuilder({ produtos, clientes }: { produtos: ProdutoOrca
       {erro && <p className="text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>}
 
       <div className="flex justify-end gap-3">
-        <button onClick={() => router.push('/dashboard/orcamentos')} className="px-5 py-2.5 rounded-lg border border-subtle text-ink-soft hover:bg-input text-sm">Cancelar</button>
+        <button onClick={() => router.push(edicao ? `/dashboard/orcamentos/${edicao.id}` : '/dashboard/orcamentos')} className="px-5 py-2.5 rounded-lg border border-subtle text-ink-soft hover:bg-input text-sm">Cancelar</button>
         <button onClick={salvar} disabled={saving || linhas.length === 0} className="btn-primary px-6 disabled:opacity-50">
-          {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando…</> : 'Salvar orçamento'}
+          {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando…</> : (edicao ? 'Salvar alterações' : 'Salvar orçamento')}
         </button>
       </div>
     </div>

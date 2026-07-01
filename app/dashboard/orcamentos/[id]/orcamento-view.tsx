@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react'
+import { Trash2, CheckCircle2, XCircle, Clock, Loader2, Pencil } from 'lucide-react'
 import { formatBRL } from '@/lib/format'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 import { excluirOrcamento, atualizarStatusOrcamento, type OrcamentoDetalhe, type OrcamentoStatus } from '@/app/actions/orcamento'
 import { StatusBadgeOrcamento } from '../components/status-badge-orcamento'
+import { statusExibicao } from '@/lib/orcamento-status'
 
 function formatData(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -40,7 +42,7 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
             <p className="text-secondary text-xs mb-1 tabular-nums">Orçamento Nº {o.numero}</p>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="font-playfair text-primary text-[28px] font-bold leading-tight">{o.cliente_nome}</h1>
-              <StatusBadgeOrcamento status={o.status} />
+              <StatusBadgeOrcamento status={statusExibicao(o.status, o.created_at, o.validade_dias)} />
             </div>
             <p className="text-secondary text-sm mt-1">
               {formatData(o.created_at)} · validade {o.validade_dias} dias{o.cliente_contato ? ` · ${o.cliente_contato}` : ''}
@@ -67,6 +69,9 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
             </button>
           )}
           <BotaoImprimir label="Imprimir orçamento" className="text-xs px-4 py-2" />
+          <Link href={`/dashboard/orcamentos/${o.id}/editar`} className="btn-ghost text-xs px-4 py-2 min-h-[36px] text-secondary hover:text-primary inline-flex items-center gap-1">
+            <Pencil size={13} /> Editar
+          </Link>
           {!confirm ? (
             <button onClick={() => setConfirm(true)} className="btn-ghost text-xs px-4 py-2 min-h-[36px] border-red-500/20 text-red-400/70 hover:text-red-400 hover:border-red-500/40 ml-auto">
               <Trash2 size={13} /> Excluir

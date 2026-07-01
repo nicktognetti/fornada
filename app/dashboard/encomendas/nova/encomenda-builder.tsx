@@ -7,7 +7,7 @@ import { PageTitle } from '@/app/components/ui/page-title'
 import { ProdutoPicker } from '@/app/components/ui/produto-picker'
 import { parseDecimalBR, formatBRL } from '@/lib/format'
 import { precoComAjuste, subtotalItem, totalPedido } from '@/lib/pedido-calc'
-import { criarEncomenda } from '@/app/actions/encomenda'
+import { criarEncomenda, atualizarEncomenda } from '@/app/actions/encomenda'
 import type { ProdutoOrcamento } from '@/app/actions/orcamento'
 import type { ClienteAutocomplete } from '@/app/actions/cliente'
 
@@ -22,22 +22,37 @@ interface Linha {
   obs: string
 }
 
+export type EncomendaEdicao = {
+  id: string
+  cliente_nome: string
+  cliente_contato: string | null
+  data_entrega: string
+  hora_entrega: string | null
+  observacao: string | null
+  itens: { produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; observacao: string | null }[]
+}
+
 function hojeISO() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function EncomendaBuilder({ produtos, clientes }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[] }) {
+export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[]; edicao?: EncomendaEdicao }) {
   const router = useRouter()
-  const [cliente, setCliente] = useState('')
-  const [contato, setContato] = useState('')
-  const [data, setData] = useState(hojeISO)
-  const [hora, setHora] = useState('')
-  const [obs, setObs] = useState('')
-  const [linhas, setLinhas] = useState<Linha[]>([])
+  const keyRef = useState(() => ({ n: 0 }))[0]
+  const [cliente, setCliente] = useState(edicao?.cliente_nome ?? '')
+  const [contato, setContato] = useState(edicao?.cliente_contato ?? '')
+  const [data, setData] = useState(edicao?.data_entrega ?? hojeISO())
+  const [hora, setHora] = useState(edicao?.hora_entrega?.slice(0, 5) ?? '')
+  const [obs, setObs] = useState(edicao?.observacao ?? '')
+  const [linhas, setLinhas] = useState<Linha[]>(() =>
+    (edicao?.itens ?? []).map((it) => ({
+      key: (keyRef.n += 1), produto_id: it.produto_id, descricao: it.descricao, base: it.preco_unitario,
+      quantidade: String(it.quantidade), ajustePct: '', preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '', obs: it.observacao ?? '',
+    })),
+  )
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const keyRef = useState(() => ({ n: 0 }))[0]
 
   function addProduto(p: ProdutoOrcamento) {
     setLinhas((prev) => [...prev, {
@@ -78,13 +93,14 @@ export function EncomendaBuilder({ produtos, clientes }: { produtos: ProdutoOrca
     if (!data) { setErro('Informe a data de entrega'); return }
     if (linhas.length === 0) { setErro('Adicione ao menos um item'); return }
     setSaving(true); setErro(null)
-    const res = await criarEncomenda(
-      { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, observacao: obs },
-      linhas.map((l) => ({
-        produto_id: l.produto_id, descricao: l.descricao,
-        quantidade: parseDecimalBR(l.quantidade), preco_unitario: parseDecimalBR(l.preco) || 0, observacao: l.obs,
-      })),
-    )
+    const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, observacao: obs }
+    const itens = linhas.map((l) => ({
+      produto_id: l.produto_id, descricao: l.descricao,
+      quantidade: parseDecimalBR(l.quantidade), preco_unitario: parseDecimalBR(l.preco) || 0, observacao: l.obs,
+    }))
+    const res = edicao
+      ? await atualizarEncomenda(edicao.id, dados, itens)
+      : await criarEncomenda(dados, itens)
     setSaving(false)
     if (res.error || !res.data) { setErro(res.error ?? 'Erro ao salvar'); return }
     router.push(`/dashboard/encomendas/${res.data.id}`)
@@ -94,7 +110,7 @@ export function EncomendaBuilder({ produtos, clientes }: { produtos: ProdutoOrca
 
   return (
     <div className="max-w-3xl space-y-6">
-      <PageTitle icon={ClipboardList} subtitle="Lance a encomenda e imprima a comanda pra produção">Nova encomenda</PageTitle>
+      <PageTitle icon={ClipboardList} subtitle="Lance a encomenda e imprima a comanda pra produção">{edicao ? 'Editar encomenda' : 'Nova encomenda'}</PageTitle>
 
       {/* Cliente + entrega */}
       <div className="card-surface p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -170,9 +186,9 @@ export function EncomendaBuilder({ produtos, clientes }: { produtos: ProdutoOrca
       {erro && <p className="text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>}
 
       <div className="flex justify-end gap-3">
-        <button onClick={() => router.push('/dashboard/encomendas')} className="px-5 py-2.5 rounded-lg border border-subtle text-ink-soft hover:bg-input text-sm">Cancelar</button>
+        <button onClick={() => router.push(edicao ? `/dashboard/encomendas/${edicao.id}` : '/dashboard/encomendas')} className="px-5 py-2.5 rounded-lg border border-subtle text-ink-soft hover:bg-input text-sm">Cancelar</button>
         <button onClick={salvar} disabled={saving || linhas.length === 0} className="btn-primary px-6 disabled:opacity-50">
-          {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando…</> : 'Salvar encomenda'}
+          {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando…</> : (edicao ? 'Salvar alterações' : 'Salvar encomenda')}
         </button>
       </div>
     </div>

@@ -45,7 +45,7 @@ export type OrcamentoDetalhe = {
   total: number
   created_at: string
   unidade_nome: string | null
-  itens: { id: string; descricao: string; quantidade: number; preco_unitario: number; subtotal: number }[]
+  itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number }[]
 }
 
 async function getEmpresaId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
@@ -125,6 +125,55 @@ export async function criarOrcamento(
   return { data: { id: orc.id } }
 }
 
+// ── Editar orçamento (atualiza campos + substitui itens) ────────────────────────
+export async function atualizarOrcamento(
+  id: string,
+  dados: { cliente_nome: string; cliente_contato?: string | null; validade_dias: number; observacao?: string | null },
+  itens: OrcamentoItemInput[],
+): Promise<ActionResult<{ id: string }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!dados.cliente_nome.trim()) return { error: 'Informe o nome do cliente' }
+  if (itens.length === 0) return { error: 'Adicione ao menos um item' }
+  if (!(await temAcesso(user.id, ['orcamento']))) return { error: 'Sem permissão' }
+
+  const { data: atual } = await supabase.from('orcamento').select('empresa_id, unidade_id').eq('id', id).maybeSingle()
+  if (!atual) return { error: 'Orçamento não encontrado' }
+
+  const itensCalc = itens
+    .filter((i) => i.quantidade > 0 && i.preco_unitario >= 0 && i.descricao.trim())
+    .map((i) => ({ ...i, subtotal: subtotalItem(i.quantidade, i.preco_unitario) }))
+  if (itensCalc.length === 0) return { error: 'Nenhum item válido' }
+  const total = totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
+
+  const { error: e1 } = await supabase.from('orcamento').update({
+    cliente_nome: dados.cliente_nome.trim(),
+    cliente_contato: dados.cliente_contato?.trim() || null,
+    validade_dias: dados.validade_dias,
+    observacao: dados.observacao?.trim() || null,
+    total,
+  }).eq('id', id)
+  if (e1) return { error: 'Erro ao salvar: ' + e1.message }
+
+  const { error: eDel } = await supabase.from('orcamento_item').delete().eq('orcamento_id', id)
+  if (eDel) return { error: 'Erro ao atualizar itens: ' + eDel.message }
+  const { error: e2 } = await supabase.from('orcamento_item').insert(
+    itensCalc.map((i) => ({
+      orcamento_id: id, produto_id: i.produto_id,
+      descricao: i.descricao.trim(), quantidade: i.quantidade,
+      preco_unitario: i.preco_unitario, subtotal: i.subtotal,
+    }))
+  )
+  if (e2) return { error: 'Erro ao gravar itens: ' + e2.message }
+
+  await upsertCliente(supabase, atual.empresa_id as string, atual.unidade_id as string, dados.cliente_nome, dados.cliente_contato)
+
+  revalidatePath('/dashboard/orcamentos')
+  revalidatePath(`/dashboard/orcamentos/${id}`)
+  return { data: { id } }
+}
+
 // ── Listar orçamentos (da unidade atual; busca por cliente) ─────────────────────
 export async function listarOrcamentos(busca?: string): Promise<ActionResult<OrcamentoListItem[]>> {
   const supabase = await createClient()
@@ -148,7 +197,7 @@ export async function getOrcamento(id: string): Promise<ActionResult<OrcamentoDe
 
   const [orcRes, itensRes] = await Promise.all([
     supabase.from('orcamento').select('*, unidade:unidade_id ( nome )').eq('id', id).maybeSingle(),
-    supabase.from('orcamento_item').select('id, descricao, quantidade, preco_unitario, subtotal').eq('orcamento_id', id),
+    supabase.from('orcamento_item').select('id, produto_id, descricao, quantidade, preco_unitario, subtotal').eq('orcamento_id', id),
   ])
   const orc = orcRes.data as (Record<string, unknown> & { unidade: { nome: string } | null }) | null
   if (!orc) return { error: 'Orçamento não encontrado' }
