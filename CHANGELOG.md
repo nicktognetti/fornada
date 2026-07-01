@@ -9,6 +9,41 @@ Formato: `tipo: descrição — detalhes`
 
 ---
 
+## 2026-07-01 — Clientes, edição, status e impressão v2 (continuação)
+
+> Build/tsc verdes e **72 testes** em todos os commits. **Deploy destravado:** repo tornado
+> **público** no GitHub → `git push` publica automático em `fornada.vercel.app` (não depende
+> mais do autor do commit ser membro do time). Cada leva foi testada ao vivo no preview.
+> Migrations aplicadas em produção: `20260701000000`, `20260701000001`, `20260701000002`.
+
+### Orçamento & Encomenda — v2 (`50dffc3`)
+- **Status do orçamento** — `aguardando` / `aprovado` / `recusado` com badge e botões (Aprovar/Recusar/Reabrir) na tela; filtro por status (tabs) no histórico.
+- **Número sequencial** — "Nº X" na lista, na tela e na impressão (orçamento e comanda), via sequences no Postgres (não repete mesmo ao excluir).
+- **Filtro por período** (de/até) nas listas de orçamento (criação) e encomenda (entrega).
+- **Cadastro de clientes** — campo Cliente vira autocomplete (`datalist`) + upsert automático por loja ao criar pedido. Migration `20260701000000` (status/número + tabela `cliente`).
+
+### Gestão de clientes, busca de produto, favicon (`ed70b84`, `61783e7`)
+- **Tela de Clientes** (CRUD) — nova tela RBAC `clientes` no menu; busca, cadastro avulso, edição e exclusão. Depois expandida com **telefone/WhatsApp, e-mail, endereço, CPF/CNPJ e observações** (todos opcionais; só `nome` único por loja) — migration `20260701000001` (backfill `telefone = contato`, coluna `contato` fica como legado).
+- **Seletor de produto com busca + categoria** (`ProdutoPicker`) — substitui o `<select>` nos dois builders; filtra ao digitar, chips por categoria, pensado para catálogos grandes.
+- **Favicon da marca** — logo real da Flor do Trigo sobre tile (depois **preto com logo branco**, via máscara alpha); `app/icon.png` + `app/apple-icon.png`, remove o `favicon.ico` genérico.
+- **Menu reordenado** por fluxo, com divisórias (visão geral → custos/produtos → vendas/clientes → estoque → config).
+
+### Edição de pedido + "expirado" automático (`05314a9`)
+- **Edição de pedido salvo** (orçamento e encomenda) — botão "Editar" na tela, rotas `/[id]/editar` reaproveitando os builders em modo edição; actions `atualizarOrcamento`/`atualizarEncomenda` (substituem itens + recalculam total + re-upsert do cliente). Edição de encomenda exige nível admin (quem não vê valores zeraria os preços).
+- **Orçamento "expirado"** — estado derivado de `created_at + validade` (helper puro `lib/orcamento-status` com testes); badge cinza + filtro "Expirado". Não é coluna no banco.
+
+### Ajustes de UX no builder (`9adeb65`, `22e1b62`)
+- **Não duplica item do catálogo** — clicar de novo num produto incrementa a quantidade da linha existente.
+- **Item do catálogo trava nome e preço** — nome fixo, preço só muda pela **%** (calcula sobre o base). Para nome/preço livre, usar **"+ Avulso"**.
+- **Encomenda: hora de entrega obrigatória** (validação no builder e no servidor) + **dica visível** de que o campo % ajusta o preço sobre o base.
+
+### Encomenda — acompanhamento de status e impressão (`1fc2e84`, `254b1ec`)
+- **Toggle "Acompanhar produção"** ao criar (ligado por padrão). Desligado, o fluxo vai direto **Pendente → Entregue** (casos de revenda). Coluna `encomenda.rastrear_status`.
+- **Histórico de status** — cada mudança grava data/hora (tabela `encomenda_status_log`, RLS por loja); a tela mostra a **linha do tempo com o tempo em cada etapa** e isso sai na impressão. Migration `20260701000002` (com backfill). Helper `lib/duracao` com testes.
+- **Impressão** — linhas de **assinatura** (Responsável / Produção na comanda; Responsável / Cliente no orçamento) e **rodapé configurável**: nova aba **Cadastros → Rodapé de Impressão** (endereço, telefone, e-mail, site, Instagram, linha extra) salva em `config_geral` (sem migration), lida pelo `DocumentoImpressao`.
+
+---
+
 ## 2026-07-01 — Módulos novos, impressão, deploy (sessão longa)
 
 > Build/tsc/52 testes verdes em todos os commits. **Deploy:** primeiro deploy na Vercel
