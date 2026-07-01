@@ -377,6 +377,7 @@ export async function createProdutoRevenda(
   categoria: string | null,
   custoCompra: number,
   unidadeId: string,
+  local?: string | null,
 ): Promise<ActionResult<{ id: string }>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -394,6 +395,68 @@ export async function createProdutoRevenda(
       tipo: 'revenda',
       categoria,
       custo_compra: custoCompra,
+      local: local?.trim() || null,
+      empresa_id: empresaId,
+      unidade_id: unidadeId,
+      ativo: true,
+    })
+    .select('id')
+    .single()
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/produtos')
+  revalidatePath('/dashboard/painel')
+  return { data: { id: data.id } }
+}
+
+// ── createProdutoFabricado ────────────────────────────────────────────────────
+// Cria um produto do tipo 'produzido' ligado a uma ficha técnica (receita).
+// O custo vem automaticamente do custo unitário da ficha (vw_produto_financeiro).
+export async function createProdutoFabricado(
+  nome: string,
+  categoria: string | null,
+  receitaId: string,
+  unidadeId: string,
+  local?: string | null,
+): Promise<ActionResult<{ id: string }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!nome.trim()) return { error: 'Informe o nome do produto' }
+  if (!receitaId) return { error: 'Selecione uma ficha técnica' }
+  if (!(await temAcesso(user.id, ['painel', 'precos', 'produtos'], { unidadeId })))
+    return { error: 'Sem permissão para criar produtos nesta unidade' }
+
+  const empresaId = await getEmpresaId(supabase, user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
+
+  // A ficha precisa existir na empresa (RLS já restringe às unidades do usuário).
+  const { data: receita } = await supabase
+    .from('receita')
+    .select('id, empresa_id')
+    .eq('id', receitaId)
+    .maybeSingle()
+  if (!receita || receita.empresa_id !== empresaId) return { error: 'Ficha técnica não encontrada' }
+
+  // Evita dois produtos apontando pra mesma ficha na mesma unidade.
+  const { data: jaExiste } = await supabase
+    .from('produto')
+    .select('id')
+    .eq('receita_id', receitaId)
+    .eq('unidade_id', unidadeId)
+    .eq('ativo', true)
+    .maybeSingle()
+  if (jaExiste) return { error: 'Já existe um produto ligado a essa ficha nesta loja' }
+
+  const { data, error } = await supabase
+    .from('produto')
+    .insert({
+      nome: nome.trim(),
+      tipo: 'produzido',
+      categoria,
+      receita_id: receitaId,
+      local: local?.trim() || null,
       empresa_id: empresaId,
       unidade_id: unidadeId,
       ativo: true,

@@ -16,7 +16,7 @@ export default async function ProdutosPage() {
   const [result, unidadesRes, receitasRes, locaisEncomendaRes] = await Promise.all([
     getPainelFinanceiro(unidadeId ?? undefined),
     supabase.from('unidade').select('id, nome').order('nome'),
-    supabase.from('receita').select('id, nome').eq('ativo', true)
+    supabase.from('vw_custo_receita').select('id, nome, custo_unitario, rendimento_unidade').eq('ativo', true)
       .not('nome', 'like', '- %')
       .not('nome', 'like', '%(sem nome)%')
       .order('nome')
@@ -24,15 +24,18 @@ export default async function ProdutosPage() {
     getConfigAction<string[]>(LOCAIS_CONFIG_KEY),
   ])
 
-  // Local (setor) atual de cada produto — não vem na view financeira.
-  let localQuery = supabase.from('produto').select('id, local')
+  // Local (setor) + ficha ligada de cada produto — não vêm na view financeira.
+  let localQuery = supabase.from('produto').select('id, local, receita_id').eq('ativo', true)
   if (unidadeId) localQuery = localQuery.eq('unidade_id', unidadeId)
   const { data: locaisData } = await localQuery
   const localMap: Record<string, string | null> = Object.fromEntries((locaisData ?? []).map((p: { id: string; local: string | null }) => [p.id, p.local]))
+  // Fichas que já viraram produto nesta loja — não devem reaparecer no seletor de "Fabricado".
+  const receitasUsadas = new Set((locaisData ?? []).map((p: { receita_id: string | null }) => p.receita_id).filter(Boolean))
 
   const produtos = result.data?.fichas ?? []
   const unidades = (unidadesRes.data ?? []) as { id: string; nome: string }[]
-  const receitas = (receitasRes.data ?? []) as { id: string; nome: string }[]
+  type FichaOpt = { id: string; nome: string; custo_unitario: number | null; rendimento_unidade: string | null }
+  const receitas = ((receitasRes.data ?? []) as FichaOpt[]).filter((r) => !receitasUsadas.has(r.id))
   const locais = locaisEncomendaRes.data ?? LOCAIS_PADRAO
 
   return (

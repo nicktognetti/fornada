@@ -7,6 +7,19 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Produto Fabricado — cadastro habilitado
+- **Aba "Fabricado" no modal de Novo Produto** (antes "Em breve"): cria um produto ligado a uma
+  **ficha técnica**. Seletor de ficha com **busca** e **prévia do custo unitário** (ex.: `R$ 0,67 / un`);
+  o **nome** já vem preenchido com o da ficha (editável); o **custo vem automático da ficha** e o preço
+  de venda é definido depois em Preços.
+- **Campo "Local de produção"** no modal (revenda e fabricado) — define o setor já na criação
+  (Produção, Confeitaria…), que aparece na comanda da encomenda.
+- **Anti-duplicata**: fichas que já viraram produto na loja não aparecem no seletor
+  (guarda também no servidor: erro se já existe produto ligado à ficha na unidade).
+- Backend: `createProdutoFabricado(nome, categoria, receitaId, unidadeId, local?)`; `createProdutoRevenda`
+  passa a aceitar `local`. Fichas vêm de `vw_custo_receita` (id, nome, custo_unitário, unidade de rendimento).
+- Fix: a coluna "Local" na lista de produtos passa a refletir produtos recém-criados sem precisar recarregar.
+
 ---
 
 ## 2026-07-01 — Clientes, edição, status e impressão v2 (continuação)

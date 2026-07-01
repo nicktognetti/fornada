@@ -1,17 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Pencil, Package, ShoppingBag, Search, Plus } from 'lucide-react'
 import { formatBRL } from '@/lib/format'
 import { setProdutoLocal, type ProdutoFinanceiro } from '@/app/actions/painel'
-import { NovoProdutoModal } from './novo-produto-modal'
+import { NovoProdutoModal, type FichaOpcao } from './novo-produto-modal'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 
 interface Props {
   produtos: ProdutoFinanceiro[]
   unidades: { id: string; nome: string }[]
-  receitas: { id: string; nome: string }[]
+  receitas: FichaOpcao[]
   locais: string[]
   localMap: Record<string, string | null>
 }
@@ -27,6 +27,12 @@ export function ProdutoList({ produtos, unidades, receitas, locais, localMap }: 
   const [modalOpen, setModalOpen] = useState(false)
   const [detalheId, setDetalheId] = useState<string | null>(null)
   const [locaisMap, setLocaisMap] = useState<Record<string, string | null>>(localMap)
+
+  // Após criar/editar produto, o server revalida e envia um novo localMap. Puxa
+  // os locais de produtos novos sem descartar as edições otimistas já feitas.
+  useEffect(() => {
+    setLocaisMap((prev) => ({ ...localMap, ...prev }))
+  }, [localMap])
 
   async function mudarLocal(produtoId: string, local: string) {
     setLocaisMap((m) => ({ ...m, [produtoId]: local || null }))
@@ -192,6 +198,7 @@ export function ProdutoList({ produtos, unidades, receitas, locais, localMap }: 
         <NovoProdutoModal
           unidades={unidades}
           receitas={receitas}
+          locais={locais}
           onClose={() => setModalOpen(false)}
         />
       )}
