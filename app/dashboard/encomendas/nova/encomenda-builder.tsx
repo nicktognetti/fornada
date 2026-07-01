@@ -28,6 +28,7 @@ export type EncomendaEdicao = {
   cliente_contato: string | null
   data_entrega: string
   hora_entrega: string | null
+  rastrear_status: boolean
   observacao: string | null
   itens: { produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; observacao: string | null }[]
 }
@@ -44,6 +45,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
   const [contato, setContato] = useState(edicao?.cliente_contato ?? '')
   const [data, setData] = useState(edicao?.data_entrega ?? hojeISO())
   const [hora, setHora] = useState(edicao?.hora_entrega?.slice(0, 5) ?? '')
+  const [rastrear, setRastrear] = useState(edicao?.rastrear_status ?? true)
   const [obs, setObs] = useState(edicao?.observacao ?? '')
   const [linhas, setLinhas] = useState<Linha[]>(() =>
     (edicao?.itens ?? []).map((it) => ({
@@ -103,7 +105,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
     if (!hora) { setErro('Informe a hora de entrega'); return }
     if (linhas.length === 0) { setErro('Adicione ao menos um item'); return }
     setSaving(true); setErro(null)
-    const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, observacao: obs }
+    const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, rastrear_status: rastrear, observacao: obs }
     const itens = linhas.map((l) => ({
       produto_id: l.produto_id, descricao: l.descricao,
       quantidade: parseDecimalBR(l.quantidade), preco_unitario: parseDecimalBR(l.preco) || 0, observacao: l.obs,
@@ -148,6 +150,15 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
           <label className="field-label">Observação geral</label>
           <textarea value={obs} onChange={(e) => setObs(e.target.value)} className={`${INPUT} min-h-[56px]`} placeholder="Forma de pagamento, retirada/entrega…" />
         </div>
+        <label className="sm:col-span-2 flex items-start gap-3 cursor-pointer rounded-lg border border-subtle px-4 py-3 hover:bg-input transition-colors">
+          <input type="checkbox" checked={rastrear} onChange={(e) => setRastrear(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[var(--t-accent)] cursor-pointer" />
+          <span className="min-w-0">
+            <span className="text-sm text-primary font-medium">Acompanhar produção</span>
+            <span className="block text-xs text-secondary mt-0.5">
+              Liga o fluxo de etapas (pendente → produzindo → pronto → entregue). Desligue para itens só de revenda (ex: refrigerante), que vão direto de pendente para entregue.
+            </span>
+          </span>
+        </label>
       </div>
 
       {/* Adicionar produto */}

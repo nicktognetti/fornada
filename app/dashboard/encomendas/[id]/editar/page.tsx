@@ -22,6 +22,7 @@ export default async function EditarEncomendaPage({ params }: { params: Promise<
     cliente_contato: e.cliente_contato,
     data_entrega: e.data_entrega,
     hora_entrega: e.hora_entrega,
+    rastrear_status: e.rastrear_status,
     observacao: e.observacao,
     itens: e.itens.map((it) => ({
       produto_id: it.produto_id,

@@ -23,7 +23,10 @@ interface Props {
   titulo: string
   subtitulo?: string
   unidade?: string | null
+  unidadeDoc?: string | null
   numero?: number | null
+  /** Rótulos das linhas de assinatura no rodapé (ex.: ['Responsável', 'Produção']). */
+  assinaturas?: string[]
   children: React.ReactNode
 }
 
@@ -32,7 +35,7 @@ interface Props {
  * ao imprimir (regras .print-doc em globals.css). Cores explícitas claras —
  * não usa os tokens do tema escuro.
  */
-export function DocumentoImpressao({ titulo, subtitulo, unidade, numero, children }: Props) {
+export function DocumentoImpressao({ titulo, subtitulo, unidade, unidadeDoc, numero, assinaturas, children }: Props) {
   const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -67,9 +70,21 @@ export function DocumentoImpressao({ titulo, subtitulo, unidade, numero, childre
       {/* Conteúdo */}
       <div>{children}</div>
 
+      {/* Assinaturas */}
+      {assinaturas && assinaturas.length > 0 && (
+        <div style={{ display: 'flex', gap: '40px', marginTop: '46px' }}>
+          {assinaturas.map((label, i) => (
+            <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ borderTop: '1px solid #1a1a1a', marginBottom: '5px' }} />
+              <span style={{ fontSize: '10px', color: '#555' }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Rodapé */}
-      <div style={{ marginTop: '24px', paddingTop: '8px', borderTop: '1px solid #ccc', fontSize: '10px', color: '#888', display: 'flex', justifyContent: 'space-between' }}>
-        <span>Flor do Trigo · desde 1948</span>
+      <div style={{ marginTop: '22px', paddingTop: '8px', borderTop: '1px solid #ccc', fontSize: '10px', color: '#888', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+        <span>Flor do Trigo · desde 1948{unidade ? ` · ${unidade}` : ''}{unidadeDoc ? ` · CNPJ ${unidadeDoc}` : ''}</span>
         <span>Emitido em {hoje}</span>
       </div>
     </div>,

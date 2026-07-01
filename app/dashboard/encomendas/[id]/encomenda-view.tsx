@@ -3,15 +3,24 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, ChefHat, PackageCheck, CheckCircle2, CalendarClock, Loader2, Pencil } from 'lucide-react'
+import { Trash2, ChefHat, PackageCheck, CheckCircle2, CalendarClock, Loader2, Pencil, History } from 'lucide-react'
 import { formatBRL } from '@/lib/format'
+import { formatDuracao } from '@/lib/duracao'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 import { atualizarStatusEncomenda, excluirEncomenda, type EncomendaDetalhe, type EncomendaStatus } from '@/app/actions/encomenda'
 import { StatusBadgeEncomenda } from '../components/status-badge-encomenda'
 
 function fmtData(d: string) { const [y, m, dd] = d.split('-'); return `${dd}/${m}/${y}` }
 function fmtHora(h: string | null) { return h ? h.slice(0, 5) : null }
+function fmtDataHora(iso: string) {
+  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
 
+const STATUS_LABEL: Record<EncomendaStatus, string> = {
+  pendente: 'Pendente', em_producao: 'Em produção', pronto: 'Pronto', entregue: 'Entregue', cancelada: 'Cancelada',
+}
+
+// Fluxo completo (com acompanhamento de produção)
 const PROXIMO: Partial<Record<EncomendaStatus, { status: EncomendaStatus; label: string; icon: typeof ChefHat }>> = {
   pendente:    { status: 'em_producao', label: 'Iniciar produção', icon: ChefHat },
   em_producao: { status: 'pronto',      label: 'Marcar pronto',    icon: PackageCheck },
@@ -23,8 +32,22 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const proximo = PROXIMO[e.status]
+  // Sem acompanhamento: vai direto de pendente para entregue.
+  const proximo = e.rastrear_status
+    ? PROXIMO[e.status]
+    : (e.status === 'pendente' ? { status: 'entregue' as EncomendaStatus, label: 'Marcar entregue', icon: CheckCircle2 } : undefined)
   const horaTxt = fmtHora(e.hora_entrega)
+
+  // Linha do tempo: duração de cada etapa (última = até agora, se não finalizada).
+  const agora = Date.now()
+  const finalizada = e.status === 'entregue' || e.status === 'cancelada'
+  const timeline = e.historico.map((ev, i) => {
+    const inicio = new Date(ev.changed_at).getTime()
+    const prox = e.historico[i + 1]
+    const fim = prox ? new Date(prox.changed_at).getTime() : agora
+    const emAndamento = !prox && !finalizada
+    return { status: ev.status, at: ev.changed_at, durMs: fim - inicio, emAndamento, ultimaFinal: !prox && finalizada }
+  })
 
   async function mudarStatus(status: EncomendaStatus) {
     setBusy(true)
@@ -122,8 +145,33 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
         {e.observacao && <p className="px-5 py-3 text-xs text-secondary border-t border-subtle">Obs.: {e.observacao}</p>}
       </div>
 
+      {/* Linha do tempo do status */}
+      {timeline.length > 0 && (
+        <div className="card-surface mt-5 px-5 py-4">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-secondary mb-3">
+            <History size={13} className="text-accent-primary" /> Histórico de status
+          </p>
+          <div className="space-y-0">
+            {timeline.map((t, i) => (
+              <div key={i} className="flex items-center gap-3 py-1.5">
+                <span className="w-2 h-2 rounded-full bg-accent-primary/70 shrink-0" />
+                <span className="text-sm text-primary w-28 shrink-0">{STATUS_LABEL[t.status]}</span>
+                <span className="text-xs text-secondary tabular-nums flex-1">{fmtDataHora(t.at)}</span>
+                <span className="text-xs tabular-nums shrink-0">
+                  {t.ultimaFinal
+                    ? <span className="text-faint">—</span>
+                    : t.emAndamento
+                      ? <span className="text-amber-400">{formatDuracao(t.durMs)} (em andamento)</span>
+                      : <span className="text-secondary">{formatDuracao(t.durMs)}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Comanda de impressão */}
-      <DocumentoImpressao titulo="Comanda de Encomenda" numero={e.numero} subtitulo={`Cliente: ${e.cliente_nome}${e.cliente_contato ? ` · ${e.cliente_contato}` : ''}`} unidade={e.unidade_nome}>
+      <DocumentoImpressao titulo="Comanda de Encomenda" numero={e.numero} subtitulo={`Cliente: ${e.cliente_nome}${e.cliente_contato ? ` · ${e.cliente_contato}` : ''}`} unidade={e.unidade_nome} unidadeDoc={e.unidade_documento} assinaturas={['Responsável', 'Feito por (produção)']}>
         {/* Entrega em destaque */}
         <div style={{ border: '2px solid #1a1a1a', borderRadius: '6px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#444' }}>Entrega</span>
@@ -151,6 +199,24 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
         </table>
 
         {e.observacao && <p style={{ marginTop: '12px', fontSize: '11px', color: '#555' }}>Obs.: {e.observacao}</p>}
+
+        {/* Histórico de status (tempo em cada etapa) */}
+        {e.rastrear_status && timeline.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#444', marginBottom: '4px' }}>Histórico de status</p>
+            <table style={T.table}>
+              <tbody>
+                {timeline.map((t, i) => (
+                  <tr key={i}>
+                    <td style={{ ...T.td, fontWeight: 600 }}>{STATUS_LABEL[t.status]}</td>
+                    <td style={T.td}>{fmtDataHora(t.at)}</td>
+                    <td style={T.tdRight}>{t.ultimaFinal ? '—' : `${formatDuracao(t.durMs)}${t.emAndamento ? ' (em andamento)' : ''}`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </DocumentoImpressao>
     </>
   )

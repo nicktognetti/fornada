@@ -114,7 +114,7 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
       </div>
 
       {/* Documento de impressão */}
-      <DocumentoImpressao titulo="Orçamento" numero={o.numero} subtitulo={`Cliente: ${o.cliente_nome}${o.cliente_contato ? ` · ${o.cliente_contato}` : ''}`} unidade={o.unidade_nome}>
+      <DocumentoImpressao titulo="Orçamento" numero={o.numero} subtitulo={`Cliente: ${o.cliente_nome}${o.cliente_contato ? ` · ${o.cliente_contato}` : ''}`} unidade={o.unidade_nome} assinaturas={['Responsável', 'Cliente']}>
         <table style={T.table}>
           <thead>
             <tr>

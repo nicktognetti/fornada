@@ -28,8 +28,11 @@ export type EncomendaDados = {
   data_entrega: string      // YYYY-MM-DD
   hora_entrega?: string | null  // HH:MM
   com_valor: boolean
+  rastrear_status: boolean  // acompanhar fluxo de produção
   observacao?: string | null
 }
+
+export type EncomendaStatusEvento = { status: EncomendaStatus; changed_at: string }
 
 export type EncomendaListItem = {
   id: string
@@ -47,6 +50,9 @@ export type EncomendaDetalhe = EncomendaListItem & {
   observacao: string | null
   created_at: string
   unidade_nome: string | null
+  unidade_documento: string | null
+  rastrear_status: boolean
+  historico: EncomendaStatusEvento[]
   /** true se o usuário pode ver valores (nível admin na tela encomenda). Produção não vê. */
   podeVerValores: boolean
   itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null }[]
@@ -104,6 +110,7 @@ export async function criarEncomenda(
       data_entrega: dados.data_entrega,
       hora_entrega: dados.hora_entrega?.trim() || null,
       com_valor: dados.com_valor,
+      rastrear_status: dados.rastrear_status,
       total,
       observacao: dados.observacao?.trim() || null,
       status: 'pendente',
@@ -120,6 +127,11 @@ export async function criarEncomenda(
     }))
   )
   if (e2) return { error: 'Encomenda criada, mas erro nos itens: ' + e2.message }
+
+  // Registra o status inicial no histórico.
+  await supabase.from('encomenda_status_log').insert({
+    empresa_id: empresaId, unidade_id: unidadeId, encomenda_id: enc.id, status: 'pendente', changed_by: user.id,
+  })
 
   await upsertCliente(supabase, empresaId, unidadeId, dados.cliente_nome, dados.cliente_contato)
 
@@ -155,11 +167,12 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  const [encRes, itensRes] = await Promise.all([
-    supabase.from('encomenda').select('*, unidade:unidade_id ( nome )').eq('id', id).maybeSingle(),
+  const [encRes, itensRes, logRes] = await Promise.all([
+    supabase.from('encomenda').select('*, unidade:unidade_id ( nome, documento )').eq('id', id).maybeSingle(),
     supabase.from('encomenda_item').select('id, produto_id, descricao, quantidade, preco_unitario, subtotal, observacao').eq('encomenda_id', id),
+    supabase.from('encomenda_status_log').select('status, changed_at').eq('encomenda_id', id).order('changed_at', { ascending: true }),
   ])
-  const e = encRes.data as (Record<string, unknown> & { unidade: { nome: string } | null }) | null
+  const e = encRes.data as (Record<string, unknown> & { unidade: { nome: string; documento: string | null } | null }) | null
   if (!e) return { error: 'Encomenda não encontrada' }
 
   const podeVerValores = await temAcesso(user.id, ['encomenda'], { nivel: 'admin' })
@@ -181,6 +194,9 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
       observacao: (e.observacao as string | null) ?? null,
       created_at: e.created_at as string,
       unidade_nome: e.unidade?.nome ?? null,
+      unidade_documento: e.unidade?.documento ?? null,
+      rastrear_status: (e.rastrear_status as boolean | null) ?? true,
+      historico: (logRes.data as EncomendaStatusEvento[]) ?? [],
       podeVerValores,
       itens,
     },
@@ -219,6 +235,7 @@ export async function atualizarEncomenda(
     data_entrega: dados.data_entrega,
     hora_entrega: dados.hora_entrega?.trim() || null,
     com_valor: true,
+    rastrear_status: dados.rastrear_status,
     total,
     observacao: dados.observacao?.trim() || null,
   }).eq('id', id)
@@ -251,8 +268,19 @@ export async function atualizarStatusEncomenda(id: string, status: EncomendaStat
   if (!ENCOMENDA_STATUS.includes(status)) return { error: 'Status inválido' }
   if (!(await temAcesso(user.id, ['encomenda']))) return { error: 'Sem permissão' }
 
+  const { data: atual } = await supabase.from('encomenda').select('empresa_id, unidade_id, status').eq('id', id).maybeSingle()
+  if (!atual) return { error: 'Encomenda não encontrada' }
+
   const { error } = await supabase.from('encomenda').update({ status }).eq('id', id)
   if (error) return { error: error.message }
+
+  // Só registra no histórico se o status realmente mudou.
+  if (atual.status !== status) {
+    await supabase.from('encomenda_status_log').insert({
+      empresa_id: atual.empresa_id, unidade_id: atual.unidade_id, encomenda_id: id, status, changed_by: user.id,
+    })
+  }
+
   revalidatePath('/dashboard/encomendas')
   revalidatePath(`/dashboard/encomendas/${id}`)
   return { success: true }
