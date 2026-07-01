@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import {
   X, Menu, LayoutDashboard, Package, BookOpen, Tag,
-  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box, FileText, ClipboardList, Users,
+  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box, FileText, ClipboardList, Users, HelpCircle,
 } from 'lucide-react'
 import { NavLink } from './nav-link'
 import { logout } from '@/app/login/actions'
@@ -101,6 +101,17 @@ export function Sidebar({ userEmail }: SidebarProps) {
 
       {/* Rodapé */}
       <div className="px-3 pb-4 pt-3 border-t border-subtle space-y-0.5">
+        <a
+          href="/manual.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setMobileOpen(false)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-secondary hover:text-ink-soft hover:bg-input transition-all"
+        >
+          <HelpCircle size={16} />
+          Manual de uso
+        </a>
+
         <div className="px-3 py-2">
           <p className="text-secondary text-[11px] truncate">{userEmail}</p>
         </div>
