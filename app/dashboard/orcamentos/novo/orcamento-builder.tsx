@@ -51,15 +51,24 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
   const [erro, setErro] = useState<string | null>(null)
 
   function addProduto(p: ProdutoOrcamento) {
-    setLinhas((prev) => [...prev, {
-      key: (keyRef.n += 1),
-      produto_id: p.id,
-      descricao: p.nome,
-      base: p.preco_base,
-      quantidade: '1',
-      ajustePct: '',
-      preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '',
-    }])
+    setLinhas((prev) => {
+      // Se o produto do catálogo já está na lista, incrementa a quantidade (não duplica).
+      const idx = prev.findIndex((l) => l.produto_id === p.id)
+      if (idx >= 0) {
+        const copy = [...prev]
+        copy[idx] = { ...copy[idx], quantidade: String((parseDecimalBR(copy[idx].quantidade) || 0) + 1) }
+        return copy
+      }
+      return [...prev, {
+        key: (keyRef.n += 1),
+        produto_id: p.id,
+        descricao: p.nome,
+        base: p.preco_base,
+        quantidade: '1',
+        ajustePct: '',
+        preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '',
+      }]
+    })
     setErro(null)
   }
 
@@ -152,14 +161,23 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
             <span className="text-right">%</span><span className="text-right">Preço un.</span><span className="text-right">Subtotal</span><span />
           </div>
           {linhas.map((l) => {
+            const isAvulso = l.produto_id === null
             const sub = subtotalItem(parseDecimalBR(l.quantidade), parseDecimalBR(l.preco))
             return (
               <div key={l.key} className="grid grid-cols-2 md:grid-cols-[1fr_70px_90px_70px_100px_90px_32px] gap-2 items-center px-4 py-2.5 border-b border-subtle last:border-0">
-                <input value={l.descricao} onChange={(e) => upd(l.key, 'descricao', e.target.value)} className="input-field text-sm py-1.5 px-2 col-span-2 md:col-span-1" />
+                {isAvulso ? (
+                  <input value={l.descricao} onChange={(e) => upd(l.key, 'descricao', e.target.value)} placeholder="Descrição do item avulso" className="input-field text-sm py-1.5 px-2 col-span-2 md:col-span-1" />
+                ) : (
+                  <span className="col-span-2 md:col-span-1 text-sm text-primary px-2 py-1.5 truncate" title={l.descricao}>{l.descricao}</span>
+                )}
                 <input value={l.quantidade} inputMode="decimal" onChange={(e) => upd(l.key, 'quantidade', e.target.value)} className="input-field text-sm py-1.5 px-2 text-right tabular-nums" placeholder="1" />
                 <span className="text-right text-xs text-faint tabular-nums hidden md:block">{l.base > 0 ? `R$ ${formatBRL(l.base)}` : '—'}</span>
-                <input value={l.ajustePct} inputMode="decimal" onChange={(e) => upd(l.key, 'ajustePct', e.target.value)} className="input-field text-sm py-1.5 px-2 text-right tabular-nums" placeholder="%" title="% sobre o preço base" />
-                <input value={l.preco} inputMode="decimal" onChange={(e) => upd(l.key, 'preco', e.target.value)} className="input-field text-sm py-1.5 px-2 text-right tabular-nums" placeholder="0,00" />
+                <input value={l.ajustePct} inputMode="decimal" disabled={isAvulso} onChange={(e) => upd(l.key, 'ajustePct', e.target.value)} className={`input-field text-sm py-1.5 px-2 text-right tabular-nums ${isAvulso ? 'opacity-40 cursor-not-allowed' : ''}`} placeholder="%" title={isAvulso ? 'Ajuste % vale só para itens do catálogo' : '% sobre o preço base'} />
+                {isAvulso ? (
+                  <input value={l.preco} inputMode="decimal" onChange={(e) => upd(l.key, 'preco', e.target.value)} className="input-field text-sm py-1.5 px-2 text-right tabular-nums" placeholder="0,00" />
+                ) : (
+                  <span className="text-right text-sm text-primary tabular-nums px-2 py-1.5" title="Preço do catálogo — ajuste pela %">{l.preco ? `R$ ${formatBRL(parseDecimalBR(l.preco))}` : '—'}</span>
+                )}
                 <span className="text-right text-sm font-medium text-primary tabular-nums">R$ {formatBRL(sub)}</span>
                 <button onClick={() => remover(l.key)} className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/40 hover:text-red-400 hover:bg-red-500/10 transition-all justify-self-end" aria-label="Remover item">
                   <Trash2 size={13} />

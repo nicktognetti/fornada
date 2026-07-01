@@ -55,10 +55,19 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
   const [erro, setErro] = useState<string | null>(null)
 
   function addProduto(p: ProdutoOrcamento) {
-    setLinhas((prev) => [...prev, {
-      key: (keyRef.n += 1), produto_id: p.id, descricao: p.nome, base: p.preco_base,
-      quantidade: '1', ajustePct: '', preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '', obs: '',
-    }])
+    setLinhas((prev) => {
+      // Se o produto do catálogo já está na lista, incrementa a quantidade (não duplica).
+      const idx = prev.findIndex((l) => l.produto_id === p.id)
+      if (idx >= 0) {
+        const copy = [...prev]
+        copy[idx] = { ...copy[idx], quantidade: String((parseDecimalBR(copy[idx].quantidade) || 0) + 1) }
+        return copy
+      }
+      return [...prev, {
+        key: (keyRef.n += 1), produto_id: p.id, descricao: p.nome, base: p.preco_base,
+        quantidade: '1', ajustePct: '', preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '', obs: '',
+      }]
+    })
     setErro(null)
   }
 
@@ -147,11 +156,16 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
       {linhas.length > 0 && (
         <div className="space-y-2">
           {linhas.map((l) => {
+            const isAvulso = l.produto_id === null
             const sub = subtotalItem(parseDecimalBR(l.quantidade), parseDecimalBR(l.preco))
             return (
               <div key={l.key} className="card-surface p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <input value={l.descricao} onChange={(e) => upd(l.key, 'descricao', e.target.value)} className="input-field text-sm py-1.5 flex-1" placeholder="Descrição do item" />
+                  {isAvulso ? (
+                    <input value={l.descricao} onChange={(e) => upd(l.key, 'descricao', e.target.value)} className="input-field text-sm py-1.5 flex-1" placeholder="Descrição do item avulso" />
+                  ) : (
+                    <span className="flex-1 text-sm text-primary py-1.5 truncate" title={l.descricao}>{l.descricao}</span>
+                  )}
                   <button onClick={() => setLinhas((prev) => prev.filter((x) => x.key !== l.key))} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary/40 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0" aria-label="Remover item">
                     <Trash2 size={14} />
                   </button>
@@ -163,12 +177,16 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
                   </div>
                   <span className="text-[11px] text-faint">base {l.base > 0 ? `R$ ${formatBRL(l.base)}` : '—'}</span>
                   <div className="flex items-center gap-1.5">
-                    <input value={l.ajustePct} inputMode="decimal" onChange={(e) => upd(l.key, 'ajustePct', e.target.value)} className="input-field text-sm py-1.5 px-2 w-14 text-right tabular-nums" placeholder="%" title="% sobre o preço base" />
+                    <input value={l.ajustePct} inputMode="decimal" disabled={isAvulso} onChange={(e) => upd(l.key, 'ajustePct', e.target.value)} className={`input-field text-sm py-1.5 px-2 w-14 text-right tabular-nums ${isAvulso ? 'opacity-40 cursor-not-allowed' : ''}`} placeholder="%" title={isAvulso ? 'Ajuste % vale só para itens do catálogo' : '% sobre o preço base'} />
                     <span className="text-[11px] text-faint">%</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] text-faint">R$</span>
-                    <input value={l.preco} inputMode="decimal" onChange={(e) => upd(l.key, 'preco', e.target.value)} className="input-field text-sm py-1.5 px-2 w-20 text-right tabular-nums" placeholder="0,00" />
+                    {isAvulso ? (
+                      <input value={l.preco} inputMode="decimal" onChange={(e) => upd(l.key, 'preco', e.target.value)} className="input-field text-sm py-1.5 px-2 w-20 text-right tabular-nums" placeholder="0,00" />
+                    ) : (
+                      <span className="text-sm text-primary tabular-nums w-20 text-right inline-block" title="Preço do catálogo — ajuste pela %">{l.preco ? formatBRL(parseDecimalBR(l.preco)) : '—'}</span>
+                    )}
                   </div>
                   <span className="text-sm font-medium text-primary tabular-nums ml-auto">R$ {formatBRL(sub)}</span>
                 </div>
