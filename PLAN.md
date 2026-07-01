@@ -1,6 +1,20 @@
 # ERP Fornada — Plano de Desenvolvimento
 
-## ▶ Ponto de retomada (atualizado 29/06/2026)
+## ▶ Ponto de retomada (atualizado 01/07/2026)
+
+**Sessão 30/06–01/07 — Módulos novos + impressão + deploy (8 commits, todos no GitHub):**
+- ✅ **Menu lateral fixo a partir de 768px** (era 1024px) — resolve o "menu oculto" em laptops com escala do Windows. (`ecf7a9f`)
+- ✅ **Cópia filtrada entre lojas** — modal Copiar com checkboxes + filtro por grupo/categoria (ex.: só "Chocolates"); antes era tudo-ou-nada. (`ecff353`)
+- ✅ **Impressão de documentos** — `DocumentoImpressao` (A4 claro via portal no `<body>`, logo oficial invertido pra preto) em **Ficha, Romaneio, Tabela de Preços, Orçamento e Comanda de Encomenda**. (`660ef86`, `d068966`, `ea0d47a`, `c3123dd`)
+- ✅ **Módulo de Orçamento** — persiste, ajuste de preço por item (valor/%), impressão. Migration `20260630000000` **APLICADA** no Supabase. (`b718558`)
+- ✅ **Módulo de Encomendas** — data/hora de entrega, status de produção (Pendente→Em produção→Pronto→Entregue), valor opcional, comanda impressa. Migration `20260630000001` **APLICADA** no Supabase. (`ae25b43`)
+- ✅ Build/tsc/52 testes verdes; ambos os módulos validados end-to-end no preview (criados + testados + apagados, sem poluir).
+- ⚠️ **DEPLOY BLOQUEADO (ação sua no Vercel):** 1º deploy feito (`fornada.vercel.app`), mas os deploys seguintes são recusados porque o **autor dos commits** (`nicholas@agrindus.com`, identidade auto do git nesta máquina) **não é membro do time Vercel** `nicktognetti`. A produção segue no código antigo. Resolver: tornar o repo público, OU Vercel Pro + adicionar colaborador, OU alinhar o e-mail do git com a conta GitHub. Depois: `vercel --prod` ou novo push sobe os 8 commits. **Código 100% salvo no GitHub.**
+- 🔲 **Antes de entregar dado real à Natali:** `node _demo_cleanup.mjs` (remove ilha-demo + usuários QA); ligar monitoramento de erros; confirmar backup do Supabase. Ver `DEPLOY.md`.
+
+---
+
+## ▶ Retomada 29/06/2026
 
 **Sessão 29/06 — Review visual completo + demo + polimentos (3 commits):**
 - ✅ **Tour por todas as 11 telas** rodando local (preview): sistema sólido, coeso e estável (zero erros de console). Veredito: pronto pra apresentar.

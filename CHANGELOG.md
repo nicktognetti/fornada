@@ -9,6 +9,36 @@ Formato: `tipo: descrição — detalhes`
 
 ---
 
+## 2026-07-01 — Módulos novos, impressão, deploy (sessão longa)
+
+> Build/tsc/52 testes verdes em todos os commits. **Deploy:** primeiro deploy na Vercel
+> feito (`fornada.vercel.app`, via `vercel`); os deploys seguintes (push GitHub + CLI)
+> ficaram bloqueados — o Vercel recusa deploys cujo **autor do commit** (`nicholas@agrindus.com`,
+> identidade auto-configurada do git) não é membro do time. Resolver do lado do Vercel
+> (repo público, ou Pro + colaborador, ou conectar o e-mail). Código todo no GitHub.
+
+### Módulos novos
+- **Encomendas** (`ae25b43`) — pedidos de cliente com **data/hora de entrega**, **status** (Pendente → Em produção → Pronto → Entregue / Cancelada), **valor opcional** (`com_valor`) e **comanda impressa** pra produção (entrega em destaque, itens, observação por item). Tabelas `encomenda`/`encomenda_item` (RLS por loja, migration `20260630000001`). Nova tela RBAC `encomenda`.
+- **Orçamentos** (`b718558`) — orçamento por cliente que **persiste** (busca depois), com **ajuste de preço por item (valor ou %)** e impressão. Tabelas `orcamento`/`orcamento_item` (RLS por loja, migration `20260630000000`). Nova tela RBAC `orcamento`.
+- **Precificação de insumos em lote** — grade editável (preço + rendimento com preview de custo/uso ao vivo), `addPrecosLote`. Desbloqueia os 229 insumos sem preço. Botão em Insumos → `/dashboard/insumos/precificar`.
+
+### Impressão de documentos
+- **`DocumentoImpressao` + `BotaoImprimir`** (`660ef86`, `c3123dd`) — documento A4 claro renderizado via **portal no `<body>`** (só ele imprime, sem páginas em branco). Aplicado em **Ficha técnica**, **Romaneio de transferência**, **Tabela de Preços** e **Comanda de Encomenda/Orçamento**.
+- **Logo** (`d068966`, `ea0d47a`) — usa o logo oficial da Flor do Trigo (mesmo do login, `LOGO2claro.png`) **invertido para preto** (`filter: brightness(0)`) — sai limpo no papel branco, sem painel.
+- Fix Tailwind v4: `@page` fora do `@media print` (o Lightning CSS derrubava o bloco).
+
+### UX & produtividade
+- **Drill-down por clique** (`c54647a`) — drawer reutilizável (`DetailDrawer`); produto abre detalhe (rentabilidade + composição da ficha), KPIs do Painel abrem breakdown, barras do Top 10 abrem o produto.
+- **Cópia filtrada entre lojas** (`ecff353`) — o modal Copiar agora lista itens (Fichas/Insumos) com **checkboxes + filtro por grupo/categoria** (ex.: só "Chocolates"); antes era tudo-ou-nada.
+- **Menu lateral fixo a partir de 768px** (`ecf7a9f`) — era 1024px (`lg`); em laptops com escala do Windows caía no hamburger. Agora `md`.
+
+### Infra & validação
+- **Deploy preparado** (`707a610`, `0660df5`) — `DEPLOY.md` (runbook GitHub→Vercel) + `.env.example`; repo privado no GitHub (`nicktognetti/fornada`).
+- **Guard de rota por tela** no `proxy.ts` (`telaParaRota`) — acesso direto por URL a tela não concedida redireciona (o menu já escondia, mas a rota não barrava).
+- **Teste de isolamento RBAC** validado com usuários QA (Centro vê vazio, Morada vê seus dados; nav filtra por permissão).
+
+---
+
 ## 2026-06-26 — Bugs pós-teste + Auditoria de segurança (8 commits)
 
 ### Bugs encontrados em teste de usuários
