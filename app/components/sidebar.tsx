@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import {
   X, Menu, LayoutDashboard, Package, BookOpen, Tag,
-  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box, FileText, ClipboardList,
+  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box, FileText, ClipboardList, Users,
 } from 'lucide-react'
 import { NavLink } from './nav-link'
 import { logout } from '@/app/login/actions'
@@ -21,6 +21,7 @@ const ALL_NAV_ITEMS = [
   { href: '/dashboard/simulador',                 icon: Calculator,      label: 'Simulador',        tela: 'simulador'        },
   { href: '/dashboard/orcamentos',                icon: FileText,        label: 'Orçamentos',       tela: 'orcamento'        },
   { href: '/dashboard/encomendas',                icon: ClipboardList,   label: 'Encomendas',       tela: 'encomenda'        },
+  { href: '/dashboard/clientes',                  icon: Users,           label: 'Clientes',         tela: 'clientes'         },
   { href: '/dashboard/transferencias',            icon: ArrowLeftRight,  label: 'Transferências',   tela: 'transferencias'   },
   { href: '/dashboard/transferencias/receber',    icon: PackageCheck,    label: 'Receber',          tela: 'receber'          },
   { href: '/dashboard/configuracoes',             icon: Shield,          label: 'Configurações',    tela: 'configuracoes'    },

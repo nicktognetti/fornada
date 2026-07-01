@@ -24,7 +24,6 @@ const sacramento = Sacramento({
 export const metadata: Metadata = {
   title: 'Fornada — Flor do Trigo',
   description: 'Sistema de custos e precificação da Padaria Flor do Trigo',
-  icons: { icon: '/favicon.svg' },
 }
 
 export default function RootLayout({

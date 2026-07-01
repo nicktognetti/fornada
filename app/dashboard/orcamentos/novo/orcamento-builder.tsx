@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileText, Plus, Trash2, Loader2 } from 'lucide-react'
+import { FileText, Trash2, Loader2 } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
+import { ProdutoPicker } from '@/app/components/ui/produto-picker'
 import { parseDecimalBR, formatBRL } from '@/lib/format'
 import { precoComAjuste, subtotalItem, totalPedido } from '@/lib/pedido-calc'
 import { criarOrcamento, type ProdutoOrcamento } from '@/app/actions/orcamento'
@@ -26,14 +27,11 @@ export function OrcamentoBuilder({ produtos, clientes }: { produtos: ProdutoOrca
   const [validade, setValidade] = useState('7')
   const [obs, setObs] = useState('')
   const [linhas, setLinhas] = useState<Linha[]>([])
-  const [selProduto, setSelProduto] = useState('')
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const keyRef = useState(() => ({ n: 0 }))[0]
 
-  function addProduto() {
-    const p = produtos.find((x) => x.id === selProduto)
-    if (!p) return
+  function addProduto(p: ProdutoOrcamento) {
     setLinhas((prev) => [...prev, {
       key: (keyRef.n += 1),
       produto_id: p.id,
@@ -43,7 +41,6 @@ export function OrcamentoBuilder({ produtos, clientes }: { produtos: ProdutoOrca
       ajustePct: '',
       preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '',
     }])
-    setSelProduto('')
     setErro(null)
   }
 
@@ -126,20 +123,7 @@ export function OrcamentoBuilder({ produtos, clientes }: { produtos: ProdutoOrca
       </div>
 
       {/* Adicionar produto */}
-      <div className="flex gap-2">
-        <select value={selProduto} onChange={(e) => setSelProduto(e.target.value)} className="input-field text-sm flex-1">
-          <option value="">Selecione um produto…</option>
-          {produtos.map((p) => (
-            <option key={p.id} value={p.id}>{p.nome}{p.preco_base > 0 ? ` — R$ ${formatBRL(p.preco_base)}` : ''}</option>
-          ))}
-        </select>
-        <button onClick={addProduto} disabled={!selProduto} className="btn-primary px-4 shrink-0 disabled:opacity-50">
-          <Plus size={15} /> Adicionar
-        </button>
-        <button onClick={addAvulso} title="Adicionar um item que não está no catálogo" className="px-4 shrink-0 rounded-xl text-sm font-medium border border-subtle text-ink-soft hover:text-primary hover:bg-input transition-colors">
-          + Avulso
-        </button>
-      </div>
+      <ProdutoPicker produtos={produtos} onPick={addProduto} onAvulso={addAvulso} />
 
       {/* Itens */}
       {linhas.length > 0 && (

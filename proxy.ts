@@ -21,6 +21,7 @@ function telaParaRota(pathname: string): string | null {
     simulador: 'simulador',
     orcamentos: 'orcamento',
     encomendas: 'encomenda',
+    clientes: 'clientes',
     configuracoes: 'configuracoes',
   }
   return mapa[seg] ?? null
