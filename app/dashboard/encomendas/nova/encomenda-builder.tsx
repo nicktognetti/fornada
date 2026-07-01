@@ -117,7 +117,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
         <div className="space-y-1 sm:col-span-2">
           <label className="field-label">Cliente *</label>
           <input list="clientes-list" autoComplete="off" value={cliente} placeholder="Nome do cliente" className={INPUT}
-            onChange={(e) => { const v = e.target.value; setCliente(v); const c = clientes.find((x) => x.nome === v); if (c?.contato) setContato(c.contato) }} />
+            onChange={(e) => { const v = e.target.value; setCliente(v); const c = clientes.find((x) => x.nome === v); if (c?.telefone) setContato(c.telefone) }} />
           <datalist id="clientes-list">{clientes.map((c) => <option key={c.nome} value={c.nome} />)}</datalist>
         </div>
         <div className="space-y-1">

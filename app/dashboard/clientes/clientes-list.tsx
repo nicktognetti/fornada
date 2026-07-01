@@ -1,26 +1,23 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Users, Plus, Search, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react'
+import { Users, Plus, Search, Pencil, Trash2, Check, X, Loader2, Phone, Mail, MapPin, IdCard } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { normalizeSearch } from '@/lib/format'
-import { criarCliente, atualizarCliente, excluirCliente, type ClienteRow } from '@/app/actions/cliente'
+import { criarCliente, atualizarCliente, excluirCliente, type ClienteRow, type ClienteInput } from '@/app/actions/cliente'
+
+const VAZIO: ClienteInput = { nome: '', telefone: '', email: '', endereco: '', documento: '', observacao: '' }
 
 export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: string }) {
   const [rows, setRows] = useState<ClienteRow[]>(inicial)
   const [busca, setBusca] = useState('')
   const [msg, setMsg] = useState<string | null>(erro ?? null)
 
-  // form de novo cliente
-  const [novoAberto, setNovoAberto] = useState(false)
-  const [nNome, setNNome] = useState('')
-  const [nContato, setNContato] = useState('')
-  const [salvando, setSalvando] = useState(false)
-
-  // edição inline
+  // formulário (novo ou edição): editId=null → novo; string → editando aquele id
+  const [aberto, setAberto] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [eNome, setENome] = useState('')
-  const [eContato, setEContato] = useState('')
+  const [form, setForm] = useState<ClienteInput>(VAZIO)
+  const [salvando, setSalvando] = useState(false)
 
   // exclusão
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -29,35 +26,45 @@ export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: 
   const filtrados = useMemo(() => {
     const t = normalizeSearch(busca)
     if (!t) return rows
-    return rows.filter((c) => normalizeSearch(c.nome).includes(t) || normalizeSearch(c.contato ?? '').includes(t))
+    return rows.filter((c) =>
+      normalizeSearch(`${c.nome} ${c.telefone ?? ''} ${c.email ?? ''} ${c.documento ?? ''} ${c.endereco ?? ''}`).includes(t),
+    )
   }, [rows, busca])
 
   function ordena(list: ClienteRow[]) {
     return [...list].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   }
+  function set<K extends keyof ClienteInput>(k: K, v: string) {
+    setForm((f) => ({ ...f, [k]: v }))
+  }
 
-  async function salvarNovo() {
-    if (!nNome.trim()) { setMsg('Informe o nome do cliente'); return }
+  function abrirNovo() {
+    setEditId(null); setForm(VAZIO); setAberto(true); setMsg(null)
+  }
+  function abrirEdicao(c: ClienteRow) {
+    setEditId(c.id)
+    setForm({ nome: c.nome, telefone: c.telefone ?? '', email: c.email ?? '', endereco: c.endereco ?? '', documento: c.documento ?? '', observacao: c.observacao ?? '' })
+    setAberto(true); setConfirmId(null); setMsg(null)
+  }
+  function fechar() {
+    setAberto(false); setEditId(null); setForm(VAZIO)
+  }
+
+  async function salvar() {
+    if (!form.nome.trim()) { setMsg('Informe o nome do cliente'); return }
     setSalvando(true); setMsg(null)
-    const res = await criarCliente({ nome: nNome, contato: nContato })
-    setSalvando(false)
-    if (res.error || !res.data) { setMsg(res.error ?? 'Erro ao salvar'); return }
-    setRows((prev) => ordena([...prev, { id: res.data!.id, nome: nNome.trim(), contato: nContato.trim() || null, created_at: new Date().toISOString() }]))
-    setNNome(''); setNContato(''); setNovoAberto(false)
-  }
-
-  function iniciarEdicao(c: ClienteRow) {
-    setEditId(c.id); setENome(c.nome); setEContato(c.contato ?? ''); setConfirmId(null); setMsg(null)
-  }
-
-  async function salvarEdicao(id: string) {
-    if (!eNome.trim()) { setMsg('Informe o nome do cliente'); return }
-    setBusyId(id); setMsg(null)
-    const res = await atualizarCliente(id, { nome: eNome, contato: eContato })
-    setBusyId(null)
-    if (res.error) { setMsg(res.error); return }
-    setRows((prev) => ordena(prev.map((c) => (c.id === id ? { ...c, nome: eNome.trim(), contato: eContato.trim() || null } : c))))
-    setEditId(null)
+    if (editId) {
+      const res = await atualizarCliente(editId, form)
+      setSalvando(false)
+      if (res.error) { setMsg(res.error); return }
+      setRows((prev) => ordena(prev.map((c) => (c.id === editId ? { ...c, ...limpaRow(form) } : c))))
+    } else {
+      const res = await criarCliente(form)
+      setSalvando(false)
+      if (res.error || !res.data) { setMsg(res.error ?? 'Erro ao salvar'); return }
+      setRows((prev) => ordena([...prev, { id: res.data!.id, created_at: new Date().toISOString(), ...limpaRow(form) }]))
+    }
+    fechar()
   }
 
   async function excluir(id: string) {
@@ -67,6 +74,7 @@ export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: 
     if (res.error) { setMsg(res.error); return }
     setRows((prev) => prev.filter((c) => c.id !== id))
     setConfirmId(null)
+    if (editId === id) fechar()
   }
 
   const INPUT = 'input-field text-sm py-1.5'
@@ -79,32 +87,50 @@ export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: 
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary/50 pointer-events-none" />
-          <input type="text" placeholder="Buscar por nome ou contato…" value={busca} onChange={(e) => setBusca(e.target.value)} className="input-field pl-10" />
+          <input type="text" placeholder="Buscar por nome, telefone, e-mail…" value={busca} onChange={(e) => setBusca(e.target.value)} className="input-field pl-10" />
         </div>
-        <button onClick={() => { setNovoAberto((v) => !v); setMsg(null) }} className="btn-primary shrink-0">
+        <button onClick={aberto && !editId ? fechar : abrirNovo} className="btn-primary shrink-0">
           <Plus size={16} /> Novo cliente
         </button>
       </div>
 
-      {/* Form de novo cliente */}
-      {novoAberto && (
-        <div className="card-surface p-4 mb-4 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-          <div className="space-y-1">
-            <label className="field-label">Nome *</label>
-            <input value={nNome} onChange={(e) => setNNome(e.target.value)} className={INPUT} placeholder="Nome do cliente" autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter') salvarNovo() }} />
+      {/* Formulário (novo / edição) */}
+      {aberto && (
+        <div className="card-surface p-5 mb-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-playfair text-primary text-lg">{editId ? 'Editar cliente' : 'Novo cliente'}</p>
+            <button onClick={fechar} className="text-secondary hover:text-primary" aria-label="Fechar"><X size={16} /></button>
           </div>
-          <div className="space-y-1">
-            <label className="field-label">Contato</label>
-            <input value={nContato} onChange={(e) => setNContato(e.target.value)} className={INPUT} placeholder="Telefone / e-mail / WhatsApp"
-              onKeyDown={(e) => { if (e.key === 'Enter') salvarNovo() }} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1 sm:col-span-2">
+              <label className="field-label">Nome *</label>
+              <input value={form.nome} onChange={(e) => set('nome', e.target.value)} className={INPUT} placeholder="Nome do cliente" autoFocus />
+            </div>
+            <div className="space-y-1">
+              <label className="field-label">Telefone / WhatsApp</label>
+              <input value={form.telefone ?? ''} onChange={(e) => set('telefone', e.target.value)} className={INPUT} placeholder="(19) 90000-0000" inputMode="tel" />
+            </div>
+            <div className="space-y-1">
+              <label className="field-label">E-mail</label>
+              <input value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} className={INPUT} placeholder="cliente@email.com" inputMode="email" />
+            </div>
+            <div className="space-y-1">
+              <label className="field-label">Endereço</label>
+              <input value={form.endereco ?? ''} onChange={(e) => set('endereco', e.target.value)} className={INPUT} placeholder="Rua, nº, bairro" />
+            </div>
+            <div className="space-y-1">
+              <label className="field-label">CPF / CNPJ</label>
+              <input value={form.documento ?? ''} onChange={(e) => set('documento', e.target.value)} className={INPUT} placeholder="Documento" />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="field-label">Observações</label>
+              <textarea value={form.observacao ?? ''} onChange={(e) => set('observacao', e.target.value)} className={`${INPUT} min-h-[56px]`} placeholder="Preferências, restrições, notas…" />
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={salvarNovo} disabled={salvando} className="btn-primary px-4 disabled:opacity-50">
-              {salvando ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Salvar
-            </button>
-            <button onClick={() => { setNovoAberto(false); setNNome(''); setNContato('') }} className="px-3 rounded-lg border border-subtle text-ink-soft hover:bg-input text-sm">
-              Cancelar
+          <div className="flex justify-end gap-2">
+            <button onClick={fechar} className="px-4 py-2 rounded-lg border border-subtle text-ink-soft hover:bg-input text-sm">Cancelar</button>
+            <button onClick={salvar} disabled={salvando} className="btn-primary px-5 disabled:opacity-50">
+              {salvando ? <><Loader2 size={15} className="animate-spin" /> Salvando…</> : <><Check size={15} /> {editId ? 'Salvar alterações' : 'Salvar'}</>}
             </button>
           </div>
         </div>
@@ -126,45 +152,34 @@ export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: 
       ) : (
         <div className="space-y-2">
           {filtrados.map((c) => (
-            <div key={c.id} className="card-surface px-5 py-3.5 flex items-center gap-3">
-              {editId === c.id ? (
-                <>
-                  <input value={eNome} onChange={(e) => setENome(e.target.value)} className={`${INPUT} flex-1`} placeholder="Nome"
-                    onKeyDown={(e) => { if (e.key === 'Enter') salvarEdicao(c.id); if (e.key === 'Escape') setEditId(null) }} autoFocus />
-                  <input value={eContato} onChange={(e) => setEContato(e.target.value)} className={`${INPUT} flex-1`} placeholder="Contato"
-                    onKeyDown={(e) => { if (e.key === 'Enter') salvarEdicao(c.id); if (e.key === 'Escape') setEditId(null) }} />
-                  <button onClick={() => salvarEdicao(c.id)} disabled={busyId === c.id} className="w-8 h-8 rounded-lg flex items-center justify-center text-accent-primary hover:bg-input shrink-0" aria-label="Salvar">
-                    {busyId === c.id ? <Loader2 size={15} className="animate-spin" /> : <Check size={16} />}
+            <div key={c.id} className="card-surface px-5 py-3.5 flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-playfair text-primary text-[16px] font-semibold leading-tight truncate">{c.nome}</p>
+                <div className="flex items-center gap-x-4 gap-y-0.5 flex-wrap mt-1 text-secondary text-xs">
+                  {c.telefone && <span className="inline-flex items-center gap-1"><Phone size={11} className="text-accent-primary/60" />{c.telefone}</span>}
+                  {c.email && <span className="inline-flex items-center gap-1"><Mail size={11} className="text-accent-primary/60" />{c.email}</span>}
+                  {c.documento && <span className="inline-flex items-center gap-1"><IdCard size={11} className="text-accent-primary/60" />{c.documento}</span>}
+                  {c.endereco && <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={11} className="text-accent-primary/60 shrink-0" /><span className="truncate">{c.endereco}</span></span>}
+                </div>
+                {c.observacao && <p className="text-faint text-xs mt-1 truncate">{c.observacao}</p>}
+              </div>
+              {confirmId === c.id ? (
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-red-400 text-xs">Excluir?</span>
+                  <button onClick={() => excluir(c.id)} disabled={busyId === c.id} className="text-xs text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg px-3 py-1.5">
+                    {busyId === c.id ? 'Excluindo…' : 'Sim'}
                   </button>
-                  <button onClick={() => setEditId(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-input shrink-0" aria-label="Cancelar">
-                    <X size={16} />
-                  </button>
-                </>
+                  <button onClick={() => setConfirmId(null)} className="text-xs text-secondary hover:text-primary px-2 py-1.5">Não</button>
+                </div>
               ) : (
-                <>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-playfair text-primary text-[16px] font-semibold leading-tight truncate">{c.nome}</p>
-                    {c.contato && <p className="text-secondary text-xs mt-0.5 truncate">{c.contato}</p>}
-                  </div>
-                  {confirmId === c.id ? (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-red-400 text-xs">Excluir?</span>
-                      <button onClick={() => excluir(c.id)} disabled={busyId === c.id} className="text-xs text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg px-3 py-1.5">
-                        {busyId === c.id ? 'Excluindo…' : 'Sim'}
-                      </button>
-                      <button onClick={() => setConfirmId(null)} className="text-xs text-secondary hover:text-primary px-2 py-1.5">Não</button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => iniciarEdicao(c)} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary/60 hover:text-primary hover:bg-input" aria-label="Editar">
-                        <Pencil size={14} />
-                      </button>
-                      <button onClick={() => { setConfirmId(c.id); setEditId(null) }} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary/40 hover:text-red-400 hover:bg-red-500/10" aria-label="Excluir">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )}
-                </>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => abrirEdicao(c)} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary/60 hover:text-primary hover:bg-input" aria-label="Editar">
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => { setConfirmId(c.id) }} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary/40 hover:text-red-400 hover:bg-red-500/10" aria-label="Excluir">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -172,4 +187,16 @@ export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: 
       )}
     </div>
   )
+}
+
+// Converte o input do formulário em campos de linha (trim → null).
+function limpaRow(f: ClienteInput): Omit<ClienteRow, 'id' | 'created_at'> {
+  return {
+    nome: f.nome.trim(),
+    telefone: f.telefone?.trim() || null,
+    email: f.email?.trim() || null,
+    endereco: f.endereco?.trim() || null,
+    documento: f.documento?.trim() || null,
+    observacao: f.observacao?.trim() || null,
+  }
 }
