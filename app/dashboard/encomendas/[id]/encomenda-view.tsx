@@ -49,6 +49,18 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
     return { status: ev.status, at: ev.changed_at, durMs: fim - inicio, emAndamento, ultimaFinal: !prox && finalizada }
   })
 
+  // Agrupa itens por local (setor). Se houver mais de um, a comanda sai separada por setor.
+  const gruposLocal = (() => {
+    const m = new Map<string, typeof e.itens>()
+    for (const it of e.itens) {
+      const k = it.local && it.local.trim() ? it.local.trim() : 'Sem local'
+      if (!m.has(k)) m.set(k, [])
+      m.get(k)!.push(it)
+    }
+    return [...m.entries()]
+  })()
+  const multiLocal = gruposLocal.length > 1
+
   async function mudarStatus(status: EncomendaStatus) {
     setBusy(true)
     await atualizarStatusEncomenda(e.id, status)
@@ -170,54 +182,65 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
         </div>
       )}
 
-      {/* Comanda de impressão */}
-      <DocumentoImpressao titulo="Comanda de Encomenda" numero={e.numero} subtitulo={`Cliente: ${e.cliente_nome}${e.cliente_contato ? ` · ${e.cliente_contato}` : ''}`} unidade={e.unidade_nome} unidadeDoc={e.unidade_documento} assinaturas={['Responsável', 'Feito por (produção)']}>
-        {/* Entrega em destaque */}
-        <div style={{ border: '2px solid #1a1a1a', borderRadius: '6px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#444' }}>Entrega</span>
-          <span style={{ fontSize: '18px', fontWeight: 700 }}>{fmtData(e.data_entrega)}{horaTxt ? ` — ${horaTxt}` : ''}</span>
-        </div>
-
-        <table style={T.table}>
-          <thead>
-            <tr>
-              <th style={{ ...T.thRight, width: '60px' }}>Qtd</th>
-              <th style={T.th}>Item</th>
-            </tr>
-          </thead>
-          <tbody>
-            {e.itens.map((it) => (
-              <tr key={it.id}>
-                <td style={{ ...T.tdRight, verticalAlign: 'top', fontWeight: 700 }}>{it.quantidade}</td>
-                <td style={T.td}>
-                  {it.descricao}
-                  {it.observacao && <div style={{ fontSize: '11px', fontStyle: 'italic', color: '#555' }}>↳ {it.observacao}</div>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {e.observacao && <p style={{ marginTop: '12px', fontSize: '11px', color: '#555' }}>Obs.: {e.observacao}</p>}
-
-        {/* Histórico de status (tempo em cada etapa) */}
-        {e.rastrear_status && timeline.length > 0 && (
-          <div style={{ marginTop: '16px' }}>
-            <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#444', marginBottom: '4px' }}>Histórico de status</p>
-            <table style={T.table}>
-              <tbody>
-                {timeline.map((t, i) => (
-                  <tr key={i}>
-                    <td style={{ ...T.td, fontWeight: 600 }}>{STATUS_LABEL[t.status]}</td>
-                    <td style={T.td}>{fmtDataHora(t.at)}</td>
-                    <td style={T.tdRight}>{t.ultimaFinal ? '—' : `${formatDuracao(t.durMs)}${t.emAndamento ? ' (em andamento)' : ''}`}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Comanda(s) de impressão — separadas por setor (local) quando houver mais de um */}
+      {gruposLocal.map(([local, itensDoLocal], gi) => (
+        <DocumentoImpressao
+          key={local}
+          titulo={multiLocal ? `Comanda — ${local}` : 'Comanda de Encomenda'}
+          numero={e.numero}
+          subtitulo={`Cliente: ${e.cliente_nome}${e.cliente_contato ? ` · ${e.cliente_contato}` : ''}`}
+          unidade={e.unidade_nome}
+          unidadeDoc={e.unidade_documento}
+          assinaturas={['Responsável', 'Feito por (produção)']}
+          quebraPagina={multiLocal && gi < gruposLocal.length - 1}
+        >
+          {/* Entrega em destaque */}
+          <div style={{ border: '2px solid #1a1a1a', borderRadius: '6px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#444' }}>Entrega{multiLocal ? ` · Setor: ${local}` : ''}</span>
+            <span style={{ fontSize: '18px', fontWeight: 700 }}>{fmtData(e.data_entrega)}{horaTxt ? ` — ${horaTxt}` : ''}</span>
           </div>
-        )}
-      </DocumentoImpressao>
+
+          <table style={T.table}>
+            <thead>
+              <tr>
+                <th style={{ ...T.thRight, width: '60px' }}>Qtd</th>
+                <th style={T.th}>Item</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itensDoLocal.map((it) => (
+                <tr key={it.id}>
+                  <td style={{ ...T.tdRight, verticalAlign: 'top', fontWeight: 700 }}>{it.quantidade}</td>
+                  <td style={T.td}>
+                    {it.descricao}
+                    {it.observacao && <div style={{ fontSize: '11px', fontStyle: 'italic', color: '#555' }}>↳ {it.observacao}</div>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {e.observacao && <p style={{ marginTop: '12px', fontSize: '11px', color: '#555' }}>Obs.: {e.observacao}</p>}
+
+          {/* Histórico só na comanda única (sem separação por setor) */}
+          {!multiLocal && e.rastrear_status && timeline.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#444', marginBottom: '4px' }}>Histórico de status</p>
+              <table style={T.table}>
+                <tbody>
+                  {timeline.map((t, i) => (
+                    <tr key={i}>
+                      <td style={{ ...T.td, fontWeight: 600 }}>{STATUS_LABEL[t.status]}</td>
+                      <td style={T.td}>{fmtDataHora(t.at)}</td>
+                      <td style={T.tdRight}>{t.ultimaFinal ? '—' : `${formatDuracao(t.durMs)}${t.emAndamento ? ' (em andamento)' : ''}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DocumentoImpressao>
+      ))}
     </>
   )
 }

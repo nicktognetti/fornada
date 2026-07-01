@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X, Settings2, Weight, Tag, Check, AlertCircle, Printer, Loader2 } from 'lucide-react'
+import { Plus, X, Settings2, Weight, Tag, Check, AlertCircle, Printer, Loader2, MapPin } from 'lucide-react'
 import { getConfigAction, saveConfigAction } from '@/app/actions/config'
 import { RODAPE_CONFIG_KEY, type RodapeConfig } from '@/app/components/ui/documento-impressao'
+import { LOCAIS_CONFIG_KEY, LOCAIS_PADRAO } from '@/app/lib/locais'
 import { usePermission } from '@/app/context/permissions-context'
 
-type TabId = 'tipos' | 'unidades' | 'categorias' | 'rodape'
+type TabId = 'tipos' | 'unidades' | 'categorias' | 'locais' | 'rodape'
 
 const SEED_TIPOS = [
   'Final — produto de venda',
@@ -55,6 +56,10 @@ export function CadastrosPanel() {
   const [novaCategoria, setNovaCategoria] = useState('')
   const catInputRef = useRef<HTMLInputElement>(null)
 
+  const [locais, setLocais] = useState<string[]>(LOCAIS_PADRAO)
+  const [novoLocal, setNovoLocal] = useState('')
+  const localInputRef = useRef<HTMLInputElement>(null)
+
   const [rodape, setRodape] = useState<RodapeConfig>({})
 
   const [isLoadingConfig, setIsLoadingConfig] = useState(true)
@@ -72,11 +77,12 @@ export function CadastrosPanel() {
   useEffect(() => {
     let mounted = true
     async function loadConfigs() {
-      const [tiposRes, unidadesRes, categoriasRes, rodapeRes] = await Promise.all([
+      const [tiposRes, unidadesRes, categoriasRes, rodapeRes, locaisRes] = await Promise.all([
         getConfigAction<string[]>('tipos_receita'),
         getConfigAction<Unidade[]>('unidades_medida'),
         getConfigAction<string[]>('categorias_insumo'),
         getConfigAction<RodapeConfig>(RODAPE_CONFIG_KEY),
+        getConfigAction<string[]>(LOCAIS_CONFIG_KEY),
       ])
 
       if (!mounted) return
@@ -85,6 +91,7 @@ export function CadastrosPanel() {
       if (unidadesRes.data) setUnidades(unidadesRes.data)
       if (categoriasRes.data) setCategorias(categoriasRes.data)
       if (rodapeRes.data) setRodape(rodapeRes.data)
+      if (locaisRes.data) setLocais(locaisRes.data)
       setIsLoadingConfig(false)
     }
     loadConfigs()
@@ -183,10 +190,35 @@ export function CadastrosPanel() {
     saveCategorias(categorias.filter((x) => x !== cat))
   }
 
+  async function saveLocais(next: string[]) {
+    setLocais(next)
+    setIsSaving(true)
+    try {
+      const res = await saveConfigAction(LOCAIS_CONFIG_KEY, next)
+      if (res.error) showToast('error', res.error)
+      else showToast('success', 'Locais salvos')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  function addLocal() {
+    const v = novoLocal.trim()
+    if (!v || locais.includes(v)) return
+    saveLocais([...locais, v])
+    setNovoLocal('')
+    localInputRef.current?.focus()
+  }
+
+  function removeLocal(local: string) {
+    saveLocais(locais.filter((x) => x !== local))
+  }
+
   const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'tipos',      label: 'Tipos de Receita',     icon: <Settings2 size={14} /> },
     { id: 'unidades',   label: 'Unidades de Medida',   icon: <Weight size={14} />    },
     { id: 'categorias', label: 'Categorias de Insumo', icon: <Tag size={14} />       },
+    { id: 'locais',     label: 'Locais de Produção',   icon: <MapPin size={14} />    },
     { id: 'rodape',     label: 'Rodapé de Impressão',  icon: <Printer size={14} />   },
   ]
 
@@ -194,6 +226,7 @@ export function CadastrosPanel() {
     activeTab === 'tipos' ? `${tipos.length} tipo${tipos.length !== 1 ? 's' : ''}` :
     activeTab === 'unidades' ? `${unidades.length} unidade${unidades.length !== 1 ? 's' : ''}` :
     activeTab === 'categorias' ? `${categorias.length} categoria${categorias.length !== 1 ? 's' : ''}` :
+    activeTab === 'locais' ? `${locais.length} local${locais.length !== 1 ? 'is' : ''}` :
     'Aparece no rodapé das impressões'
 
   return (
@@ -339,6 +372,41 @@ export function CadastrosPanel() {
                 <div className="px-5 py-4 flex gap-2" style={{ borderTop: '1px solid var(--t-border-sub)' }}>
                   <input ref={catInputRef} type="text" value={novaCategoria} onChange={(e) => setNovaCategoria(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategoria())} placeholder="Nova categoria… (ex: Sementes)" className="input-field flex-1" disabled={isSaving} />
                   <button onClick={addCategoria} disabled={isSaving} className="btn-primary px-4 shrink-0" style={{ minHeight: 40 }}><Plus size={15} />Adicionar</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* LOCAIS DE PRODUÇÃO */}
+      {activeTab === 'locais' && (
+        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--t-card-bg)', border: '1px solid var(--t-card-border)' }}>
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--t-border-sub)', backgroundColor: 'var(--t-inset-bg)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--t-accent)' }}>Locais de Produção</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--t-text-2)' }}>Setores onde os produtos são feitos. Cada produto recebe um local, e a comanda da encomenda sai separada por setor.</p>
+          </div>
+          {isLoadingConfig ? (
+            <div className="px-5 py-6 flex justify-center"><span className="text-xs" style={{ color: 'var(--t-text-2)' }}>Carregando…</span></div>
+          ) : (
+            <>
+              <div className="px-5 py-4 flex flex-wrap gap-2">
+                {locais.map((local) => (
+                  <span key={local} className="inline-flex items-center gap-1.5 rounded-full text-sm font-medium" style={{ paddingLeft: '0.75rem', paddingRight: canEdit ? '0.5rem' : '0.75rem', paddingTop: '0.375rem', paddingBottom: '0.375rem', backgroundColor: 'color-mix(in srgb, var(--t-accent) 10%, transparent)', color: 'var(--t-accent)', border: '1px solid color-mix(in srgb, var(--t-accent) 25%, transparent)' }}>
+                    {local}
+                    {canEdit && (
+                      <button onClick={() => removeLocal(local)} disabled={isSaving} className="w-4 h-4 rounded-full flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity">
+                        <X size={10} />
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {locais.length === 0 && <span className="text-xs" style={{ color: 'var(--t-text-2)' }}>Nenhum local cadastrado.</span>}
+              </div>
+              {canEdit && (
+                <div className="px-5 py-4 flex gap-2" style={{ borderTop: '1px solid var(--t-border-sub)' }}>
+                  <input ref={localInputRef} type="text" value={novoLocal} onChange={(e) => setNovoLocal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addLocal())} placeholder="Novo local… (ex: Salgados)" className="input-field flex-1" disabled={isSaving} />
+                  <button onClick={addLocal} disabled={isSaving} className="btn-primary px-4 min-h-[40px]"><Plus size={15} />Adicionar</button>
                 </div>
               )}
             </>

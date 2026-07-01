@@ -20,6 +20,7 @@ export type EncomendaItemInput = {
   quantidade: number
   preco_unitario: number
   observacao: string | null
+  local: string | null
 }
 
 export type EncomendaDados = {
@@ -55,7 +56,7 @@ export type EncomendaDetalhe = EncomendaListItem & {
   historico: EncomendaStatusEvento[]
   /** true se o usuário pode ver valores (nível admin na tela encomenda). Produção não vê. */
   podeVerValores: boolean
-  itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null }[]
+  itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null; local: string | null }[]
 }
 
 async function getEmpresaId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
@@ -123,7 +124,7 @@ export async function criarEncomenda(
       encomenda_id: enc.id, produto_id: i.produto_id,
       descricao: i.descricao.trim(), quantidade: i.quantidade,
       preco_unitario: dados.com_valor ? i.preco_unitario : 0, subtotal: i.subtotal,
-      observacao: i.observacao?.trim() || null,
+      observacao: i.observacao?.trim() || null, local: i.local?.trim() || null,
     }))
   )
   if (e2) return { error: 'Encomenda criada, mas erro nos itens: ' + e2.message }
@@ -169,7 +170,7 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
 
   const [encRes, itensRes, logRes] = await Promise.all([
     supabase.from('encomenda').select('*, unidade:unidade_id ( nome, documento )').eq('id', id).maybeSingle(),
-    supabase.from('encomenda_item').select('id, produto_id, descricao, quantidade, preco_unitario, subtotal, observacao').eq('encomenda_id', id),
+    supabase.from('encomenda_item').select('id, produto_id, descricao, quantidade, preco_unitario, subtotal, observacao, local').eq('encomenda_id', id),
     supabase.from('encomenda_status_log').select('status, changed_at').eq('encomenda_id', id).order('changed_at', { ascending: true }),
   ])
   const e = encRes.data as (Record<string, unknown> & { unidade: { nome: string; documento: string | null } | null }) | null
@@ -248,7 +249,7 @@ export async function atualizarEncomenda(
       encomenda_id: id, produto_id: i.produto_id,
       descricao: i.descricao.trim(), quantidade: i.quantidade,
       preco_unitario: i.preco_unitario, subtotal: i.subtotal,
-      observacao: i.observacao?.trim() || null,
+      observacao: i.observacao?.trim() || null, local: i.local?.trim() || null,
     }))
   )
   if (e2) return { error: 'Erro ao gravar itens: ' + e2.message }

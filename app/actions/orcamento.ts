@@ -12,7 +12,7 @@ type ActionResult<T = void> = T extends void
   ? { error?: string; success?: boolean }
   : { error?: string; data?: T }
 
-export type ProdutoOrcamento = { id: string; nome: string; categoria: string | null; preco_base: number }
+export type ProdutoOrcamento = { id: string; nome: string; categoria: string | null; preco_base: number; local: string | null }
 
 export type OrcamentoItemInput = {
   produto_id: string | null
@@ -68,8 +68,18 @@ async function getUnidadeEscrita(supabase: Awaited<ReturnType<typeof createClien
 export async function getProdutosParaOrcamento(): Promise<ProdutoOrcamento[]> {
   const unidadeId = await getUnidadePreferida()
   const r = await getPainelFinanceiro(unidadeId ?? undefined)
-  return (r.data?.fichas ?? []).map((p) => ({
+  const fichas = r.data?.fichas ?? []
+
+  // Setor (local) de cada produto — não vem na view financeira, busca à parte.
+  const supabase = await createClient()
+  let lq = supabase.from('produto').select('id, local')
+  if (unidadeId) lq = lq.eq('unidade_id', unidadeId)
+  const { data: locaisData } = await lq
+  const localMap = new Map((locaisData ?? []).map((p: { id: string; local: string | null }) => [p.id, p.local]))
+
+  return fichas.map((p) => ({
     id: p.produto_id, nome: p.produto_nome, categoria: p.categoria, preco_base: p.preco_venda,
+    local: localMap.get(p.produto_id) ?? null,
   }))
 }
 

@@ -20,6 +20,7 @@ interface Linha {
   ajustePct: string
   preco: string
   obs: string
+  local: string | null
 }
 
 export type EncomendaEdicao = {
@@ -30,7 +31,7 @@ export type EncomendaEdicao = {
   hora_entrega: string | null
   rastrear_status: boolean
   observacao: string | null
-  itens: { produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; observacao: string | null }[]
+  itens: { produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; observacao: string | null; local: string | null }[]
 }
 
 function hojeISO() {
@@ -38,7 +39,7 @@ function hojeISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[]; edicao?: EncomendaEdicao }) {
+export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[]; locais: string[]; edicao?: EncomendaEdicao }) {
   const router = useRouter()
   const keyRef = useState(() => ({ n: 0 }))[0]
   const [cliente, setCliente] = useState(edicao?.cliente_nome ?? '')
@@ -50,7 +51,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
   const [linhas, setLinhas] = useState<Linha[]>(() =>
     (edicao?.itens ?? []).map((it) => ({
       key: (keyRef.n += 1), produto_id: it.produto_id, descricao: it.descricao, base: it.preco_unitario,
-      quantidade: String(it.quantidade), ajustePct: '', preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '', obs: it.observacao ?? '',
+      quantidade: String(it.quantidade), ajustePct: '', preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '', obs: it.observacao ?? '', local: it.local ?? null,
     })),
   )
   const [saving, setSaving] = useState(false)
@@ -67,7 +68,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
       }
       return [...prev, {
         key: (keyRef.n += 1), produto_id: p.id, descricao: p.nome, base: p.preco_base,
-        quantidade: '1', ajustePct: '', preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '', obs: '',
+        quantidade: '1', ajustePct: '', preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '', obs: '', local: p.local ?? null,
       }]
     })
     setErro(null)
@@ -76,7 +77,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
   function addAvulso() {
     setLinhas((prev) => [...prev, {
       key: (keyRef.n += 1), produto_id: null, descricao: '', base: 0,
-      quantidade: '1', ajustePct: '', preco: '', obs: '',
+      quantidade: '1', ajustePct: '', preco: '', obs: '', local: null,
     }])
     setErro(null)
   }
@@ -108,7 +109,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
     const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, rastrear_status: rastrear, observacao: obs }
     const itens = linhas.map((l) => ({
       produto_id: l.produto_id, descricao: l.descricao,
-      quantidade: parseDecimalBR(l.quantidade), preco_unitario: parseDecimalBR(l.preco) || 0, observacao: l.obs,
+      quantidade: parseDecimalBR(l.quantidade), preco_unitario: parseDecimalBR(l.preco) || 0, observacao: l.obs, local: l.local,
     }))
     const res = edicao
       ? await atualizarEncomenda(edicao.id, dados, itens)
@@ -205,7 +206,14 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
                   </div>
                   <span className="text-sm font-medium text-primary tabular-nums ml-auto">R$ {formatBRL(sub)}</span>
                 </div>
-                <input value={l.obs} onChange={(e) => upd(l.key, 'obs', e.target.value)} className="input-field text-xs py-1.5" placeholder="Obs. do item (ex: sem lactose, escrever 'Parabéns João')" />
+                <div className="flex items-center gap-2">
+                  <input value={l.obs} onChange={(e) => upd(l.key, 'obs', e.target.value)} className="input-field text-xs py-1.5 flex-1" placeholder="Obs. do item (ex: sem lactose, escrever 'Parabéns João')" />
+                  <select value={l.local ?? ''} onChange={(e) => upd(l.key, 'local', e.target.value)} className="input-field text-xs py-1.5 w-36 shrink-0" title="Setor de produção deste item">
+                    <option value="">Sem local</option>
+                    {locais.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+                    {l.local && !locais.includes(l.local) && <option value={l.local}>{l.local}</option>}
+                  </select>
+                </div>
               </div>
             )
           })}

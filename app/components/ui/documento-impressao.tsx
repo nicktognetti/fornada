@@ -39,6 +39,8 @@ interface Props {
   numero?: number | null
   /** Rótulos das linhas de assinatura no rodapé (ex.: ['Responsável', 'Produção']). */
   assinaturas?: string[]
+  /** Força quebra de página depois deste documento (para imprimir vários numa tirada). */
+  quebraPagina?: boolean
   children: React.ReactNode
 }
 
@@ -47,7 +49,7 @@ interface Props {
  * ao imprimir (regras .print-doc em globals.css). Cores explícitas claras —
  * não usa os tokens do tema escuro.
  */
-export function DocumentoImpressao({ titulo, subtitulo, unidade, unidadeDoc, numero, assinaturas, children }: Props) {
+export function DocumentoImpressao({ titulo, subtitulo, unidade, unidadeDoc, numero, assinaturas, quebraPagina, children }: Props) {
   const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const [mounted, setMounted] = useState(false)
   const [rodape, setRodape] = useState<RodapeConfig | null>(null)
@@ -67,7 +69,7 @@ export function DocumentoImpressao({ titulo, subtitulo, unidade, unidadeDoc, num
   ].filter(Boolean).join('  ·  ')
 
   return createPortal(
-    <div className="print-doc print-portal" style={{ color: '#1a1a1a', fontSize: '12px', lineHeight: 1.45 }}>
+    <div className="print-doc print-portal" style={{ color: '#1a1a1a', fontSize: '12px', lineHeight: 1.45, pageBreakAfter: quebraPagina ? 'always' : 'auto' }}>
       {/* Cabeçalho */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '2px solid #1a1a1a', paddingBottom: '10px', marginBottom: '16px' }}>
         <div>

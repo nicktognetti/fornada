@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Pencil, Package, ShoppingBag, Search, Plus } from 'lucide-react'
 import { formatBRL } from '@/lib/format'
-import type { ProdutoFinanceiro } from '@/app/actions/painel'
+import { setProdutoLocal, type ProdutoFinanceiro } from '@/app/actions/painel'
 import { NovoProdutoModal } from './novo-produto-modal'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
@@ -12,6 +12,8 @@ interface Props {
   produtos: ProdutoFinanceiro[]
   unidades: { id: string; nome: string }[]
   receitas: { id: string; nome: string }[]
+  locais: string[]
+  localMap: Record<string, string | null>
 }
 
 const TIPO_CONFIG = {
@@ -19,11 +21,17 @@ const TIPO_CONFIG = {
   revenda:   { icon: ShoppingBag, label: 'Revenda',   cls: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
 }
 
-export function ProdutoList({ produtos, unidades, receitas }: Props) {
+export function ProdutoList({ produtos, unidades, receitas, locais, localMap }: Props) {
   const [search, setSearch] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'produzido' | 'revenda'>('todos')
   const [modalOpen, setModalOpen] = useState(false)
   const [detalheId, setDetalheId] = useState<string | null>(null)
+  const [locaisMap, setLocaisMap] = useState<Record<string, string | null>>(localMap)
+
+  async function mudarLocal(produtoId: string, local: string) {
+    setLocaisMap((m) => ({ ...m, [produtoId]: local || null }))
+    await setProdutoLocal(produtoId, local || null)
+  }
 
   const filtered = produtos.filter((p) => {
     const matchNome = !search || p.produto_nome.toLowerCase().includes(search.toLowerCase())
@@ -146,6 +154,18 @@ export function ProdutoList({ produtos, unidades, receitas }: Props) {
                     </span>
                   )}
                 </div>
+
+                <select
+                  value={locaisMap[p.produto_id] ?? ''}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => { e.stopPropagation(); mudarLocal(p.produto_id, e.target.value) }}
+                  className="input-field text-xs py-1.5 px-2 w-32 shrink-0"
+                  title="Setor de produção (aparece na comanda da encomenda)"
+                >
+                  <option value="">Sem local</option>
+                  {locais.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+                  {locaisMap[p.produto_id] && !locais.includes(locaisMap[p.produto_id]!) && <option value={locaisMap[p.produto_id]!}>{locaisMap[p.produto_id]}</option>}
+                </select>
 
                 <button
                   onClick={(e) => { e.stopPropagation(); setDetalheId(p.produto_id) }}

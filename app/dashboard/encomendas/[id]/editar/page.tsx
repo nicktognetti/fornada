@@ -4,13 +4,16 @@ import { ArrowLeft } from 'lucide-react'
 import { getEncomenda } from '@/app/actions/encomenda'
 import { getProdutosParaOrcamento } from '@/app/actions/orcamento'
 import { getClientes } from '@/app/actions/cliente'
+import { getConfigAction } from '@/app/actions/config'
+import { LOCAIS_CONFIG_KEY, LOCAIS_PADRAO } from '@/app/lib/locais'
 import { EncomendaBuilder, type EncomendaEdicao } from '../../nova/encomenda-builder'
 
 export default async function EditarEncomendaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [encRes, produtos, clientes] = await Promise.all([
-    getEncomenda(id), getProdutosParaOrcamento(), getClientes(),
+  const [encRes, produtos, clientes, locaisRes] = await Promise.all([
+    getEncomenda(id), getProdutosParaOrcamento(), getClientes(), getConfigAction<string[]>(LOCAIS_CONFIG_KEY),
   ])
+  const locais = locaisRes.data ?? LOCAIS_PADRAO
   const e = encRes.data
   if (!e) notFound()
   // Sem nível admin não enxerga valores — editar zeraria os preços. Volta pra visualização.
@@ -30,6 +33,7 @@ export default async function EditarEncomendaPage({ params }: { params: Promise<
       quantidade: it.quantidade,
       preco_unitario: it.preco_unitario,
       observacao: it.observacao,
+      local: it.local,
     })),
   }
 
@@ -39,7 +43,7 @@ export default async function EditarEncomendaPage({ params }: { params: Promise<
         <ArrowLeft size={15} />
         Voltar à encomenda
       </Link>
-      <EncomendaBuilder produtos={produtos} clientes={clientes} edicao={edicao} />
+      <EncomendaBuilder produtos={produtos} clientes={clientes} locais={locais} edicao={edicao} />
     </div>
   )
 }

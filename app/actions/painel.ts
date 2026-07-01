@@ -408,6 +408,20 @@ export async function createProdutoRevenda(
   return { data: { id: data.id } }
 }
 
+// ── setProdutoLocal ───────────────────────────────────────────────────────────
+// Define o setor de produção do produto (Produção, Confeitaria, Cozinha…).
+export async function setProdutoLocal(produtoId: string, local: string | null): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['produtos']))) return { error: 'Sem permissão' }
+
+  const { error } = await supabase.from('produto').update({ local: local?.trim() || null }).eq('id', produtoId)
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/produtos')
+  return { success: true }
+}
+
 // ── linkProdutoReceita ────────────────────────────────────────────────────────
 
 export async function linkProdutoReceita(
