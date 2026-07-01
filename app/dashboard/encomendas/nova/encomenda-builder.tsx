@@ -100,6 +100,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
   async function salvar() {
     if (!cliente.trim()) { setErro('Informe o cliente'); return }
     if (!data) { setErro('Informe a data de entrega'); return }
+    if (!hora) { setErro('Informe a hora de entrega'); return }
     if (linhas.length === 0) { setErro('Adicione ao menos um item'); return }
     setSaving(true); setErro(null)
     const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, observacao: obs }
@@ -139,7 +140,7 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
             <input type="date" value={data} onChange={(e) => setData(e.target.value)} className={INPUT} />
           </div>
           <div className="space-y-1">
-            <label className="field-label">Hora</label>
+            <label className="field-label">Hora *</label>
             <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className={INPUT} />
           </div>
         </div>
@@ -155,6 +156,9 @@ export function EncomendaBuilder({ produtos, clientes, edicao }: { produtos: Pro
       {/* Itens */}
       {linhas.length > 0 && (
         <div className="space-y-2">
+          <p className="text-[11px] text-faint px-1">
+            Dica: no campo <span className="text-secondary font-medium">%</span> digite um número (ex: <span className="text-secondary font-medium">10</span>) para ajustar o preço em +10% sobre o base. Itens avulsos têm preço livre.
+          </p>
           {linhas.map((l) => {
             const isAvulso = l.produto_id === null
             const sub = subtotalItem(parseDecimalBR(l.quantidade), parseDecimalBR(l.preco))

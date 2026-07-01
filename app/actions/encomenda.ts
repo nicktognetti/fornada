@@ -77,6 +77,7 @@ export async function criarEncomenda(
   if (!user) return { error: 'Não autenticado' }
   if (!dados.cliente_nome.trim()) return { error: 'Informe o nome do cliente' }
   if (!dados.data_entrega) return { error: 'Informe a data de entrega' }
+  if (!dados.hora_entrega) return { error: 'Informe a hora de entrega' }
   if (itens.length === 0) return { error: 'Adicione ao menos um item' }
 
   const empresaId = await getEmpresaId(supabase, user.id)
@@ -198,6 +199,7 @@ export async function atualizarEncomenda(
   if (!user) return { error: 'Não autenticado' }
   if (!dados.cliente_nome.trim()) return { error: 'Informe o nome do cliente' }
   if (!dados.data_entrega) return { error: 'Informe a data de entrega' }
+  if (!dados.hora_entrega) return { error: 'Informe a hora de entrega' }
   if (itens.length === 0) return { error: 'Adicione ao menos um item' }
   if (!(await temAcesso(user.id, ['encomenda'], { nivel: 'admin' })))
     return { error: 'Sem permissão para editar esta encomenda' }
