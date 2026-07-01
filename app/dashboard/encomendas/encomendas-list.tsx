@@ -28,17 +28,19 @@ const TABS: { value: EncomendaStatus | 'todas'; label: string }[] = [
 export function EncomendasList({ inicial, podeVerValores }: { inicial: EncomendaListItem[]; podeVerValores: boolean }) {
   const [busca, setBusca] = useState('')
   const [tab, setTab] = useState<EncomendaStatus | 'todas'>('todas')
-  const [data, setData] = useState('')
+  const [de, setDe] = useState('')
+  const [ate, setAte] = useState('')
 
   const filtrados = useMemo(() => {
     const t = normalizeSearch(busca)
     return inicial.filter((e) => {
       const mBusca = !t || normalizeSearch(e.cliente_nome).includes(t)
       const mTab = tab === 'todas' ? e.status !== 'cancelada' : e.status === tab
-      const mData = !data || e.data_entrega === data
-      return mBusca && mTab && mData
+      const mDe = !de || e.data_entrega >= de
+      const mAte = !ate || e.data_entrega <= ate
+      return mBusca && mTab && mDe && mAte
     })
-  }, [inicial, busca, tab, data])
+  }, [inicial, busca, tab, de, ate])
 
   return (
     <div>
@@ -50,7 +52,8 @@ export function EncomendasList({ inicial, podeVerValores }: { inicial: Encomenda
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary/50 pointer-events-none" />
           <input type="text" placeholder="Buscar por cliente…" value={busca} onChange={(e) => setBusca(e.target.value)} className="input-field pl-10" />
         </div>
-        <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="input-field sm:w-44" title="Filtrar por data de entrega" />
+        <input type="date" value={de} onChange={(e) => setDe(e.target.value)} className="input-field sm:w-40" title="Entrega de" />
+        <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} className="input-field sm:w-40" title="Entrega até" />
         <Link href="/dashboard/encomendas/nova" className="btn-primary shrink-0">
           <Plus size={16} />
           Nova encomenda
@@ -82,6 +85,7 @@ export function EncomendasList({ inicial, podeVerValores }: { inicial: Encomenda
               className="card-surface flex items-center justify-between gap-4 px-5 py-4 hover:bg-input transition-colors cursor-pointer">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-secondary text-xs tabular-nums">Nº {e.numero}</span>
                   <p className="font-playfair text-primary text-[17px] font-semibold leading-tight truncate">{e.cliente_nome}</p>
                   <StatusBadgeEncomenda status={e.status} size="sm" />
                 </div>

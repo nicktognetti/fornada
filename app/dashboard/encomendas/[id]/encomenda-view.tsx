@@ -42,6 +42,7 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
       <div className="card-surface px-6 py-5 mb-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
+            <p className="text-secondary text-xs mb-1 tabular-nums">Encomenda Nº {e.numero}</p>
             <div className="flex items-center gap-2 flex-wrap mb-2">
               <h1 className="font-playfair text-primary text-[26px] font-bold leading-tight">{e.cliente_nome}</h1>
               <StatusBadgeEncomenda status={e.status} />
@@ -116,7 +117,7 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
       </div>
 
       {/* Comanda de impressão */}
-      <DocumentoImpressao titulo="Comanda de Encomenda" subtitulo={`Cliente: ${e.cliente_nome}${e.cliente_contato ? ` · ${e.cliente_contato}` : ''}`} unidade={e.unidade_nome}>
+      <DocumentoImpressao titulo="Comanda de Encomenda" numero={e.numero} subtitulo={`Cliente: ${e.cliente_nome}${e.cliente_contato ? ` · ${e.cliente_contato}` : ''}`} unidade={e.unidade_nome}>
         {/* Entrega em destaque */}
         <div style={{ border: '2px solid #1a1a1a', borderRadius: '6px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#444' }}>Entrega</span>

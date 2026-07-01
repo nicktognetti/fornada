@@ -23,6 +23,7 @@ interface Props {
   titulo: string
   subtitulo?: string
   unidade?: string | null
+  numero?: number | null
   children: React.ReactNode
 }
 
@@ -31,7 +32,7 @@ interface Props {
  * ao imprimir (regras .print-doc em globals.css). Cores explícitas claras —
  * não usa os tokens do tema escuro.
  */
-export function DocumentoImpressao({ titulo, subtitulo, unidade, children }: Props) {
+export function DocumentoImpressao({ titulo, subtitulo, unidade, numero, children }: Props) {
   const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -56,7 +57,10 @@ export function DocumentoImpressao({ titulo, subtitulo, unidade, children }: Pro
 
       {/* Título do documento */}
       <div style={{ marginBottom: '14px' }}>
-        <p style={{ fontSize: '16px', fontWeight: 700 }}>{titulo}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' }}>
+          <p style={{ fontSize: '16px', fontWeight: 700 }}>{titulo}</p>
+          {numero != null && <p style={{ fontSize: '14px', fontWeight: 700, color: '#444' }}>Nº {numero}</p>}
+        </div>
         {subtitulo && <p style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>{subtitulo}</p>}
       </div>
 

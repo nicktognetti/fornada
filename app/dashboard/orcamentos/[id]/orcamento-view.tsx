@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { Trash2, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react'
 import { formatBRL } from '@/lib/format'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
-import { excluirOrcamento, type OrcamentoDetalhe } from '@/app/actions/orcamento'
+import { excluirOrcamento, atualizarStatusOrcamento, type OrcamentoDetalhe, type OrcamentoStatus } from '@/app/actions/orcamento'
+import { StatusBadgeOrcamento } from '../components/status-badge-orcamento'
 
 function formatData(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -15,6 +16,14 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
   const router = useRouter()
   const [confirm, setConfirm] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function mudarStatus(status: OrcamentoStatus) {
+    setBusy(true)
+    await atualizarStatusOrcamento(o.id, status)
+    setBusy(false)
+    router.refresh()
+  }
 
   async function excluir() {
     setExcluindo(true)
@@ -28,7 +37,11 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
       <div className="card-surface px-6 py-5 mb-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="font-playfair text-primary text-[28px] font-bold leading-tight">{o.cliente_nome}</h1>
+            <p className="text-secondary text-xs mb-1 tabular-nums">Orçamento Nº {o.numero}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="font-playfair text-primary text-[28px] font-bold leading-tight">{o.cliente_nome}</h1>
+              <StatusBadgeOrcamento status={o.status} />
+            </div>
             <p className="text-secondary text-sm mt-1">
               {formatData(o.created_at)} · validade {o.validade_dias} dias{o.cliente_contato ? ` · ${o.cliente_contato}` : ''}
             </p>
@@ -38,14 +51,28 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
             <p className="font-playfair text-accent-primary text-[30px] font-bold leading-none tabular-nums">R$ {formatBRL(o.total)}</p>
           </div>
         </div>
-        <div className="flex gap-2 mt-5 pt-4 border-t border-subtle">
+        <div className="flex gap-2 mt-5 pt-4 border-t border-subtle flex-wrap items-center">
+          {o.status === 'aguardando' ? (
+            <>
+              <button onClick={() => mudarStatus('aprovado')} disabled={busy} className="btn-primary text-xs px-4 py-2 min-h-[36px] disabled:opacity-50">
+                {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />} Aprovar
+              </button>
+              <button onClick={() => mudarStatus('recusado')} disabled={busy} className="btn-ghost text-xs px-4 py-2 min-h-[36px] text-secondary hover:text-primary">
+                <XCircle size={13} /> Recusar
+              </button>
+            </>
+          ) : (
+            <button onClick={() => mudarStatus('aguardando')} disabled={busy} className="btn-ghost text-xs px-4 py-2 min-h-[36px] text-secondary hover:text-primary">
+              <Clock size={13} /> Reabrir
+            </button>
+          )}
           <BotaoImprimir label="Imprimir orçamento" className="text-xs px-4 py-2" />
           {!confirm ? (
-            <button onClick={() => setConfirm(true)} className="btn-ghost text-xs px-4 py-2 min-h-[36px] border-red-500/20 text-red-400/70 hover:text-red-400 hover:border-red-500/40">
+            <button onClick={() => setConfirm(true)} className="btn-ghost text-xs px-4 py-2 min-h-[36px] border-red-500/20 text-red-400/70 hover:text-red-400 hover:border-red-500/40 ml-auto">
               <Trash2 size={13} /> Excluir
             </button>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               <span className="text-red-400 text-xs">Excluir orçamento?</span>
               <button onClick={excluir} disabled={excluindo} className="text-xs text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg px-3 py-1.5">
                 {excluindo ? 'Excluindo…' : 'Sim'}
@@ -82,7 +109,7 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
       </div>
 
       {/* Documento de impressão */}
-      <DocumentoImpressao titulo="Orçamento" subtitulo={`Cliente: ${o.cliente_nome}${o.cliente_contato ? ` · ${o.cliente_contato}` : ''}`} unidade={o.unidade_nome}>
+      <DocumentoImpressao titulo="Orçamento" numero={o.numero} subtitulo={`Cliente: ${o.cliente_nome}${o.cliente_contato ? ` · ${o.cliente_contato}` : ''}`} unidade={o.unidade_nome}>
         <table style={T.table}>
           <thead>
             <tr>

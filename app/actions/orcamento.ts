@@ -6,6 +6,7 @@ import { temAcesso } from '@/app/lib/authz'
 import { getUnidadeAutorizada, getUnidadePreferida } from '@/app/actions/unidade'
 import { getPainelFinanceiro } from '@/app/actions/painel'
 import { subtotalItem, totalPedido } from '@/lib/pedido-calc'
+import { upsertCliente } from '@/app/lib/cliente-upsert'
 
 type ActionResult<T = void> = T extends void
   ? { error?: string; success?: boolean }
@@ -20,19 +21,26 @@ export type OrcamentoItemInput = {
   preco_unitario: number
 }
 
+export type OrcamentoStatus = 'aguardando' | 'aprovado' | 'recusado'
+const ORCAMENTO_STATUS: OrcamentoStatus[] = ['aguardando', 'aprovado', 'recusado']
+
 export type OrcamentoListItem = {
   id: string
+  numero: number
   cliente_nome: string
   total: number
   validade_dias: number
+  status: OrcamentoStatus
   created_at: string
 }
 
 export type OrcamentoDetalhe = {
   id: string
+  numero: number
   cliente_nome: string
   cliente_contato: string | null
   validade_dias: number
+  status: OrcamentoStatus
   observacao: string | null
   total: number
   created_at: string
@@ -111,6 +119,8 @@ export async function criarOrcamento(
   )
   if (e2) return { error: 'Orçamento criado, mas erro nos itens: ' + e2.message }
 
+  await upsertCliente(supabase, empresaId, unidadeId, dados.cliente_nome, dados.cliente_contato)
+
   revalidatePath('/dashboard/orcamentos')
   return { data: { id: orc.id } }
 }
@@ -122,7 +132,7 @@ export async function listarOrcamentos(busca?: string): Promise<ActionResult<Orc
   if (!user) return { error: 'Não autenticado' }
 
   const unidadeId = await getUnidadePreferida()
-  let q = supabase.from('orcamento').select('id, cliente_nome, total, validade_dias, created_at').order('created_at', { ascending: false })
+  let q = supabase.from('orcamento').select('id, numero, cliente_nome, total, validade_dias, status, created_at').order('created_at', { ascending: false })
   if (unidadeId) q = q.eq('unidade_id', unidadeId)
   if (busca && busca.trim()) q = q.ilike('cliente_nome', `%${busca.trim()}%`)
   const { data, error } = await q
@@ -146,9 +156,11 @@ export async function getOrcamento(id: string): Promise<ActionResult<OrcamentoDe
   return {
     data: {
       id: orc.id as string,
+      numero: orc.numero as number,
       cliente_nome: orc.cliente_nome as string,
       cliente_contato: (orc.cliente_contato as string | null) ?? null,
       validade_dias: orc.validade_dias as number,
+      status: orc.status as OrcamentoStatus,
       observacao: (orc.observacao as string | null) ?? null,
       total: orc.total as number,
       created_at: orc.created_at as string,
@@ -156,6 +168,21 @@ export async function getOrcamento(id: string): Promise<ActionResult<OrcamentoDe
       itens: (itensRes.data as OrcamentoDetalhe['itens']) ?? [],
     },
   }
+}
+
+// ── Atualizar status do orçamento ───────────────────────────────────────────────
+export async function atualizarStatusOrcamento(id: string, status: OrcamentoStatus): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!ORCAMENTO_STATUS.includes(status)) return { error: 'Status inválido' }
+  if (!(await temAcesso(user.id, ['orcamento']))) return { error: 'Sem permissão' }
+
+  const { error } = await supabase.from('orcamento').update({ status }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/orcamentos')
+  revalidatePath(`/dashboard/orcamentos/${id}`)
+  return { success: true }
 }
 
 // ── Excluir orçamento ───────────────────────────────────────────────────────────

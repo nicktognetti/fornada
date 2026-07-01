@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/app/lib/authz'
 import { getUnidadeAutorizada, getUnidadePreferida } from '@/app/actions/unidade'
 import { subtotalItem, totalPedido } from '@/lib/pedido-calc'
+import { upsertCliente } from '@/app/lib/cliente-upsert'
 
 type ActionResult<T = void> = T extends void
   ? { error?: string; success?: boolean }
@@ -32,6 +33,7 @@ export type EncomendaDados = {
 
 export type EncomendaListItem = {
   id: string
+  numero: number
   cliente_nome: string
   data_entrega: string
   hora_entrega: string | null
@@ -118,6 +120,8 @@ export async function criarEncomenda(
   )
   if (e2) return { error: 'Encomenda criada, mas erro nos itens: ' + e2.message }
 
+  await upsertCliente(supabase, empresaId, unidadeId, dados.cliente_nome, dados.cliente_contato)
+
   revalidatePath('/dashboard/encomendas')
   return { data: { id: enc.id } }
 }
@@ -131,7 +135,7 @@ export async function listarEncomendas(filtros?: { busca?: string; status?: Enco
   const podeVerValores = await temAcesso(user.id, ['encomenda'], { nivel: 'admin' })
   const unidadeId = await getUnidadePreferida()
   let q = supabase.from('encomenda')
-    .select('id, cliente_nome, data_entrega, hora_entrega, status, com_valor, total')
+    .select('id, numero, cliente_nome, data_entrega, hora_entrega, status, com_valor, total')
     .order('data_entrega', { ascending: true })
   if (unidadeId) q = q.eq('unidade_id', unidadeId)
   if (filtros?.status) q = q.eq('status', filtros.status)
@@ -165,6 +169,7 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
   return {
     data: {
       id: e.id as string,
+      numero: e.numero as number,
       cliente_nome: e.cliente_nome as string,
       cliente_contato: (e.cliente_contato as string | null) ?? null,
       data_entrega: e.data_entrega as string,

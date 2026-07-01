@@ -8,6 +8,7 @@ import { parseDecimalBR, formatBRL } from '@/lib/format'
 import { precoComAjuste, subtotalItem, totalPedido } from '@/lib/pedido-calc'
 import { criarEncomenda } from '@/app/actions/encomenda'
 import type { ProdutoOrcamento } from '@/app/actions/orcamento'
+import type { ClienteAutocomplete } from '@/app/actions/cliente'
 
 interface Linha {
   key: number
@@ -25,7 +26,7 @@ function hojeISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function EncomendaBuilder({ produtos }: { produtos: ProdutoOrcamento[] }) {
+export function EncomendaBuilder({ produtos, clientes }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[] }) {
   const router = useRouter()
   const [cliente, setCliente] = useState('')
   const [contato, setContato] = useState('')
@@ -102,7 +103,9 @@ export function EncomendaBuilder({ produtos }: { produtos: ProdutoOrcamento[] })
       <div className="card-surface p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1 sm:col-span-2">
           <label className="field-label">Cliente *</label>
-          <input value={cliente} onChange={(e) => setCliente(e.target.value)} className={INPUT} placeholder="Nome do cliente" />
+          <input list="clientes-list" autoComplete="off" value={cliente} placeholder="Nome do cliente" className={INPUT}
+            onChange={(e) => { const v = e.target.value; setCliente(v); const c = clientes.find((x) => x.nome === v); if (c?.contato) setContato(c.contato) }} />
+          <datalist id="clientes-list">{clientes.map((c) => <option key={c.nome} value={c.nome} />)}</datalist>
         </div>
         <div className="space-y-1">
           <label className="field-label">Contato</label>
