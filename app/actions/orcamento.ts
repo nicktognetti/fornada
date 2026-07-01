@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/app/lib/authz'
 import { getUnidadeAutorizada, getUnidadePreferida } from '@/app/actions/unidade'
 import { getPainelFinanceiro } from '@/app/actions/painel'
+import { subtotalItem, totalPedido } from '@/lib/pedido-calc'
 
 type ActionResult<T = void> = T extends void
   ? { error?: string; success?: boolean }
@@ -84,9 +85,9 @@ export async function criarOrcamento(
 
   const itensCalc = itens
     .filter((i) => i.quantidade > 0 && i.preco_unitario >= 0 && i.descricao.trim())
-    .map((i) => ({ ...i, subtotal: Math.round(i.quantidade * i.preco_unitario * 100) / 100 }))
+    .map((i) => ({ ...i, subtotal: subtotalItem(i.quantidade, i.preco_unitario) }))
   if (itensCalc.length === 0) return { error: 'Nenhum item válido' }
-  const total = Math.round(itensCalc.reduce((s, i) => s + i.subtotal, 0) * 100) / 100
+  const total = totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
 
   const { data: orc, error: e1 } = await supabase
     .from('orcamento')
@@ -162,6 +163,7 @@ export async function excluirOrcamento(id: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['orcamento']))) return { error: 'Sem permissão' }
   const { error } = await supabase.from('orcamento').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/orcamentos')

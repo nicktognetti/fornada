@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ClipboardList, Plus, Trash2, Loader2 } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { parseDecimalBR, formatBRL } from '@/lib/format'
+import { precoComAjuste, subtotalItem, totalPedido } from '@/lib/pedido-calc'
 import { criarEncomenda } from '@/app/actions/encomenda'
 import type { ProdutoOrcamento } from '@/app/actions/orcamento'
 
@@ -49,23 +50,31 @@ export function EncomendaBuilder({ produtos }: { produtos: ProdutoOrcamento[] })
     setErro(null)
   }
 
+  function addAvulso() {
+    setLinhas((prev) => [...prev, {
+      key: (keyRef.n += 1), produto_id: null, descricao: '', base: 0,
+      quantidade: '1', ajustePct: '', preco: '', obs: '',
+    }])
+    setErro(null)
+  }
+
   function upd(key: number, campo: keyof Linha, valor: string) {
     setLinhas((prev) => prev.map((l) => {
       if (l.key !== key) return l
       const next = { ...l, [campo]: valor }
       if (campo === 'ajustePct') {
         const pct = parseDecimalBR(valor)
-        if (l.base > 0 && !isNaN(pct)) next.preco = (l.base * (1 + pct / 100)).toFixed(2)
+        if (l.base > 0 && !isNaN(pct)) next.preco = precoComAjuste(l.base, pct).toFixed(2)
       }
       return next
     }))
     setErro(null)
   }
 
-  const total = useMemo(() => linhas.reduce((s, l) => {
-    const q = parseDecimalBR(l.quantidade); const p = parseDecimalBR(l.preco)
-    return s + (q > 0 && p >= 0 ? q * p : 0)
-  }, 0), [linhas])
+  const total = useMemo(
+    () => totalPedido(linhas.map((l) => ({ quantidade: parseDecimalBR(l.quantidade), precoUnitario: parseDecimalBR(l.preco) }))),
+    [linhas],
+  )
 
   async function salvar() {
     if (!cliente.trim()) { setErro('Informe o cliente'); return }
@@ -129,14 +138,16 @@ export function EncomendaBuilder({ produtos }: { produtos: ProdutoOrcamento[] })
         <button onClick={addProduto} disabled={!selProduto} className="btn-primary px-4 shrink-0 disabled:opacity-50">
           <Plus size={15} /> Adicionar
         </button>
+        <button onClick={addAvulso} title="Adicionar um item que não está no catálogo" className="px-4 shrink-0 rounded-xl text-sm font-medium border border-subtle text-ink-soft hover:text-primary hover:bg-input transition-colors">
+          + Avulso
+        </button>
       </div>
 
       {/* Itens */}
       {linhas.length > 0 && (
         <div className="space-y-2">
           {linhas.map((l) => {
-            const q = parseDecimalBR(l.quantidade); const p = parseDecimalBR(l.preco)
-            const sub = q > 0 && p >= 0 ? q * p : 0
+            const sub = subtotalItem(parseDecimalBR(l.quantidade), parseDecimalBR(l.preco))
             return (
               <div key={l.key} className="card-surface p-3 space-y-2">
                 <div className="flex items-center gap-2">

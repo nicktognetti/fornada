@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/app/lib/authz'
 import { getUnidadeAutorizada, getUnidadePreferida } from '@/app/actions/unidade'
+import { subtotalItem, totalPedido } from '@/lib/pedido-calc'
 
 type ActionResult<T = void> = T extends void
   ? { error?: string; success?: boolean }
@@ -83,9 +84,11 @@ export async function criarEncomenda(
 
   const itensCalc = itens
     .filter((i) => i.quantidade > 0 && i.descricao.trim())
-    .map((i) => ({ ...i, subtotal: dados.com_valor ? Math.round(i.quantidade * i.preco_unitario * 100) / 100 : 0 }))
+    .map((i) => ({ ...i, subtotal: dados.com_valor ? subtotalItem(i.quantidade, i.preco_unitario) : 0 }))
   if (itensCalc.length === 0) return { error: 'Nenhum item válido' }
-  const total = dados.com_valor ? Math.round(itensCalc.reduce((s, i) => s + i.subtotal, 0) * 100) / 100 : 0
+  const total = dados.com_valor
+    ? totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
+    : 0
 
   const { data: enc, error: e1 } = await supabase
     .from('encomenda')
@@ -187,6 +190,7 @@ export async function excluirEncomenda(id: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['encomenda']))) return { error: 'Sem permissão' }
   const { error } = await supabase.from('encomenda').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/encomendas')
