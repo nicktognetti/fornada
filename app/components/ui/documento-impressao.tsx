@@ -4,6 +4,18 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { Printer } from 'lucide-react'
+import { getConfigAction } from '@/app/actions/config'
+
+/** Dados configuráveis do rodapé de impressão (Cadastros → Rodapé). */
+export type RodapeConfig = {
+  endereco?: string
+  telefone?: string
+  email?: string
+  site?: string
+  instagram?: string
+  extra?: string
+}
+export const RODAPE_CONFIG_KEY = 'rodape_impressao'
 
 /** Botão "Imprimir" — dispara o diálogo de impressão do navegador. */
 export function BotaoImprimir({ label = 'Imprimir', className = '' }: { label?: string; className?: string }) {
@@ -38,8 +50,21 @@ interface Props {
 export function DocumentoImpressao({ titulo, subtitulo, unidade, unidadeDoc, numero, assinaturas, children }: Props) {
   const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  const [rodape, setRodape] = useState<RodapeConfig | null>(null)
+  useEffect(() => {
+    setMounted(true)
+    getConfigAction<RodapeConfig>(RODAPE_CONFIG_KEY).then((r) => { if (r.data) setRodape(r.data) })
+  }, [])
   if (!mounted) return null
+
+  // Linha de contato do rodapé (só os campos preenchidos).
+  const contato = [
+    rodape?.endereco,
+    rodape?.telefone && `Tel: ${rodape.telefone}`,
+    rodape?.email,
+    rodape?.site,
+    rodape?.instagram && (rodape.instagram.startsWith('@') ? rodape.instagram : `@${rodape.instagram}`),
+  ].filter(Boolean).join('  ·  ')
 
   return createPortal(
     <div className="print-doc print-portal" style={{ color: '#1a1a1a', fontSize: '12px', lineHeight: 1.45 }}>
@@ -83,9 +108,13 @@ export function DocumentoImpressao({ titulo, subtitulo, unidade, unidadeDoc, num
       )}
 
       {/* Rodapé */}
-      <div style={{ marginTop: '22px', paddingTop: '8px', borderTop: '1px solid #ccc', fontSize: '10px', color: '#888', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-        <span>Flor do Trigo · desde 1948{unidade ? ` · ${unidade}` : ''}{unidadeDoc ? ` · CNPJ ${unidadeDoc}` : ''}</span>
-        <span>Emitido em {hoje}</span>
+      <div style={{ marginTop: '22px', paddingTop: '8px', borderTop: '1px solid #ccc', fontSize: '10px', color: '#888' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+          <span>Flor do Trigo · desde 1948{unidade ? ` · ${unidade}` : ''}{unidadeDoc ? ` · CNPJ ${unidadeDoc}` : ''}</span>
+          <span>Emitido em {hoje}</span>
+        </div>
+        {contato && <p style={{ marginTop: '3px', textAlign: 'center' }}>{contato}</p>}
+        {rodape?.extra && <p style={{ marginTop: '2px', textAlign: 'center' }}>{rodape.extra}</p>}
       </div>
     </div>,
     document.body,

@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X, Settings2, Weight, Tag, Check, AlertCircle } from 'lucide-react'
+import { Plus, X, Settings2, Weight, Tag, Check, AlertCircle, Printer, Loader2 } from 'lucide-react'
 import { getConfigAction, saveConfigAction } from '@/app/actions/config'
+import { RODAPE_CONFIG_KEY, type RodapeConfig } from '@/app/components/ui/documento-impressao'
 import { usePermission } from '@/app/context/permissions-context'
 
-type TabId = 'tipos' | 'unidades' | 'categorias'
+type TabId = 'tipos' | 'unidades' | 'categorias' | 'rodape'
 
 const SEED_TIPOS = [
   'Final — produto de venda',
@@ -54,6 +55,8 @@ export function CadastrosPanel() {
   const [novaCategoria, setNovaCategoria] = useState('')
   const catInputRef = useRef<HTMLInputElement>(null)
 
+  const [rodape, setRodape] = useState<RodapeConfig>({})
+
   const [isLoadingConfig, setIsLoadingConfig] = useState(true)
   const [toast, setToast] = useState<Toast | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -69,10 +72,11 @@ export function CadastrosPanel() {
   useEffect(() => {
     let mounted = true
     async function loadConfigs() {
-      const [tiposRes, unidadesRes, categoriasRes] = await Promise.all([
+      const [tiposRes, unidadesRes, categoriasRes, rodapeRes] = await Promise.all([
         getConfigAction<string[]>('tipos_receita'),
         getConfigAction<Unidade[]>('unidades_medida'),
         getConfigAction<string[]>('categorias_insumo'),
+        getConfigAction<RodapeConfig>(RODAPE_CONFIG_KEY),
       ])
 
       if (!mounted) return
@@ -80,6 +84,7 @@ export function CadastrosPanel() {
       if (tiposRes.data) setTipos(tiposRes.data)
       if (unidadesRes.data) setUnidades(unidadesRes.data)
       if (categoriasRes.data) setCategorias(categoriasRes.data)
+      if (rodapeRes.data) setRodape(rodapeRes.data)
       setIsLoadingConfig(false)
     }
     loadConfigs()
@@ -117,6 +122,25 @@ export function CadastrosPanel() {
       const res = await saveConfigAction('categorias_insumo', next)
       if (res.error) showToast('error', res.error)
       else showToast('success', 'Categorias salvas')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function saveRodape() {
+    setIsSaving(true)
+    try {
+      const limpo: RodapeConfig = {
+        endereco: rodape.endereco?.trim() || undefined,
+        telefone: rodape.telefone?.trim() || undefined,
+        email: rodape.email?.trim() || undefined,
+        site: rodape.site?.trim() || undefined,
+        instagram: rodape.instagram?.trim() || undefined,
+        extra: rodape.extra?.trim() || undefined,
+      }
+      const res = await saveConfigAction(RODAPE_CONFIG_KEY, limpo)
+      if (res.error) showToast('error', res.error)
+      else showToast('success', 'Rodapé salvo')
     } finally {
       setIsSaving(false)
     }
@@ -163,12 +187,14 @@ export function CadastrosPanel() {
     { id: 'tipos',      label: 'Tipos de Receita',     icon: <Settings2 size={14} /> },
     { id: 'unidades',   label: 'Unidades de Medida',   icon: <Weight size={14} />    },
     { id: 'categorias', label: 'Categorias de Insumo', icon: <Tag size={14} />       },
+    { id: 'rodape',     label: 'Rodapé de Impressão',  icon: <Printer size={14} />   },
   ]
 
   const count =
     activeTab === 'tipos' ? `${tipos.length} tipo${tipos.length !== 1 ? 's' : ''}` :
     activeTab === 'unidades' ? `${unidades.length} unidade${unidades.length !== 1 ? 's' : ''}` :
-    `${categorias.length} categoria${categorias.length !== 1 ? 's' : ''}`
+    activeTab === 'categorias' ? `${categorias.length} categoria${categorias.length !== 1 ? 's' : ''}` :
+    'Aparece no rodapé das impressões'
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -316,6 +342,53 @@ export function CadastrosPanel() {
                 </div>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* RODAPÉ DE IMPRESSÃO */}
+      {activeTab === 'rodape' && (
+        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--t-card-bg)', border: '1px solid var(--t-card-border)' }}>
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--t-border-sub)', backgroundColor: 'var(--t-inset-bg)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--t-accent)' }}>Rodapé de Impressão</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--t-text-2)' }}>Dados da Flor do Trigo que aparecem no rodapé de orçamentos e comandas. Edite quando precisar.</p>
+          </div>
+          {isLoadingConfig ? (
+            <div className="px-5 py-6 flex justify-center"><span className="text-xs" style={{ color: 'var(--t-text-2)' }}>Carregando…</span></div>
+          ) : (
+            <div className="px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1 sm:col-span-2">
+                <label className="field-label">Endereço</label>
+                <input value={rodape.endereco ?? ''} onChange={(e) => setRodape((r) => ({ ...r, endereco: e.target.value }))} className="input-field text-sm" placeholder="Rua, nº, bairro — cidade/UF" disabled={!canEdit || isSaving} />
+              </div>
+              <div className="space-y-1">
+                <label className="field-label">Telefone / WhatsApp</label>
+                <input value={rodape.telefone ?? ''} onChange={(e) => setRodape((r) => ({ ...r, telefone: e.target.value }))} className="input-field text-sm" placeholder="(19) 3593-8101" disabled={!canEdit || isSaving} />
+              </div>
+              <div className="space-y-1">
+                <label className="field-label">E-mail</label>
+                <input value={rodape.email ?? ''} onChange={(e) => setRodape((r) => ({ ...r, email: e.target.value }))} className="input-field text-sm" placeholder="contato@flordotrigo.com.br" disabled={!canEdit || isSaving} />
+              </div>
+              <div className="space-y-1">
+                <label className="field-label">Site</label>
+                <input value={rodape.site ?? ''} onChange={(e) => setRodape((r) => ({ ...r, site: e.target.value }))} className="input-field text-sm" placeholder="www.flordotrigo.com.br" disabled={!canEdit || isSaving} />
+              </div>
+              <div className="space-y-1">
+                <label className="field-label">Instagram</label>
+                <input value={rodape.instagram ?? ''} onChange={(e) => setRodape((r) => ({ ...r, instagram: e.target.value }))} className="input-field text-sm" placeholder="@flordotrigo" disabled={!canEdit || isSaving} />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <label className="field-label">Linha extra (opcional)</label>
+                <input value={rodape.extra ?? ''} onChange={(e) => setRodape((r) => ({ ...r, extra: e.target.value }))} className="input-field text-sm" placeholder="Ex: Aceitamos encomendas · Pix e cartão" disabled={!canEdit || isSaving} />
+              </div>
+              {canEdit && (
+                <div className="sm:col-span-2 flex justify-end">
+                  <button onClick={saveRodape} disabled={isSaving} className="btn-primary px-5 disabled:opacity-50">
+                    {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Salvar rodapé
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
