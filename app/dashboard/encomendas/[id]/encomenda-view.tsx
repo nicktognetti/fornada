@@ -51,7 +51,7 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
               Entrega {fmtData(e.data_entrega)}{horaTxt ? ` às ${horaTxt}` : ''}{e.cliente_contato ? ` · ${e.cliente_contato}` : ''}
             </p>
           </div>
-          {e.com_valor && (
+          {e.podeVerValores && e.total > 0 && (
             <div className="text-right">
               <p className="field-label mb-1">Total</p>
               <p className="font-playfair text-accent-primary text-[28px] font-bold leading-none tabular-nums">R$ {formatBRL(e.total)}</p>
@@ -94,8 +94,8 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
             <tr className="bg-input text-secondary text-[11px] uppercase tracking-wider">
               <th className="text-left px-5 py-2.5 font-semibold">Item</th>
               <th className="text-right px-4 py-2.5 font-semibold">Qtd</th>
-              {e.com_valor && <th className="text-right px-4 py-2.5 font-semibold">Preço un.</th>}
-              {e.com_valor && <th className="text-right px-5 py-2.5 font-semibold">Subtotal</th>}
+              {e.podeVerValores && <th className="text-right px-4 py-2.5 font-semibold">Preço un.</th>}
+              {e.podeVerValores && <th className="text-right px-5 py-2.5 font-semibold">Subtotal</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-subtle">
@@ -106,8 +106,8 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
                   {it.observacao && <span className="block text-xs text-amber-400/80 mt-0.5">↳ {it.observacao}</span>}
                 </td>
                 <td className="px-4 py-3 text-right text-secondary tabular-nums align-top">{it.quantidade}</td>
-                {e.com_valor && <td className="px-4 py-3 text-right text-secondary tabular-nums align-top">R$ {formatBRL(it.preco_unitario)}</td>}
-                {e.com_valor && <td className="px-5 py-3 text-right font-medium text-primary tabular-nums align-top">R$ {formatBRL(it.subtotal)}</td>}
+                {e.podeVerValores && <td className="px-4 py-3 text-right text-secondary tabular-nums align-top">R$ {formatBRL(it.preco_unitario)}</td>}
+                {e.podeVerValores && <td className="px-5 py-3 text-right font-medium text-primary tabular-nums align-top">R$ {formatBRL(it.subtotal)}</td>}
               </tr>
             ))}
           </tbody>
@@ -128,7 +128,6 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
             <tr>
               <th style={{ ...T.thRight, width: '60px' }}>Qtd</th>
               <th style={T.th}>Item</th>
-              {e.com_valor && <th style={T.thRight}>Subtotal</th>}
             </tr>
           </thead>
           <tbody>
@@ -139,18 +138,11 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
                   {it.descricao}
                   {it.observacao && <div style={{ fontSize: '11px', fontStyle: 'italic', color: '#555' }}>↳ {it.observacao}</div>}
                 </td>
-                {e.com_valor && <td style={{ ...T.tdRight, verticalAlign: 'top' }}>R$ {formatBRL(it.subtotal)}</td>}
               </tr>
             ))}
           </tbody>
         </table>
 
-        {e.com_valor && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '8px', borderTop: '2px solid #1a1a1a', fontWeight: 700, fontSize: '15px' }}>
-            <span>Total</span>
-            <span>R$ {formatBRL(e.total)}</span>
-          </div>
-        )}
         {e.observacao && <p style={{ marginTop: '12px', fontSize: '11px', color: '#555' }}>Obs.: {e.observacao}</p>}
       </DocumentoImpressao>
     </>

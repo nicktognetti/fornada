@@ -45,6 +45,8 @@ export type EncomendaDetalhe = EncomendaListItem & {
   observacao: string | null
   created_at: string
   unidade_nome: string | null
+  /** true se o usuário pode ver valores (nível admin na tela encomenda). Produção não vê. */
+  podeVerValores: boolean
   itens: { id: string; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null }[]
 }
 
@@ -121,11 +123,12 @@ export async function criarEncomenda(
 }
 
 // ── Listar encomendas (unidade atual; filtros) ──────────────────────────────────
-export async function listarEncomendas(filtros?: { busca?: string; status?: EncomendaStatus; data?: string }): Promise<ActionResult<EncomendaListItem[]>> {
+export async function listarEncomendas(filtros?: { busca?: string; status?: EncomendaStatus; data?: string }): Promise<ActionResult<{ itens: EncomendaListItem[]; podeVerValores: boolean }>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
+  const podeVerValores = await temAcesso(user.id, ['encomenda'], { nivel: 'admin' })
   const unidadeId = await getUnidadePreferida()
   let q = supabase.from('encomenda')
     .select('id, cliente_nome, data_entrega, hora_entrega, status, com_valor, total')
@@ -136,7 +139,9 @@ export async function listarEncomendas(filtros?: { busca?: string; status?: Enco
   if (filtros?.busca?.trim()) q = q.ilike('cliente_nome', `%${filtros.busca.trim()}%`)
   const { data, error } = await q
   if (error) return { error: error.message }
-  return { data: (data as EncomendaListItem[]) ?? [] }
+  // Produção (sem nível admin) não recebe os valores no payload
+  const itens = ((data as EncomendaListItem[]) ?? []).map((e) => podeVerValores ? e : { ...e, total: 0 })
+  return { data: { itens, podeVerValores } }
 }
 
 // ── Buscar uma encomenda ────────────────────────────────────────────────────────
@@ -152,6 +157,11 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
   const e = encRes.data as (Record<string, unknown> & { unidade: { nome: string } | null }) | null
   if (!e) return { error: 'Encomenda não encontrada' }
 
+  const podeVerValores = await temAcesso(user.id, ['encomenda'], { nivel: 'admin' })
+  const itensRaw = (itensRes.data as EncomendaDetalhe['itens']) ?? []
+  // Produção (sem nível admin) não recebe os valores no payload
+  const itens = podeVerValores ? itensRaw : itensRaw.map((i) => ({ ...i, preco_unitario: 0, subtotal: 0 }))
+
   return {
     data: {
       id: e.id as string,
@@ -161,11 +171,12 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
       hora_entrega: (e.hora_entrega as string | null) ?? null,
       status: e.status as EncomendaStatus,
       com_valor: e.com_valor as boolean,
-      total: e.total as number,
+      total: podeVerValores ? (e.total as number) : 0,
       observacao: (e.observacao as string | null) ?? null,
       created_at: e.created_at as string,
       unidade_nome: e.unidade?.nome ?? null,
-      itens: (itensRes.data as EncomendaDetalhe['itens']) ?? [],
+      podeVerValores,
+      itens,
     },
   }
 }

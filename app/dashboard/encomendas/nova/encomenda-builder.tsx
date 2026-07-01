@@ -31,7 +31,6 @@ export function EncomendaBuilder({ produtos }: { produtos: ProdutoOrcamento[] })
   const [contato, setContato] = useState('')
   const [data, setData] = useState(hojeISO)
   const [hora, setHora] = useState('')
-  const [comValor, setComValor] = useState(false)
   const [obs, setObs] = useState('')
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [selProduto, setSelProduto] = useState('')
@@ -82,7 +81,7 @@ export function EncomendaBuilder({ produtos }: { produtos: ProdutoOrcamento[] })
     if (linhas.length === 0) { setErro('Adicione ao menos um item'); return }
     setSaving(true); setErro(null)
     const res = await criarEncomenda(
-      { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: comValor, observacao: obs },
+      { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, observacao: obs },
       linhas.map((l) => ({
         produto_id: l.produto_id, descricao: l.descricao,
         quantidade: parseDecimalBR(l.quantidade), preco_unitario: parseDecimalBR(l.preco) || 0, observacao: l.obs,
@@ -123,10 +122,6 @@ export function EncomendaBuilder({ produtos }: { produtos: ProdutoOrcamento[] })
           <label className="field-label">Observação geral</label>
           <textarea value={obs} onChange={(e) => setObs(e.target.value)} className={`${INPUT} min-h-[56px]`} placeholder="Forma de pagamento, retirada/entrega…" />
         </div>
-        <label className="sm:col-span-2 flex items-center gap-2 cursor-pointer select-none">
-          <input type="checkbox" checked={comValor} onChange={(e) => setComValor(e.target.checked)} className="accent-[var(--color-accent-primary)]" />
-          <span className="text-sm text-ink-soft">Registrar valor (preços e total) — para controle da Natali</span>
-        </label>
       </div>
 
       {/* Adicionar produto */}
@@ -161,31 +156,25 @@ export function EncomendaBuilder({ produtos }: { produtos: ProdutoOrcamento[] })
                     <span className="text-[11px] text-faint">Qtd</span>
                     <input value={l.quantidade} inputMode="decimal" onChange={(e) => upd(l.key, 'quantidade', e.target.value)} className="input-field text-sm py-1.5 px-2 w-16 text-right tabular-nums" placeholder="1" />
                   </div>
-                  {comValor && (
-                    <>
-                      <span className="text-[11px] text-faint">base {l.base > 0 ? `R$ ${formatBRL(l.base)}` : '—'}</span>
-                      <div className="flex items-center gap-1.5">
-                        <input value={l.ajustePct} inputMode="decimal" onChange={(e) => upd(l.key, 'ajustePct', e.target.value)} className="input-field text-sm py-1.5 px-2 w-14 text-right tabular-nums" placeholder="%" title="% sobre o preço base" />
-                        <span className="text-[11px] text-faint">%</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-faint">R$</span>
-                        <input value={l.preco} inputMode="decimal" onChange={(e) => upd(l.key, 'preco', e.target.value)} className="input-field text-sm py-1.5 px-2 w-20 text-right tabular-nums" placeholder="0,00" />
-                      </div>
-                      <span className="text-sm font-medium text-primary tabular-nums ml-auto">R$ {formatBRL(sub)}</span>
-                    </>
-                  )}
+                  <span className="text-[11px] text-faint">base {l.base > 0 ? `R$ ${formatBRL(l.base)}` : '—'}</span>
+                  <div className="flex items-center gap-1.5">
+                    <input value={l.ajustePct} inputMode="decimal" onChange={(e) => upd(l.key, 'ajustePct', e.target.value)} className="input-field text-sm py-1.5 px-2 w-14 text-right tabular-nums" placeholder="%" title="% sobre o preço base" />
+                    <span className="text-[11px] text-faint">%</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-faint">R$</span>
+                    <input value={l.preco} inputMode="decimal" onChange={(e) => upd(l.key, 'preco', e.target.value)} className="input-field text-sm py-1.5 px-2 w-20 text-right tabular-nums" placeholder="0,00" />
+                  </div>
+                  <span className="text-sm font-medium text-primary tabular-nums ml-auto">R$ {formatBRL(sub)}</span>
                 </div>
                 <input value={l.obs} onChange={(e) => upd(l.key, 'obs', e.target.value)} className="input-field text-xs py-1.5" placeholder="Obs. do item (ex: sem lactose, escrever 'Parabéns João')" />
               </div>
             )
           })}
-          {comValor && (
-            <div className="flex items-center justify-between px-4 py-3 card-surface">
-              <span className="text-sm text-secondary">Total</span>
-              <span className="font-playfair text-accent-primary text-2xl font-bold tabular-nums">R$ {formatBRL(total)}</span>
-            </div>
-          )}
+          <div className="flex items-center justify-between px-4 py-3 card-surface">
+            <span className="text-sm text-secondary">Total</span>
+            <span className="font-playfair text-accent-primary text-2xl font-bold tabular-nums">R$ {formatBRL(total)}</span>
+          </div>
         </div>
       )}
 

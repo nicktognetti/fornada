@@ -25,7 +25,7 @@ const TABS: { value: EncomendaStatus | 'todas'; label: string }[] = [
   { value: 'entregue', label: 'Entregue' },
 ]
 
-export function EncomendasList({ inicial }: { inicial: EncomendaListItem[] }) {
+export function EncomendasList({ inicial, podeVerValores }: { inicial: EncomendaListItem[]; podeVerValores: boolean }) {
   const [busca, setBusca] = useState('')
   const [tab, setTab] = useState<EncomendaStatus | 'todas'>('todas')
   const [data, setData] = useState('')
@@ -90,7 +90,7 @@ export function EncomendasList({ inicial }: { inicial: EncomendaListItem[] }) {
                   Entrega {fmtData(e.data_entrega)}{fmtHora(e.hora_entrega) ? ` às ${fmtHora(e.hora_entrega)}` : ''}
                 </p>
               </div>
-              {e.com_valor && (
+              {podeVerValores && e.total > 0 && (
                 <span className="font-playfair text-accent-primary text-[18px] font-bold tabular-nums shrink-0">R$ {formatBRL(e.total)}</span>
               )}
             </Link>
