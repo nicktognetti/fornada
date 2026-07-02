@@ -49,6 +49,17 @@ Formato: `tipo: descrição — detalhes`
 - Backend: `addItensLote(receitaId, itens[])` — checa permissão uma vez, valida quantidade e **ciclo de
   sub-receita** por item, insere todos numa operação. A edição de 1 item segue igual.
 
+### Preços — definir preço direto na tela (mais fácil)
+> Antes, "definir preço" **mandava pra outra tela** (Painel, tabela densa) com a edição numa célula
+> minúscula. Agora dá pra precificar **na própria tela de Preços**, num modal simples.
+- Novo **modal "Definir preço"** ([definir-preco-modal](app/dashboard/precos/components/definir-preco-modal.tsx)):
+  escolhe entre **digitar o preço (R$/kg)** ou **definir por margem %**, com **margem e markup ao vivo**;
+  salva por unidade-base (÷1000) — margem correta. Abre a partir da lista de Preços (sem preço **e** com preço).
+- Atalho de **margem em lote**: um campo de % + "Aplicar a todos" define o preço de todos os produtos
+  sem preço de uma vez (reusa `savePrecoVendaLote`).
+- Nota: **orçamento e encomenda já eram "lista"** (o seletor de produto fica na tela e você empilha vários
+  itens antes de salvar) — nenhuma mudança necessária lá.
+
 ---
 
 ## 2026-07-01 — Clientes, edição, status e impressão v2 (continuação)

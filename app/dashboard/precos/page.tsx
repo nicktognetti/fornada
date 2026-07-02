@@ -1,10 +1,10 @@
 import { Tag, BookOpen, AlertTriangle } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { SectionLabel } from '@/app/components/ui/section-label'
-import { formatBRL, formatCustoGrande } from '@/lib/format'
 import { getPainelFinanceiro } from '@/app/actions/painel'
 import { getUnidadePreferida } from '@/app/actions/unidade'
 import { PrecosComPrecoList } from './components/precos-com-preco-list'
+import { PrecosSemPrecoList } from './components/precos-sem-preco-list'
 import Link from 'next/link'
 
 export default async function PrecosPage() {
@@ -57,26 +57,7 @@ export default async function PrecosPage() {
       {semPreco.length > 0 && (
         <div className="space-y-3 mb-8">
           <SectionLabel icon={AlertTriangle}>Sem preço definido</SectionLabel>
-          <div className="space-y-2">
-            {semPreco.map((p) => (
-              <div key={p.produto_id} className="card-surface px-5 py-4 flex items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="font-playfair text-primary text-[17px] font-semibold leading-tight truncate">
-                    {p.produto_nome}
-                  </p>
-                  <p className="text-secondary text-xs mt-1">
-                    custo: {p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`} — sem preço de venda
-                  </p>
-                </div>
-                <Link
-                  href="/dashboard/painel"
-                  className="shrink-0 text-[11px] text-accent-primary hover:text-accent-primary/80 transition-colors"
-                >
-                  definir preço →
-                </Link>
-              </div>
-            ))}
-          </div>
+          <PrecosSemPrecoList produtos={semPreco} />
         </div>
       )}
 

@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { Tag } from 'lucide-react'
 import { formatBRL, formatCustoGrande, valorPorGrande, unidadeGrande } from '@/lib/format'
 import type { ProdutoFinanceiro } from '@/app/actions/painel'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
+import { DefinirPrecoModal } from './definir-preco-modal'
+import { usePermission } from '@/app/context/permissions-context'
 
 /**
  * Lista clicável dos produtos já precificados (seção "Com preço definido"
@@ -11,6 +14,8 @@ import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
  */
 export function PrecosComPrecoList({ produtos }: { produtos: ProdutoFinanceiro[] }) {
   const [detalheId, setDetalheId] = useState<string | null>(null)
+  const [editar, setEditar] = useState<ProdutoFinanceiro | null>(null)
+  const { canWrite } = usePermission('painel')
 
   return (
     <>
@@ -44,12 +49,32 @@ export function PrecosComPrecoList({ produtos }: { produtos: ProdutoFinanceiro[]
                   {prejuizo ? 'PREJUÍZO' : 'margem'}
                 </p>
               </div>
+              {canWrite && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditar(p) }}
+                  title="Alterar preço"
+                  className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-secondary/40 hover:text-accent-primary hover:bg-accent-primary/10 border border-transparent hover:border-accent-primary/20 transition-all"
+                >
+                  <Tag size={15} />
+                </button>
+              )}
             </div>
           )
         })}
       </div>
 
       <ProdutoDetalheDrawer produtoId={detalheId} onClose={() => setDetalheId(null)} />
+
+      {editar && (
+        <DefinirPrecoModal
+          produtoId={editar.produto_id}
+          nome={editar.produto_nome}
+          custoBase={editar.custo_total}
+          rendimentoUnidade={editar.rendimento_unidade}
+          precoAtualBase={editar.preco_venda}
+          onClose={() => setEditar(null)}
+        />
+      )}
     </>
   )
 }
