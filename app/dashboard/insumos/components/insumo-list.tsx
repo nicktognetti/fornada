@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { Plus, Pencil, Package, Search, ChevronDown, Tag } from 'lucide-react'
-import { normalizeSearch, formatCustoUso } from '@/lib/format'
+import { normalizeSearch, formatCustoGrande } from '@/lib/format'
 import type { InsumoComCusto } from '../types'
 import { InsumoModal } from './insumo-modal'
 
@@ -174,7 +174,7 @@ export function InsumoList({ insumos, categorias }: Props) {
                 <div className="shrink-0 sm:text-right flex sm:flex-col items-center sm:items-end gap-2">
                   {insumo.custo?.custo_uso != null && insumo.custo.custo_uso > 0 ? (
                     <p className="font-playfair text-accent-primary text-[22px] sm:text-[26px] font-bold leading-none">
-                      {formatCustoUso(insumo.custo.custo_uso, insumo.unidade_uso)}
+                      {formatCustoGrande(insumo.custo.custo_uso, insumo.unidade_uso)}
                     </p>
                   ) : (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { formatBRL } from '@/lib/format'
+import { formatBRL, formatCustoGrande, valorPorGrande, unidadeGrande } from '@/lib/format'
 import type { ProdutoFinanceiro } from '@/app/actions/painel'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
 
@@ -29,9 +29,9 @@ export function PrecosComPrecoList({ produtos }: { produtos: ProdutoFinanceiro[]
                   {p.produto_nome}
                 </p>
                 <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                  <span className="text-secondary text-xs">custo: R$ {formatBRL(p.custo_total)}</span>
+                  <span className="text-secondary text-xs">custo: {p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`}</span>
                   <span className="text-secondary text-xs">
-                    preço: <span className="text-primary">R$ {formatBRL(p.preco_venda)}</span>
+                    preço: <span className="text-primary">{p.rendimento_unidade ? `R$ ${formatBRL(valorPorGrande(p.preco_venda, p.rendimento_unidade))}/${unidadeGrande(p.rendimento_unidade)}` : `R$ ${formatBRL(p.preco_venda)}`}</span>
                   </span>
                   {p.unidade_nome && <span className="text-faint text-xs">{p.unidade_nome}</span>}
                 </div>

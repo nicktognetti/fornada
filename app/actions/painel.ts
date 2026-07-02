@@ -20,6 +20,11 @@ export type ProdutoFinanceiro = {
   margem_rs: number
   margem_percentual: number
   markup_percentual: number
+  /**
+   * Unidade de rendimento da ficha (g/kg/ml/l/un), para exibir custo/preço por kg/L.
+   * `null` para revenda (custo/preço já são por unidade do produto).
+   */
+  rendimento_unidade: string | null
 }
 
 export type PainelIndicadores = {
@@ -57,6 +62,8 @@ export type ProdutoDetalhe = {
   categoria: string | null
   unidade_nome: string | null
   receita_id: string | null
+  /** Unidade de rendimento da ficha (para exibir custo/preço por kg/L). null p/ revenda. */
+  rendimento_unidade: string | null
   custo_compra: number | null
   custo_embalagem: number
   custo_total: number
@@ -134,6 +141,21 @@ export async function getPainelFinanceiro(
     margem_rs: string; margem_percentual: string; markup_percentual: string
   }
 
+  // Unidade de rendimento por produto (produto → receita.rendimento_unidade),
+  // para exibir custo/preço por kg/L em vez de por grama. Não vem na view.
+  const produtoIds = ((data as Row[]) ?? []).map((r) => r.produto_id)
+  const unidadeRendMap = new Map<string, string | null>()
+  if (produtoIds.length > 0) {
+    const { data: prods } = await supabase
+      .from('produto')
+      .select('id, receita_id, receita:receita_id ( rendimento_unidade )')
+      .in('id', produtoIds)
+    for (const p of (prods ?? []) as { id: string; receita_id: string | null; receita: { rendimento_unidade: string | null } | { rendimento_unidade: string | null }[] | null }[]) {
+      const rec = Array.isArray(p.receita) ? p.receita[0] : p.receita
+      unidadeRendMap.set(p.id, rec?.rendimento_unidade ?? null)
+    }
+  }
+
   const fichas: ProdutoFinanceiro[] = ((data as Row[]) ?? []).map((r) => ({
     produto_id:        r.produto_id,
     produto_nome:      r.produto_nome,
@@ -147,11 +169,11 @@ export async function getPainelFinanceiro(
     margem_rs:         Number(r.margem_rs),
     margem_percentual: Number(r.margem_percentual),
     markup_percentual: Number(r.markup_percentual),
+    rendimento_unidade: unidadeRendMap.get(r.produto_id) ?? null,
     // compatibilidade FichaFinanceira
     receita_id:        r.produto_id,
     receita_nome:      r.produto_nome,
     rendimento:        1,
-    rendimento_unidade: 'un',
   } as ProdutoFinanceiro))
 
   const comPreco = fichas.filter((f) => f.preco_venda > 0)
@@ -318,7 +340,7 @@ export async function getProdutoDetalhe(
   const [prodRes, finRes, precoRes] = await Promise.all([
     supabase
       .from('produto')
-      .select('id, nome, tipo, categoria, receita_id, custo_compra, custo_embalagem')
+      .select('id, nome, tipo, categoria, receita_id, custo_compra, custo_embalagem, receita:receita_id ( rendimento_unidade )')
       .eq('id', produtoId)
       .maybeSingle(),
     supabase
@@ -336,8 +358,12 @@ export async function getProdutoDetalhe(
   const prod = prodRes.data as {
     id: string; nome: string; tipo: 'produzido' | 'revenda'; categoria: string | null
     receita_id: string | null; custo_compra: number | null; custo_embalagem: number | null
+    receita: { rendimento_unidade: string | null } | { rendimento_unidade: string | null }[] | null
   } | null
   if (!prod) return { error: 'Produto não encontrado' }
+
+  const receitaRel = Array.isArray(prod.receita) ? prod.receita[0] : prod.receita
+  const rendimentoUnidade = receitaRel?.rendimento_unidade ?? null
 
   const fin = finRes.data as {
     custo_total: number | null; preco_venda: number | null; margem_rs: number | null
@@ -357,6 +383,7 @@ export async function getProdutoDetalhe(
       categoria: prod.categoria,
       unidade_nome: fin?.unidade_nome ?? null,
       receita_id: prod.receita_id,
+      rendimento_unidade: rendimentoUnidade,
       custo_compra: prod.custo_compra,
       custo_embalagem: prod.custo_embalagem ?? 0,
       custo_total: fin?.custo_total ?? 0,

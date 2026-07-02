@@ -8,7 +8,7 @@ import {
   addPreco,
   getPrecoHistorico,
 } from '../actions'
-import { parseDecimalBR, formatBRL, formatCustoUso } from '@/lib/format'
+import { parseDecimalBR, formatBRL, formatCustoGrande } from '@/lib/format'
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { UnidadeMedidaSelector } from '@/app/components/ui/unidade-medida-selector'
 import type { ActionResult, InsumoComCusto, InsumoPreco } from '../types'
@@ -262,7 +262,7 @@ export function InsumoModal({ insumo, categorias, onClose }: Props) {
                             <p className="text-secondary text-xs truncate mt-0.5">{p.unidade_compra} — R$ {formatBRL(p.preco_compra)}</p>
                           </div>
                           <p className={`font-playfair text-base font-semibold shrink-0 ${idx === 0 ? 'text-accent-primary' : 'text-secondary'}`}>
-                            {formatCustoUso(custo, insumo.unidade_uso)}
+                            {formatCustoGrande(custo, insumo.unidade_uso)}
                           </p>
                         </div>
                       )

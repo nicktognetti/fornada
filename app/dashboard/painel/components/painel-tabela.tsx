@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, X, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
-import { formatBRL, parseDecimalBR } from '@/lib/format'
+import { formatBRL, parseDecimalBR, formatCustoGrande, valorPorGrande, fatorGrande, unidadeGrande } from '@/lib/format'
 import { savePrecoVenda, savePrecoVendaLote } from '@/app/actions/painel'
 import { usePermission } from '@/app/context/permissions-context'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
@@ -63,7 +63,9 @@ function LoteModal({ fichas, onClose }: { fichas: ProdutoFinanceiro[]; onClose: 
     const val = parseDecimalBR(preco)
     if (!val || val <= 0 || selected.size === 0) return
     setSaving(true)
-    const items = Array.from(selected).map((id) => ({ id, preco: val }))
+    // Preço digitado é por kg/L; converte para unidade-base por produto (÷1000 se g/ml).
+    const unidadePorId = new Map(fichas.map((f) => [f.produto_id, f.rendimento_unidade]))
+    const items = Array.from(selected).map((id) => ({ id, preco: val / fatorGrande(unidadePorId.get(id) ?? null) }))
     const res = await savePrecoVendaLote(items)
     setSaving(false)
     if (res.error) {
@@ -87,7 +89,7 @@ function LoteModal({ fichas, onClose }: { fichas: ProdutoFinanceiro[]; onClose: 
           <button onClick={onClose} disabled={saving} className="text-faint hover:text-secondary p-1"><X size={16} /></button>
         </div>
         <div className="px-5 py-4 border-b border-subtle">
-          <label className="field-label mb-2">Preço de venda para os selecionados</label>
+          <label className="field-label mb-2">Preço de venda para os selecionados (por kg · fabricados por peso)</label>
           <div className="flex items-center gap-3">
             <span className="text-secondary text-sm shrink-0">R$</span>
             <input type="text" inputMode="decimal" value={preco}
@@ -115,7 +117,7 @@ function LoteModal({ fichas, onClose }: { fichas: ProdutoFinanceiro[]; onClose: 
                 }}
                 className="accent-[var(--color-accent-primary)] shrink-0" />
               <span className="flex-1 text-sm text-primary truncate">{f.produto_nome}</span>
-              <span className="text-xs tabular-nums text-secondary shrink-0">R$ {formatBRL(f.custo_total)}</span>
+              <span className="text-xs tabular-nums text-secondary shrink-0">{f.rendimento_unidade ? formatCustoGrande(f.custo_total, f.rendimento_unidade) : `R$ ${formatBRL(f.custo_total)}`}</span>
             </label>
           ))}
         </div>
@@ -154,33 +156,37 @@ function PrecoCell({ f, canWrite }: { f: ProdutoFinanceiro; canWrite: boolean })
   const router = useRouter()
   const precoExibido = localPreco ?? f.preco_venda
   const comPreco = precoExibido > 0
+  // Fabricado por peso/volume: exibe/edita por kg/L (×1000); salva por unidade-base (÷1000).
+  const fator = fatorGrande(f.rendimento_unidade)
+  const sufixo = f.rendimento_unidade ? `/${unidadeGrande(f.rendimento_unidade)}` : ''
 
   function startEdit() {
     if (!canWrite || saving) return
-    setValue(comPreco ? precoExibido.toFixed(2) : '')
+    setValue(comPreco ? (precoExibido * fator).toFixed(2) : '')
     setEditing(true)
     setTimeout(() => inputRef.current?.select(), 0)
   }
 
   const save = useCallback(async () => {
-    const val = parseDecimalBR(value)
-    if (!val || val <= 0) { setEditing(false); return }
+    const valGrande = parseDecimalBR(value)
+    if (!valGrande || valGrande <= 0) { setEditing(false); return }
+    const valBase = valGrande / fator
     setSaving(true)
-    const res = await savePrecoVenda(f.produto_id, val)
+    const res = await savePrecoVenda(f.produto_id, valBase)
     setSaving(false)
     if (!res.error) {
-      setLocalPreco(val)
+      setLocalPreco(valBase)
       setFlash(true)
       setTimeout(() => setFlash(false), 1200)
       router.refresh()
     }
     setEditing(false)
-  }, [value, f, router])
+  }, [value, f, fator, router])
 
   if (!canWrite) {
     return (
       <span className="w-28 text-right text-sm tabular-nums text-primary">
-        {comPreco ? `R$ ${formatBRL(precoExibido)}` : <span className="text-faint">—</span>}
+        {comPreco ? `R$ ${formatBRL(precoExibido * fator)}${sufixo}` : <span className="text-faint">—</span>}
       </span>
     )
   }
@@ -218,7 +224,7 @@ function PrecoCell({ f, canWrite }: { f: ProdutoFinanceiro; canWrite: boolean })
         <span className="text-success text-xs flex items-center justify-end gap-1"><Check size={11} />Salvo</span>
       ) : comPreco ? (
         <span className="text-sm tabular-nums text-primary group-hover:text-accent-primary group-hover:underline group-hover:underline-offset-2 group-hover:decoration-accent-primary/50 transition-colors">
-          R$ {formatBRL(precoExibido)}
+          R$ {formatBRL(precoExibido * fator)}{sufixo}
         </span>
       ) : (
         <span className="flex justify-end">
@@ -422,7 +428,7 @@ export function PainelTabela({ fichas, alertaFiltro, chartFilter, onClearChartFi
                 </div>
 
                 <span className="w-24 text-right text-sm tabular-nums text-secondary">
-                  {f.custo_total > 0 ? `R$ ${formatBRL(f.custo_total)}` : <span className="text-faint">—</span>}
+                  {f.custo_total > 0 ? (f.rendimento_unidade ? formatCustoGrande(f.custo_total, f.rendimento_unidade) : `R$ ${formatBRL(f.custo_total)}`) : <span className="text-faint">—</span>}
                 </span>
 
                 <PrecoCell f={f} canWrite={canWrite} />

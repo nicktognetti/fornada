@@ -105,6 +105,15 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produ
     if (!data) { setErro('Informe a data de entrega'); return }
     if (!hora) { setErro('Informe a hora de entrega'); return }
     if (linhas.length === 0) { setErro('Adicione ao menos um item'); return }
+    // Cada item precisa de descrição (avulso), quantidade e valor > 0.
+    for (const l of linhas) {
+      const nomeItem = (l.produto_id === null ? l.descricao : l.descricao).trim()
+      if (l.produto_id === null && !nomeItem) { setErro('Descreva o item avulso antes de salvar'); return }
+      const q = parseDecimalBR(l.quantidade)
+      if (!q || q <= 0) { setErro(`Informe a quantidade de "${nomeItem || 'item'}"`); return }
+      const p = parseDecimalBR(l.preco)
+      if (!p || p <= 0) { setErro(`Informe o valor de "${nomeItem || 'item avulso'}" (não pode ficar em R$ 0,00)`); return }
+    }
     setSaving(true); setErro(null)
     const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, rastrear_status: rastrear, observacao: obs }
     const itens = linhas.map((l) => ({

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Calculator, Check, X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
-import { formatBRL, parseDecimalBR } from '@/lib/format'
+import { formatBRL, parseDecimalBR, formatCustoGrande, valorPorGrande, unidadeGrande } from '@/lib/format'
 import { savePrecoVenda, savePrecoVendaLote } from '@/app/actions/painel'
 import { usePermission } from '@/app/context/permissions-context'
 import type { FichaFinanceira } from '@/app/actions/painel'
@@ -36,6 +36,15 @@ export function PainelPrecificacao({ fichas }: Props) {
     }
     return custo * (1 + pct / 100)
   }
+
+  // Exibição por kg/L para produtos fabricados (a % e o valor salvo continuam
+  // por unidade-base; só a apresentação é escalada). Revenda: por unidade.
+  const fmtCusto = (f: FichaFinanceira) =>
+    f.rendimento_unidade ? formatCustoGrande(f.custo_total, f.rendimento_unidade) : `R$ ${formatBRL(f.custo_total)}`
+  const fmtPreco = (f: FichaFinanceira, preco: number) =>
+    f.rendimento_unidade
+      ? `R$ ${formatBRL(valorPorGrande(preco, f.rendimento_unidade))}/${unidadeGrande(f.rendimento_unidade)}`
+      : `R$ ${formatBRL(preco)}`
 
   // Produtos sem preço com custo > 0 (prioritários para precificação)
   const candidatos = useMemo(
@@ -179,9 +188,9 @@ export function PainelPrecificacao({ fichas }: Props) {
                 Com {modoLabel} alvo de{' '}
                 <span className="text-accent-primary font-semibold">{pct}%</span>, o{' '}
                 <span className="text-primary font-medium">{candidatos[0].produto_nome}</span>{' '}
-                (custo R$ {formatBRL(candidatos[0].custo_total)}) deveria ser vendido a{' '}
+                (custo {fmtCusto(candidatos[0])}) deveria ser vendido a{' '}
                 <span className="text-success font-semibold">
-                  R$ {formatBRL(calcPreco(candidatos[0].custo_total))}
+                  {fmtPreco(candidatos[0], calcPreco(candidatos[0].custo_total))}
                 </span>
               </p>
             </div>
@@ -218,10 +227,10 @@ export function PainelPrecificacao({ fichas }: Props) {
                       {f.produto_nome}
                     </span>
                     <span className="w-24 text-right text-sm tabular-nums text-secondary">
-                      R$ {formatBRL(f.custo_total)}
+                      {fmtCusto(f)}
                     </span>
                     <span className="w-28 text-right text-sm tabular-nums font-semibold text-accent-primary">
-                      {sugerido > 0 ? `R$ ${formatBRL(sugerido)}` : '—'}
+                      {sugerido > 0 ? fmtPreco(f, sugerido) : '—'}
                     </span>
                     {canWrite && (
                       <div className="w-16 flex justify-end">

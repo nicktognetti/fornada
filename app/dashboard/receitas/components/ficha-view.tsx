@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, AlertTriangle, BookOpen } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { deleteReceita, removeItem } from '../actions'
-import { formatBRL, formatCustoUso } from '@/lib/format'
+import { formatBRL, formatCustoGrande } from '@/lib/format'
 import { ReceitaModal } from './receita-modal'
 import { ItemModal } from './item-modal'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
@@ -80,7 +80,7 @@ export function FichaView({ receita, custo, itens }: Props) {
               </p>
               {custo.custo_unitario != null && (
                 <p className="text-secondary text-xs mt-1 tabular-nums">
-                  R$ {formatBRL(custo.custo_unitario)}/{receita.rendimento_unidade}
+                  {formatCustoGrande(custo.custo_unitario, receita.rendimento_unidade)}
                 </p>
               )}
             </div>
@@ -175,10 +175,10 @@ export function FichaView({ receita, custo, itens }: Props) {
                 <tbody className="divide-y divide-accent-primary/8">
                   {[...pendentes, ...normais].map(item => (
                     <tr key={item.id} className={`transition-colors ${item.is_pendente ? 'bg-amber-500/8' : 'hover:bg-accent-primary/3'}`}>
-                      <td className="px-5 py-3">
+                      <td className="px-5 py-3 max-w-[280px]">
                         <div className="flex items-center gap-2">
                           {item.is_pendente && <AlertTriangle size={13} className="text-amber-500 shrink-0" />}
-                          <span className={`font-medium ${item.is_pendente ? 'text-amber-400' : 'text-primary'}`}>
+                          <span className={`font-medium truncate block ${item.is_pendente ? 'text-amber-400' : 'text-primary'}`} title={item.nome_display}>
                             {item.nome_display}
                           </span>
                         </div>
@@ -186,7 +186,7 @@ export function FichaView({ receita, custo, itens }: Props) {
                       <td className="px-4 py-3 text-right text-primary tabular-nums">{item.quantidade}</td>
                       <td className="px-2 py-3 text-secondary">{item.unidade}</td>
                       <td className="px-4 py-3 text-right text-secondary text-xs tabular-nums">
-                        {item.custo_unitario != null ? formatCustoUso(item.custo_unitario, item.unidade) : '—'}
+                        {item.custo_unitario != null ? formatCustoGrande(item.custo_unitario, item.unidade) : '—'}
                       </td>
                       <td className="px-5 py-3 text-right font-playfair font-semibold text-[15px] text-primary tabular-nums">
                         {item.custo_item != null ? `R$ ${formatBRL(item.custo_item)}` : '—'}
@@ -302,7 +302,7 @@ export function FichaView({ receita, custo, itens }: Props) {
                 <td style={T.td}>{item.nome_display}</td>
                 <td style={T.tdRight}>{item.quantidade}</td>
                 <td style={T.td}>{item.unidade}</td>
-                <td style={T.tdRight}>{item.custo_unitario != null ? formatCustoUso(item.custo_unitario, item.unidade) : '—'}</td>
+                <td style={T.tdRight}>{item.custo_unitario != null ? formatCustoGrande(item.custo_unitario, item.unidade) : '—'}</td>
                 <td style={T.tdRight}>{item.custo_item != null ? `R$ ${formatBRL(item.custo_item)}` : '—'}</td>
               </tr>
             ))}
@@ -311,7 +311,7 @@ export function FichaView({ receita, custo, itens }: Props) {
         {custo?.custo_total != null && custo.custo_total > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '8px', borderTop: '2px solid #1a1a1a', fontWeight: 700, fontSize: '14px' }}>
             <span>Custo total</span>
-            <span>R$ {formatBRL(custo.custo_total)}{custo.custo_unitario != null ? ` (R$ ${formatBRL(custo.custo_unitario)}/${receita.rendimento_unidade})` : ''}</span>
+            <span>R$ {formatBRL(custo.custo_total)}{custo.custo_unitario != null ? ` (${formatCustoGrande(custo.custo_unitario, receita.rendimento_unidade)})` : ''}</span>
           </div>
         )}
         {receita.observacao && <p style={{ marginTop: '12px', fontSize: '11px', color: '#555' }}>Obs.: {receita.observacao}</p>}

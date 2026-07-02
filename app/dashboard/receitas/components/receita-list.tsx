@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { Plus, BookOpen, Search, ChevronRight, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
-import { normalizeSearch, formatBRL } from '@/lib/format'
+import { normalizeSearch, formatBRL, formatCustoGrande } from '@/lib/format'
 import type { ReceitaComCusto } from '../types'
 import { ReceitaModal } from './receita-modal'
 
@@ -137,7 +137,7 @@ export function ReceitaList({ receitas }: Props) {
                       </p>
                       {receita.custo_unitario != null && (
                         <p className="text-secondary text-[12px] mt-0.5 tabular-nums">
-                          R$ {formatBRL(receita.custo_unitario)}/{receita.rendimento_unidade}
+                          {formatCustoGrande(receita.custo_unitario, receita.rendimento_unidade)}
                         </p>
                       )}
                     </div>

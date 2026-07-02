@@ -22,6 +22,24 @@ Formato: `tipo: descrição — detalhes`
 - Fix: o modal de Novo Produto abre com a **unidade em que o usuário está** (Morada do Sol → Morada do Sol),
   em vez de sempre a primeira em ordem alfabética (Centro).
 
+### Custo e preço por KILO (fim do "por grama")
+> Antes tudo era exibido por unidade-base (grama), gerando números minúsculos que arredondavam pra
+> `R$ 0,01`. Agora custo/preço aparecem **por kg** (peso), **por L** (volume) ou **por un** — a padaria
+> pensa em kg. A **margem/markup não muda** (é razão): só a apresentação/entrada foi convertida.
+- Helpers em [format.ts](lib/format.ts): `unidadeGrande` (g→kg, ml→L), `fatorGrande`, `valorPorGrande`,
+  `formatCustoGrande` (ex.: custo `0,0125/g` → **`R$ 12,48/kg`**). +5 testes.
+- **Ficha técnica**: custo unitário e custo/un de cada ingrediente por kg; **nome de ingrediente longo
+  truncado** (com tooltip) — antes esticava a linha e ficava difícil de ler. Impressão idem.
+- **Fichas, Insumos, Produtos, Preços e Painel** (incl. célula de preço inline e precificadora): custo
+  e preço por kg. `ProdutoFinanceiro`/`ProdutoDetalhe` ganharam `rendimento_unidade` (via `produto→receita`).
+- **Entrada de preço** no painel: digita e edita **por kg**; salva por unidade-base (÷1000) — margem correta.
+- Drawer de detalhe: composição mostra **"Custo do lote"** (soma dos itens) em vez do custo unitário
+  (que aparecia como `R$ 0,01` e não batia com os itens).
+
+### Encomenda — bloqueia item sem valor
+- Ao salvar, cada item precisa de **descrição** (avulso), **quantidade > 0** e **valor > 0**. Antes dava
+  pra finalizar um item avulso em `R$ 0,00`.
+
 ---
 
 ## 2026-07-01 — Clientes, edição, status e impressão v2 (continuação)

@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Tag, Search, ChevronDown, Check, Loader2 } from 'lucide-react'
-import { normalizeSearch, parseDecimalBR, formatCustoUso } from '@/lib/format'
+import { normalizeSearch, parseDecimalBR, formatCustoGrande } from '@/lib/format'
 import { addPrecosLote } from '../actions'
 
 export interface InsumoParaPrecificar {
@@ -64,7 +64,7 @@ export function PrecificarLoteGrid({ insumos, categorias }: { insumos: InsumoPar
     const l = valores[id]; if (!l) return null
     const p = parseDecimalBR(l.preco); const q = parseDecimalBR(l.qtd)
     if (!(p > 0) || !(q > 0)) return null
-    return formatCustoUso(p / q, uso)
+    return formatCustoGrande(p / q, uso)
   }
 
   async function salvar() {
@@ -148,7 +148,7 @@ export function PrecificarLoteGrid({ insumos, categorias }: { insumos: InsumoPar
                   <div className="flex items-center gap-2 mt-0.5">
                     {i.categoria && <span className="text-[11px] text-faint">{i.categoria}</span>}
                     {i.custoAtual != null && (
-                      <span className="text-[10px] text-success">atual: {formatCustoUso(i.custoAtual, i.unidade_uso)}</span>
+                      <span className="text-[10px] text-success">atual: {formatCustoGrande(i.custoAtual, i.unidade_uso)}</span>
                     )}
                   </div>
                 </div>

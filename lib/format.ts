@@ -81,6 +81,46 @@ export function formatCustoUso(value: number, unidade: string): string {
   )
 }
 
+/**
+ * Unidade "grande" usada para exibir custo/preço: gramas viram **kg**,
+ * mililitros viram **L**; kg/L/un permanecem. Padrão a padaria pensa em kg.
+ */
+export function unidadeGrande(unidade: string | null | undefined): string {
+  const u = (unidade ?? '').toLowerCase()
+  if (u === 'g' || u === 'kg') return 'kg'
+  if (u === 'ml' || u === 'l') return 'L'
+  return unidade || 'un'
+}
+
+/** Fator para converter valor por unidade-base (g/ml) na unidade grande (kg/L). */
+export function fatorGrande(unidade: string | null | undefined): number {
+  const u = (unidade ?? '').toLowerCase()
+  return u === 'g' || u === 'ml' ? 1000 : 1
+}
+
+/** Converte um valor por unidade-base para o valor por unidade grande (×1000 p/ g e ml). */
+export function valorPorGrande(valorPorBase: number, unidade: string | null | undefined): number {
+  return valorPorBase * fatorGrande(unidade)
+}
+
+/**
+ * Formata custo/preço já convertido para a unidade grande, ex.: `"R$ 3,58/kg"`.
+ * Recebe o valor **por unidade-base** (por grama/ml) e a unidade base.
+ * Usa 4 casas para valores pequenos (< 0,1) e 2 nos demais.
+ */
+export function formatCustoGrande(valorPorBase: number, unidade: string | null | undefined): string {
+  const un = unidadeGrande(unidade)
+  if (!Number.isFinite(valorPorBase)) return 'R$ 0,00/' + un
+  const v = valorPorBase * fatorGrande(unidade)
+  const decimals = v < 0.1 ? 4 : 2
+  return (
+    'R$ ' +
+    v.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) +
+    '/' +
+    un
+  )
+}
+
 export function normalizeSearch(text: string): string {
   return text
     .normalize('NFD')

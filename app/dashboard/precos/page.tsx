@@ -1,7 +1,7 @@
 import { Tag, BookOpen, AlertTriangle } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { SectionLabel } from '@/app/components/ui/section-label'
-import { formatBRL } from '@/lib/format'
+import { formatBRL, formatCustoGrande } from '@/lib/format'
 import { getPainelFinanceiro } from '@/app/actions/painel'
 import { getUnidadePreferida } from '@/app/actions/unidade'
 import { PrecosComPrecoList } from './components/precos-com-preco-list'
@@ -65,7 +65,7 @@ export default async function PrecosPage() {
                     {p.produto_nome}
                   </p>
                   <p className="text-secondary text-xs mt-1">
-                    custo: R$ {formatBRL(p.custo_total)} — sem preço de venda
+                    custo: {p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`} — sem preço de venda
                   </p>
                 </div>
                 <Link

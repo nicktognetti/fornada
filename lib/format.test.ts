@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseDecimalBR, formatBRL, formatCustoUso } from './format'
+import { parseDecimalBR, formatBRL, formatCustoUso, unidadeGrande, fatorGrande, valorPorGrande, formatCustoGrande } from './format'
 
 describe('parseDecimalBR', () => {
   describe('casos exigidos', () => {
@@ -127,5 +127,38 @@ describe('formatCustoUso', () => {
 
   it('é seguro com NaN', () => {
     expect(formatCustoUso(NaN, 'g')).toBe('R$ 0,00/g')
+  })
+})
+
+describe('unidade grande (por kg/L)', () => {
+  it('unidadeGrande: g→kg, ml→L, un→un', () => {
+    expect(unidadeGrande('g')).toBe('kg')
+    expect(unidadeGrande('kg')).toBe('kg')
+    expect(unidadeGrande('ml')).toBe('L')
+    expect(unidadeGrande('l')).toBe('L')
+    expect(unidadeGrande('un')).toBe('un')
+    expect(unidadeGrande(null)).toBe('un')
+  })
+
+  it('fatorGrande: 1000 para g/ml, 1 para o resto', () => {
+    expect(fatorGrande('g')).toBe(1000)
+    expect(fatorGrande('ml')).toBe(1000)
+    expect(fatorGrande('kg')).toBe(1)
+    expect(fatorGrande('un')).toBe(1)
+  })
+
+  it('valorPorGrande: converte custo/grama em custo/kg', () => {
+    expect(valorPorGrande(0.0125, 'g')).toBeCloseTo(12.5, 5)
+    expect(valorPorGrande(2.5, 'un')).toBe(2.5)
+  })
+
+  it('formatCustoGrande: custo por grama vira R$/kg legível', () => {
+    expect(formatCustoGrande(0.0125, 'g')).toBe('R$ 12,50/kg')
+    expect(formatCustoGrande(0.0036, 'g')).toBe('R$ 3,60/kg')
+    expect(formatCustoGrande(2.5, 'un')).toBe('R$ 2,50/un')
+  })
+
+  it('formatCustoGrande é seguro com NaN', () => {
+    expect(formatCustoGrande(NaN, 'g')).toBe('R$ 0,00/kg')
   })
 })

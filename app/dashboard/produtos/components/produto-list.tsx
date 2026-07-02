@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Pencil, Package, ShoppingBag, Search, Plus } from 'lucide-react'
-import { formatBRL } from '@/lib/format'
+import { formatBRL, formatCustoGrande, valorPorGrande, unidadeGrande } from '@/lib/format'
 import { setProdutoLocal, type ProdutoFinanceiro } from '@/app/actions/painel'
 import { NovoProdutoModal, type FichaOpcao } from './novo-produto-modal'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
@@ -135,7 +135,9 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
                       <span className="text-secondary text-xs">{p.categoria}</span>
                     )}
                     <span className="text-secondary text-xs">
-                      custo: {p.custo_total > 0 ? `R$ ${formatBRL(p.custo_total)}` : '—'}
+                      custo: {p.custo_total > 0
+                        ? (p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`)
+                        : '—'}
                     </span>
                     {p.unidade_nome && (
                       <span className="text-faint text-xs">{p.unidade_nome}</span>
@@ -147,7 +149,8 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
                   {comPreco ? (
                     <>
                       <p className="font-playfair text-primary text-[18px] font-bold leading-none tabular-nums">
-                        R$ {formatBRL(p.preco_venda)}
+                        R$ {p.rendimento_unidade ? formatBRL(valorPorGrande(p.preco_venda, p.rendimento_unidade)) : formatBRL(p.preco_venda)}
+                        {p.rendimento_unidade && <span className="text-[11px] font-normal text-secondary">/{unidadeGrande(p.rendimento_unidade)}</span>}
                       </p>
                       {margem !== null && (
                         <p className={`text-[11px] mt-0.5 tabular-nums ${margem < 0 ? 'text-danger' : margem < 20 ? 'text-amber-400' : 'text-success'}`}>
@@ -224,8 +227,8 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
               <tr key={p.produto_id}>
                 <td style={T.td}>{p.produto_nome}</td>
                 <td style={T.td}>{p.categoria ?? '—'}</td>
-                <td style={T.tdRight}>{p.custo_total > 0 ? `R$ ${formatBRL(p.custo_total)}` : '—'}</td>
-                <td style={T.tdRight}>{p.preco_venda > 0 ? `R$ ${formatBRL(p.preco_venda)}` : '—'}</td>
+                <td style={T.tdRight}>{p.custo_total > 0 ? (p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`) : '—'}</td>
+                <td style={T.tdRight}>{p.preco_venda > 0 ? (p.rendimento_unidade ? `R$ ${formatBRL(valorPorGrande(p.preco_venda, p.rendimento_unidade))}/${unidadeGrande(p.rendimento_unidade)}` : `R$ ${formatBRL(p.preco_venda)}`) : '—'}</td>
                 <td style={T.tdRight}>{p.preco_venda > 0 ? `${p.margem_percentual.toFixed(1)}%` : '—'}</td>
               </tr>
             ))}
