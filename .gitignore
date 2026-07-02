@@ -41,6 +41,10 @@ backup_*.sql
 
 # scripts auxiliares de seed/demo (não versionar)
 _demo_*
+_tmp_*
+
+# planilhas de dados da cliente (repo público — não versionar dados)
+*.xlsx
 
 # vercel
 .vercel
