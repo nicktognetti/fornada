@@ -258,6 +258,51 @@ export async function addItem(
   return { success: true }
 }
 
+// ─── Adicionar vários itens de uma vez ───────────────────────────────────────────
+// Insere N itens numa ficha em uma única operação (checa permissão uma vez e ciclos
+// por sub-receita). Usado pelo modal "lista" para não abrir/fechar a cada item.
+
+export async function addItensLote(
+  receitaId: string,
+  itens: { insumo_id: string | null; sub_receita_id: string | null; quantidade: number }[],
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  if (!receitaId) return { error: 'receita_id não informado' }
+  if (!itens || itens.length === 0) return { error: 'Nenhum item para adicionar' }
+
+  const unidadeId = await unidadeDoRegistro('receita', receitaId)
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
+    return { error: 'Sem permissão para editar fichas nesta unidade' }
+
+  for (const it of itens) {
+    if (!it.insumo_id && !it.sub_receita_id) return { error: 'Um dos itens está sem insumo ou sub-receita' }
+    if (it.insumo_id && it.sub_receita_id) return { error: 'Um item não pode ter insumo E sub-receita' }
+    if (!(it.quantidade > 0)) return { error: 'Todas as quantidades devem ser maiores que zero' }
+    if (it.sub_receita_id) {
+      if (it.sub_receita_id === receitaId) return { error: 'Uma receita não pode referenciar a si mesma' }
+      if (await hasCycle(receitaId, it.sub_receita_id))
+        return { error: 'Referência circular detectada em uma das sub-receitas' }
+    }
+  }
+
+  const { error } = await supabase.from('receita_item').insert(
+    itens.map((it) => ({
+      receita_id: receitaId,
+      insumo_id: it.insumo_id,
+      sub_receita_id: it.sub_receita_id,
+      quantidade: it.quantidade,
+    })),
+  )
+
+  if (error) return { error: 'Erro ao adicionar itens: ' + error.message }
+
+  revalidatePath(`/dashboard/receitas/${receitaId}`)
+  return { success: true }
+}
+
 // ─── Editar item ────────────────────────────────────────────────────────────────
 
 export async function updateItem(

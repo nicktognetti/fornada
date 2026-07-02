@@ -40,6 +40,15 @@ Formato: `tipo: descrição — detalhes`
 - Ao salvar, cada item precisa de **descrição** (avulso), **quantidade > 0** e **valor > 0**. Antes dava
   pra finalizar um item avulso em `R$ 0,00`.
 
+### Ficha técnica — adicionar vários itens de uma vez
+> Antes era 1 clique em "Adicionar" por ingrediente, cada um abrindo/fechando o modal. Agora o modal
+> vira uma **lista**: busca → escolhe → quantidade → **"Adicionar à lista"** (continua aberto, limpa pro
+> próximo) e no fim **"Salvar N itens"** grava tudo de uma vez, voltando à ficha **uma só vez**.
+- Novo modo "lista" no [ItemModal](app/dashboard/receitas/components/item-modal.tsx): monta a lista dentro
+  do modal (com remover item, marca "✓ na lista", Enter adiciona), salva em lote e fecha uma vez.
+- Backend: `addItensLote(receitaId, itens[])` — checa permissão uma vez, valida quantidade e **ciclo de
+  sub-receita** por item, insere todos numa operação. A edição de 1 item segue igual.
+
 ---
 
 ## 2026-07-01 — Clientes, edição, status e impressão v2 (continuação)
