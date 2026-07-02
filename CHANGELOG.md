@@ -19,6 +19,8 @@ Formato: `tipo: descrição — detalhes`
 - Backend: `createProdutoFabricado(nome, categoria, receitaId, unidadeId, local?)`; `createProdutoRevenda`
   passa a aceitar `local`. Fichas vêm de `vw_custo_receita` (id, nome, custo_unitário, unidade de rendimento).
 - Fix: a coluna "Local" na lista de produtos passa a refletir produtos recém-criados sem precisar recarregar.
+- Fix: o modal de Novo Produto abre com a **unidade em que o usuário está** (Morada do Sol → Morada do Sol),
+  em vez de sempre a primeira em ordem alfabética (Centro).
 
 ---
 

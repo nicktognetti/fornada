@@ -14,6 +14,7 @@ export type FichaOpcao = {
 
 interface Props {
   unidades: { id: string; nome: string }[]
+  unidadeAtual: string | null
   receitas: FichaOpcao[]
   locais: string[]
   onClose: () => void
@@ -21,11 +22,15 @@ interface Props {
 
 type Tipo = 'produzido' | 'revenda'
 
-export function NovoProdutoModal({ unidades, receitas, locais, onClose }: Props) {
+export function NovoProdutoModal({ unidades, unidadeAtual, receitas, locais, onClose }: Props) {
   const [tipo, setTipo] = useState<Tipo>('revenda')
   const [nome, setNome] = useState('')
   const [categoria, setCategoria] = useState('')
-  const [unidadeId, setUnidadeId] = useState(unidades[0]?.id ?? '')
+  // Padrão = unidade em que o usuário está (não a primeira em ordem alfabética).
+  const unidadePadrao = (unidadeAtual && unidades.some((u) => u.id === unidadeAtual))
+    ? unidadeAtual
+    : (unidades[0]?.id ?? '')
+  const [unidadeId, setUnidadeId] = useState(unidadePadrao)
   const [custoCompra, setCustoCompra] = useState('')
   const [local, setLocal] = useState('')
   // Fabricado — ficha selecionada + busca

@@ -11,6 +11,7 @@ import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/c
 interface Props {
   produtos: ProdutoFinanceiro[]
   unidades: { id: string; nome: string }[]
+  unidadeAtual: string | null
   receitas: FichaOpcao[]
   locais: string[]
   localMap: Record<string, string | null>
@@ -21,7 +22,7 @@ const TIPO_CONFIG = {
   revenda:   { icon: ShoppingBag, label: 'Revenda',   cls: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
 }
 
-export function ProdutoList({ produtos, unidades, receitas, locais, localMap }: Props) {
+export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais, localMap }: Props) {
   const [search, setSearch] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'produzido' | 'revenda'>('todos')
   const [modalOpen, setModalOpen] = useState(false)
@@ -197,6 +198,7 @@ export function ProdutoList({ produtos, unidades, receitas, locais, localMap }: 
       {modalOpen && (
         <NovoProdutoModal
           unidades={unidades}
+          unidadeAtual={unidadeAtual}
           receitas={receitas}
           locais={locais}
           onClose={() => setModalOpen(false)}

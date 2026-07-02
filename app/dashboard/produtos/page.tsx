@@ -47,6 +47,7 @@ export default async function ProdutosPage() {
       <ProdutoList
         produtos={produtos}
         unidades={unidades}
+        unidadeAtual={unidadeId ?? null}
         receitas={receitas}
         locais={locais}
         localMap={localMap}
