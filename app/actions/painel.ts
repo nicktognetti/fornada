@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
 import { getReceitaComposicao, type ReceitaComposicao } from '@/app/dashboard/receitas/composicao'
+import { valorPorGrande } from '@/lib/format'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -176,11 +177,16 @@ export async function getPainelFinanceiro(
     rendimento:        1,
   } as ProdutoFinanceiro))
 
+  // Agregados em valor por unidade de VENDA (kg/L/un) — não por grama — pra os
+  // KPIs ficarem legíveis (ex.: R$ 12,48 em vez de R$ 0,01).
+  const pvK = (f: ProdutoFinanceiro) => valorPorGrande(f.preco_venda, f.rendimento_unidade)
+  const ctK = (f: ProdutoFinanceiro) => valorPorGrande(f.custo_total, f.rendimento_unidade)
+
   const comPreco = fichas.filter((f) => f.preco_venda > 0)
-  const somaPrecos = comPreco.reduce((s, f) => s + f.preco_venda, 0)
-  // Margem ponderada: SOMA((pv - ct) * pv) / SOMA(pv)
+  const somaPrecos = comPreco.reduce((s, f) => s + pvK(f), 0)
+  // Margem ponderada pelo preço (%): SOMA(pv − ct) / SOMA(pv) × 100.
   const margemPonderada = somaPrecos > 0
-    ? comPreco.reduce((s, f) => s + (f.preco_venda - f.custo_total) * f.preco_venda, 0) / somaPrecos
+    ? (comPreco.reduce((s, f) => s + (pvK(f) - ctK(f)), 0) / somaPrecos) * 100
     : 0
   const indicadores: PainelIndicadores = {
     total_produtos:              fichas.length,
@@ -192,8 +198,8 @@ export async function getPainelFinanceiro(
       : 0,
     margem_ponderada_percentual: margemPonderada,
     valor_portfolio:             somaPrecos,
-    custo_total_geral:           fichas.reduce((s, f) => s + f.custo_total, 0),
-    margem_total_rs:             comPreco.reduce((s, f) => s + f.margem_rs, 0),
+    custo_total_geral:           fichas.reduce((s, f) => s + ctK(f), 0),
+    margem_total_rs:             comPreco.reduce((s, f) => s + valorPorGrande(f.margem_rs, f.rendimento_unidade), 0),
   }
 
   return { data: { fichas, indicadores, total: count ?? fichas.length } }

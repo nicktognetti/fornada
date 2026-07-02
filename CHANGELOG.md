@@ -14,6 +14,16 @@ Formato: `tipo: descrição — detalhes`
 - Botões **"Editar"** (rotulado) e **excluir** (com **confirmação** antes de apagar) claros e com bom
   alvo de toque, em cada ingrediente. Fim do apagar acidental.
 
+### Resumo e Painel — mais profissionais e organizados
+- **Resumo** (panorama equilibrado): seções com título — **Panorama** (contagens), **Encomendas próximas**
+  (entregas pendentes com data/hora/status/valor + atalho "ver todas"), **Precisa de atenção**, **Onde está
+  o custo** e **Últimas fichas**. Layout mais largo e cartões em 4 colunas em telas grandes.
+- **Painel**: mesmos widgets, agora agrupados em seções com cabeçalho (**Metas e equilíbrio**, **Alertas**,
+  **Análise de margem**, **Custos fixos e precificação**) — fim do "tudo jogado".
+- Fix: KPIs **Valor do Portfólio** e **Custo Total** agora somam **por kg** (antes davam `R$ 0,01`); e a
+  **margem ponderada** usava fórmula errada (mostrava ~0%/valor em R$) — agora é `SOMA(pv−ct)/SOMA(pv)`
+  corretamente em %. Drawer dos KPIs também por kg.
+
 
 ### Produto Fabricado — cadastro habilitado
 - **Aba "Fabricado" no modal de Novo Produto** (antes "Em breve"): cria um produto ligado a uma

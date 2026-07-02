@@ -2,7 +2,7 @@
 
 import { DollarSign, TrendingDown, TrendingUp } from 'lucide-react'
 import { DetailDrawer } from '@/app/components/ui/detail-drawer'
-import { formatBRL } from '@/lib/format'
+import { formatBRL, valorPorGrande, unidadeGrande } from '@/lib/format'
 import type { PainelIndicadores, ProdutoFinanceiro } from '@/app/actions/painel'
 
 export type KpiTipo = 'portfolio' | 'custo' | 'margem'
@@ -58,8 +58,8 @@ export function KpiDetalheDrawer({ kpi, onClose, fichas, indicadores: ind }: Pro
             </p>
           </div>
           <div className="rounded-xl bg-surface border border-subtle overflow-hidden">
-            {[...fichas].filter((f) => f.preco_venda > 0).sort((a, b) => b.preco_venda - a.preco_venda)
-              .map((f) => <Linha key={f.produto_id} nome={f.produto_nome} valor={`R$ ${formatBRL(f.preco_venda)}`} cls="text-primary" />)}
+            {[...fichas].filter((f) => f.preco_venda > 0).sort((a, b) => valorPorGrande(b.preco_venda, b.rendimento_unidade) - valorPorGrande(a.preco_venda, a.rendimento_unidade))
+              .map((f) => <Linha key={f.produto_id} nome={f.produto_nome} valor={`R$ ${formatBRL(valorPorGrande(f.preco_venda, f.rendimento_unidade))}/${unidadeGrande(f.rendimento_unidade)}`} cls="text-primary" />)}
           </div>
         </div>
       )}
@@ -76,8 +76,8 @@ export function KpiDetalheDrawer({ kpi, onClose, fichas, indicadores: ind }: Pro
             </p>
           </div>
           <div className="rounded-xl bg-surface border border-subtle overflow-hidden">
-            {[...fichas].filter((f) => f.custo_total > 0).sort((a, b) => b.custo_total - a.custo_total)
-              .map((f) => <Linha key={f.produto_id} nome={f.produto_nome} valor={`R$ ${formatBRL(f.custo_total)}`} />)}
+            {[...fichas].filter((f) => f.custo_total > 0).sort((a, b) => valorPorGrande(b.custo_total, b.rendimento_unidade) - valorPorGrande(a.custo_total, a.rendimento_unidade))
+              .map((f) => <Linha key={f.produto_id} nome={f.produto_nome} valor={`R$ ${formatBRL(valorPorGrande(f.custo_total, f.rendimento_unidade))}/${unidadeGrande(f.rendimento_unidade)}`} />)}
           </div>
         </div>
       )}

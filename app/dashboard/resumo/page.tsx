@@ -1,13 +1,28 @@
 import Link from 'next/link'
 import {
   LayoutDashboard, Package, BookOpen, ShoppingBag, TrendingUp,
-  ArrowRight, AlertTriangle, BarChart2, TrendingDown, Clock, Plus
+  ArrowRight, AlertTriangle, BarChart2, TrendingDown, Clock, Plus, CalendarClock
 } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { createClient } from '@/lib/supabase/server'
 import { getUnidadePreferida } from '@/app/actions/unidade'
+import { listarEncomendas, type EncomendaStatus } from '@/app/actions/encomenda'
 import { formatBRL } from '@/lib/format'
+
+const ENC_STATUS: Record<EncomendaStatus, { label: string; cls: string }> = {
+  pendente:    { label: 'Pendente',    cls: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
+  em_producao: { label: 'Em produção', cls: 'bg-blue-500/15 text-blue-400 border-blue-500/25' },
+  pronto:      { label: 'Pronto',      cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
+  entregue:    { label: 'Entregue',    cls: 'bg-input text-secondary border-subtle' },
+  cancelada:   { label: 'Cancelada',   cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+}
+
+function fmtEntrega(data: string, hora: string | null): string {
+  const d = new Date(data + 'T12:00:00')
+  const txt = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+  return hora ? `${txt} · ${hora.slice(0, 5)}` : txt
+}
 
 interface PrejuizoItem {
   nome: string
@@ -155,6 +170,12 @@ export default async function ResumePage() {
     ? []
     : (ultimasFichasRes.data ?? []).filter((f): f is UltimaFicha => !!(f as UltimaFicha).updated_at)
 
+  // Encomendas próximas (não entregues/canceladas) — visão operacional do dia.
+  const encRes = await listarEncomendas()
+  const proximasEncomendas = (encRes.data?.itens ?? [])
+    .filter((e) => e.status !== 'entregue' && e.status !== 'cancelada')
+    .slice(0, 5)
+
   const cards = [
     { label: 'INSUMOS CADASTRADOS', icon: Package, href: '/dashboard/insumos', valueStr: insumoCount.toString(), sub: 'matérias-primas com custo' },
     { label: 'FICHAS TÉCNICAS', icon: BookOpen, href: '/dashboard/receitas', valueStr: receitaCount.toString(), sub: 'receitas e sub-receitas' },
@@ -163,7 +184,7 @@ export default async function ResumePage() {
   ]
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="max-w-4xl space-y-8">
       <PageTitle icon={LayoutDashboard} subtitle="Visão geral da padaria">
         Resumo
       </PageTitle>
@@ -207,7 +228,9 @@ export default async function ResumePage() {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-3">
+      <SectionLabel icon={LayoutDashboard}>Panorama</SectionLabel>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon
           return (
@@ -235,6 +258,45 @@ export default async function ResumePage() {
           )
         })}
       </div>
+      </div>
+
+      {proximasEncomendas.length > 0 && (
+        <div className="space-y-3">
+          <SectionLabel icon={CalendarClock}>Encomendas próximas</SectionLabel>
+          <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--t-card-bg)', border: '1px solid var(--t-card-border)' }}>
+            <div className="divide-y" style={{ borderColor: 'var(--t-border-sub)' }}>
+              {proximasEncomendas.map((e) => {
+                const st = ENC_STATUS[e.status]
+                return (
+                  <Link
+                    key={e.id}
+                    href={`/dashboard/encomendas/${e.id}`}
+                    className="flex items-center gap-3 px-5 py-3 group transition-colors hover:bg-input/40"
+                  >
+                    <CalendarClock size={15} className="shrink-0" style={{ color: 'var(--t-accent)' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--t-text-1)' }}>{e.cliente_nome}</p>
+                      <p className="text-xs capitalize" style={{ color: 'var(--t-text-2)' }}>{fmtEntrega(e.data_entrega, e.hora_entrega)}</p>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wide shrink-0 ${st.cls}`}>{st.label}</span>
+                    {encRes.data?.podeVerValores && e.total > 0 && (
+                      <span className="text-sm font-semibold tabular-nums shrink-0" style={{ color: 'var(--t-accent)' }}>R$ {formatBRL(e.total)}</span>
+                    )}
+                    <ArrowRight size={13} className="opacity-0 group-hover:opacity-100 transition-all shrink-0" style={{ color: 'var(--t-accent)' }} />
+                  </Link>
+                )
+              })}
+            </div>
+            <Link
+              href="/dashboard/encomendas"
+              className="flex items-center justify-center gap-1.5 px-5 py-2.5 border-t text-xs font-medium transition-colors"
+              style={{ borderColor: 'var(--t-border-sub)', backgroundColor: 'var(--t-inset-bg)', color: 'var(--t-accent)' }}
+            >
+              Ver todas as encomendas <ArrowRight size={12} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {hasAtencao && (
         <div className="space-y-3">

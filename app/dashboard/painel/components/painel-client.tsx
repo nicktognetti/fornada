@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { Target, BarChart2, SlidersHorizontal } from 'lucide-react'
+import { SectionLabel } from '@/app/components/ui/section-label'
 import { PainelKpis } from './painel-kpis'
 import { PainelTabela } from './painel-tabela'
 import { PainelGraficos } from './painel-graficos'
@@ -58,6 +60,7 @@ export function PainelClient({ fichas, indicadores, meta, despesas: despesasInic
 
   return (
     <>
+      {/* Visão geral — KPIs */}
       <PainelKpis
         indicadores={indicadores}
         fichas={fichas}
@@ -65,32 +68,40 @@ export function PainelClient({ fichas, indicadores, meta, despesas: despesasInic
         onAlertaClick={toggleAlerta}
       />
 
-      {/* Linha: Meta + Equilíbrio */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {meta && <PainelMeta meta={meta} />}
-        <PainelEquilibrio
-          totalDespesas={totalDespesas}
-          margemMedia={margemMedia}
-          precoMedio={precoMedio}
-          valorPortfolio={indicadores.valor_portfolio}
-        />
-      </div>
+      {/* Metas e equilíbrio */}
+      <section className="space-y-3">
+        <SectionLabel icon={Target}>Metas e equilíbrio</SectionLabel>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {meta && <PainelMeta meta={meta} />}
+          <PainelEquilibrio
+            totalDespesas={totalDespesas}
+            margemMedia={margemMedia}
+            precoMedio={precoMedio}
+            valorPortfolio={indicadores.valor_portfolio}
+          />
+        </div>
+      </section>
 
-      {/* Alertas inteligentes */}
+      {/* Alertas inteligentes (tem cabeçalho próprio) */}
       <PainelAlertas
         fichas={fichas}
         indicadores={indicadores}
         pontoEquilibrio={pontoEquilibrio}
       />
 
+      {/* Análise de margem */}
       {fichas.length > 0 && (
-        <PainelGraficos
-          fichas={fichas}
-          chartFilter={chartFilter}
-          onChartFilter={handleChartFilter}
-        />
+        <section className="space-y-3">
+          <SectionLabel icon={BarChart2}>Análise de margem</SectionLabel>
+          <PainelGraficos
+            fichas={fichas}
+            chartFilter={chartFilter}
+            onChartFilter={handleChartFilter}
+          />
+        </section>
       )}
 
+      {/* Produtos (a tabela tem sua própria barra de título) */}
       <PainelTabela
         fichas={fichas}
         alertaFiltro={alertaFiltro}
@@ -98,10 +109,12 @@ export function PainelClient({ fichas, indicadores, meta, despesas: despesasInic
         onClearChartFilter={() => setChartFilter(null)}
       />
 
-      {/* Seção colapsável: Despesas + Precificadora */}
-      <PainelDespesas despesas={despesas} onDespesasChange={setDespesas} />
-
-      {fichas.length > 0 && <PainelPrecificacao fichas={fichas} />}
+      {/* Custos fixos e precificação */}
+      <section className="space-y-3">
+        <SectionLabel icon={SlidersHorizontal}>Custos fixos e precificação</SectionLabel>
+        <PainelDespesas despesas={despesas} onDespesasChange={setDespesas} />
+        {fichas.length > 0 && <PainelPrecificacao fichas={fichas} />}
+      </section>
     </>
   )
 }
