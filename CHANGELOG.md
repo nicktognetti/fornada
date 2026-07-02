@@ -60,6 +60,16 @@ Formato: `tipo: descrição — detalhes`
 - Nota: **orçamento e encomenda já eram "lista"** (o seletor de produto fica na tela e você empilha vários
   itens antes de salvar) — nenhuma mudança necessária lá.
 
+### Pedido por kg × por unidade (venda)
+> A unidade de venda vem da **ficha**: rende em **g/kg** → vendido por **kg**; rende em **un** → por
+> **unidade**. Antes o pedido usava o preço **por grama**, então "2 × R$ 0,03" dava errado. Agora o
+> item entra pelo preço da **unidade de venda** e a quantidade é nessa unidade.
+- `getProdutosParaOrcamento` retorna `preco_base` por unidade de venda (kg/L/un) + `unidade_venda`.
+- Builders de **orçamento e encomenda**: mostram a unidade (ex.: "base R$ 30,00/kg", "Qtd … kg") e o
+  total sai certo (2 kg × R$ 30 = R$ 60). Avulso segue com preço livre, sem unidade.
+- **Comanda e orçamento impressos** mostram a unidade na quantidade ("2 kg — Bolacha") — a unidade é
+  derivada por item (produto → ficha), sem migration.
+
 ---
 
 ## 2026-07-01 — Clientes, edição, status e impressão v2 (continuação)

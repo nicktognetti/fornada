@@ -6,6 +6,7 @@ import { temAcesso } from '@/app/lib/authz'
 import { getUnidadeAutorizada, getUnidadePreferida } from '@/app/actions/unidade'
 import { subtotalItem, totalPedido } from '@/lib/pedido-calc'
 import { upsertCliente } from '@/app/lib/cliente-upsert'
+import { unidadeGrande } from '@/lib/format'
 
 type ActionResult<T = void> = T extends void
   ? { error?: string; success?: boolean }
@@ -56,7 +57,7 @@ export type EncomendaDetalhe = EncomendaListItem & {
   historico: EncomendaStatusEvento[]
   /** true se o usuário pode ver valores (nível admin na tela encomenda). Produção não vê. */
   podeVerValores: boolean
-  itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null; local: string | null }[]
+  itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null; local: string | null; unidade: string | null }[]
 }
 
 async function getEmpresaId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
@@ -177,9 +178,26 @@ export async function getEncomenda(id: string): Promise<ActionResult<EncomendaDe
   if (!e) return { error: 'Encomenda não encontrada' }
 
   const podeVerValores = await temAcesso(user.id, ['encomenda'], { nivel: 'admin' })
-  const itensRaw = (itensRes.data as EncomendaDetalhe['itens']) ?? []
+  type ItemRaw = Omit<EncomendaDetalhe['itens'][number], 'unidade'>
+  const itensRaw = (itensRes.data as ItemRaw[]) ?? []
+
+  // Unidade de venda por item (produto → receita.rendimento_unidade) p/ a comanda
+  // mostrar "2 kg" em vez de só "2". Avulso (sem produto) fica sem unidade.
+  const pids = itensRaw.map((i) => i.produto_id).filter((x): x is string => !!x)
+  const unidadeMap = new Map<string, string | null>()
+  if (pids.length > 0) {
+    const { data: prods } = await supabase.from('produto').select('id, receita:receita_id ( rendimento_unidade )').in('id', pids)
+    for (const p of (prods ?? []) as { id: string; receita: { rendimento_unidade: string | null } | { rendimento_unidade: string | null }[] | null }[]) {
+      const rec = Array.isArray(p.receita) ? p.receita[0] : p.receita
+      unidadeMap.set(p.id, rec?.rendimento_unidade ?? null)
+    }
+  }
+  const withUnidade = itensRaw.map((i) => ({
+    ...i,
+    unidade: i.produto_id ? unidadeGrande(unidadeMap.get(i.produto_id) ?? null) : null,
+  }))
   // Produção (sem nível admin) não recebe os valores no payload
-  const itens = podeVerValores ? itensRaw : itensRaw.map((i) => ({ ...i, preco_unitario: 0, subtotal: 0 }))
+  const itens = podeVerValores ? withUnidade : withUnidade.map((i) => ({ ...i, preco_unitario: 0, subtotal: 0 }))
 
   return {
     data: {

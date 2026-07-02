@@ -95,7 +95,7 @@ export function ProdutoPicker({
                   <span className="truncate text-sm text-primary">{p.nome}</span>
                   {p.categoria && <span className="text-[10px] text-faint uppercase tracking-wider shrink-0 hidden sm:inline">{p.categoria}</span>}
                 </span>
-                <span className="text-sm text-secondary tabular-nums shrink-0">{p.preco_base > 0 ? `R$ ${formatBRL(p.preco_base)}` : '—'}</span>
+                <span className="text-sm text-secondary tabular-nums shrink-0">{p.preco_base > 0 ? `R$ ${formatBRL(p.preco_base)}${p.unidade_venda ? `/${p.unidade_venda}` : ''}` : '—'}</span>
               </button>
             ))}
           </div>

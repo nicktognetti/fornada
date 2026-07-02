@@ -147,7 +147,7 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
                   {it.descricao}
                   {it.observacao && <span className="block text-xs text-amber-400/80 mt-0.5">↳ {it.observacao}</span>}
                 </td>
-                <td className="px-4 py-3 text-right text-secondary tabular-nums align-top">{it.quantidade}</td>
+                <td className="px-4 py-3 text-right text-secondary tabular-nums align-top">{it.quantidade}{it.unidade ? ` ${it.unidade}` : ''}</td>
                 {e.podeVerValores && <td className="px-4 py-3 text-right text-secondary tabular-nums align-top">R$ {formatBRL(it.preco_unitario)}</td>}
                 {e.podeVerValores && <td className="px-5 py-3 text-right font-medium text-primary tabular-nums align-top">R$ {formatBRL(it.subtotal)}</td>}
               </tr>
@@ -210,7 +210,7 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
             <tbody>
               {itensDoLocal.map((it) => (
                 <tr key={it.id}>
-                  <td style={{ ...T.tdRight, verticalAlign: 'top', fontWeight: 700 }}>{it.quantidade}</td>
+                  <td style={{ ...T.tdRight, verticalAlign: 'top', fontWeight: 700 }}>{it.quantidade}{it.unidade ? ` ${it.unidade}` : ''}</td>
                   <td style={T.td}>
                     {it.descricao}
                     {it.observacao && <div style={{ fontSize: '11px', fontStyle: 'italic', color: '#555' }}>↳ {it.observacao}</div>}

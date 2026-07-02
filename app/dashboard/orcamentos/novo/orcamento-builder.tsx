@@ -18,6 +18,7 @@ interface Linha {
   quantidade: string
   ajustePct: string  // % sobre o preço base (atalho)
   preco: string      // preço unitário efetivo
+  unidade: string | null // unidade de venda (kg/L/un); null p/ avulso
 }
 
 export type OrcamentoEdicao = {
@@ -45,6 +46,7 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
       quantidade: String(it.quantidade),
       ajustePct: '',
       preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '',
+      unidade: it.produto_id ? (produtos.find((pp) => pp.id === it.produto_id)?.unidade_venda ?? null) : null,
     })),
   )
   const [saving, setSaving] = useState(false)
@@ -67,6 +69,7 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
         quantidade: '1',
         ajustePct: '',
         preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '',
+        unidade: p.unidade_venda,
       }]
     })
     setErro(null)
@@ -75,7 +78,7 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
   function addAvulso() {
     setLinhas((prev) => [...prev, {
       key: (keyRef.n += 1), produto_id: null, descricao: '', base: 0,
-      quantidade: '1', ajustePct: '', preco: '',
+      quantidade: '1', ajustePct: '', preco: '', unidade: null,
     }])
     setErro(null)
   }
@@ -168,10 +171,12 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
                 {isAvulso ? (
                   <input value={l.descricao} onChange={(e) => upd(l.key, 'descricao', e.target.value)} placeholder="Descrição do item avulso" className="input-field text-sm py-1.5 px-2 col-span-2 md:col-span-1" />
                 ) : (
-                  <span className="col-span-2 md:col-span-1 text-sm text-primary px-2 py-1.5 truncate" title={l.descricao}>{l.descricao}</span>
+                  <span className="col-span-2 md:col-span-1 text-sm text-primary px-2 py-1.5 truncate" title={l.descricao}>
+                    {l.descricao}{l.unidade && <span className="text-[11px] text-secondary"> · por {l.unidade}</span>}
+                  </span>
                 )}
                 <input value={l.quantidade} inputMode="decimal" onChange={(e) => upd(l.key, 'quantidade', e.target.value)} className="input-field text-sm py-1.5 px-2 text-right tabular-nums" placeholder="1" />
-                <span className="text-right text-xs text-faint tabular-nums hidden md:block">{l.base > 0 ? `R$ ${formatBRL(l.base)}` : '—'}</span>
+                <span className="text-right text-xs text-faint tabular-nums hidden md:block">{l.base > 0 ? `R$ ${formatBRL(l.base)}${l.unidade ? `/${l.unidade}` : ''}` : '—'}</span>
                 <input value={l.ajustePct} inputMode="decimal" disabled={isAvulso} onChange={(e) => upd(l.key, 'ajustePct', e.target.value)} className={`input-field text-sm py-1.5 px-2 text-right tabular-nums ${isAvulso ? 'opacity-40 cursor-not-allowed' : ''}`} placeholder="%" title={isAvulso ? 'Ajuste % vale só para itens do catálogo' : '% sobre o preço base'} />
                 {isAvulso ? (
                   <input value={l.preco} inputMode="decimal" onChange={(e) => upd(l.key, 'preco', e.target.value)} className="input-field text-sm py-1.5 px-2 text-right tabular-nums" placeholder="0,00" />

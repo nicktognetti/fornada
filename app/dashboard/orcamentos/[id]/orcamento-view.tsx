@@ -103,8 +103,8 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
             {o.itens.map((it) => (
               <tr key={it.id}>
                 <td className="px-5 py-3 text-primary">{it.descricao}</td>
-                <td className="px-4 py-3 text-right text-secondary tabular-nums">{it.quantidade}</td>
-                <td className="px-4 py-3 text-right text-secondary tabular-nums">R$ {formatBRL(it.preco_unitario)}</td>
+                <td className="px-4 py-3 text-right text-secondary tabular-nums">{it.quantidade}{it.unidade ? ` ${it.unidade}` : ''}</td>
+                <td className="px-4 py-3 text-right text-secondary tabular-nums">R$ {formatBRL(it.preco_unitario)}{it.unidade ? `/${it.unidade}` : ''}</td>
                 <td className="px-5 py-3 text-right font-medium text-primary tabular-nums">R$ {formatBRL(it.subtotal)}</td>
               </tr>
             ))}
@@ -128,8 +128,8 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
             {o.itens.map((it) => (
               <tr key={it.id}>
                 <td style={T.td}>{it.descricao}</td>
-                <td style={T.tdRight}>{it.quantidade}</td>
-                <td style={T.tdRight}>R$ {formatBRL(it.preco_unitario)}</td>
+                <td style={T.tdRight}>{it.quantidade}{it.unidade ? ` ${it.unidade}` : ''}</td>
+                <td style={T.tdRight}>R$ {formatBRL(it.preco_unitario)}{it.unidade ? `/${it.unidade}` : ''}</td>
                 <td style={T.tdRight}>R$ {formatBRL(it.subtotal)}</td>
               </tr>
             ))}

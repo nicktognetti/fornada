@@ -21,6 +21,7 @@ interface Linha {
   preco: string
   obs: string
   local: string | null
+  unidade: string | null
 }
 
 export type EncomendaEdicao = {
@@ -52,6 +53,7 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produ
     (edicao?.itens ?? []).map((it) => ({
       key: (keyRef.n += 1), produto_id: it.produto_id, descricao: it.descricao, base: it.preco_unitario,
       quantidade: String(it.quantidade), ajustePct: '', preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '', obs: it.observacao ?? '', local: it.local ?? null,
+      unidade: it.produto_id ? (produtos.find((pp) => pp.id === it.produto_id)?.unidade_venda ?? null) : null,
     })),
   )
   const [saving, setSaving] = useState(false)
@@ -69,6 +71,7 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produ
       return [...prev, {
         key: (keyRef.n += 1), produto_id: p.id, descricao: p.nome, base: p.preco_base,
         quantidade: '1', ajustePct: '', preco: p.preco_base > 0 ? p.preco_base.toFixed(2) : '', obs: '', local: p.local ?? null,
+        unidade: p.unidade_venda,
       }]
     })
     setErro(null)
@@ -77,7 +80,7 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produ
   function addAvulso() {
     setLinhas((prev) => [...prev, {
       key: (keyRef.n += 1), produto_id: null, descricao: '', base: 0,
-      quantidade: '1', ajustePct: '', preco: '', obs: '', local: null,
+      quantidade: '1', ajustePct: '', preco: '', obs: '', local: null, unidade: null,
     }])
     setErro(null)
   }
@@ -199,8 +202,9 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produ
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] text-faint">Qtd</span>
                     <input value={l.quantidade} inputMode="decimal" onChange={(e) => upd(l.key, 'quantidade', e.target.value)} className="input-field text-sm py-1.5 px-2 w-16 text-right tabular-nums" placeholder="1" />
+                    {l.unidade && <span className="text-[11px] text-secondary font-medium">{l.unidade}</span>}
                   </div>
-                  <span className="text-[11px] text-faint">base {l.base > 0 ? `R$ ${formatBRL(l.base)}` : '—'}</span>
+                  <span className="text-[11px] text-faint">base {l.base > 0 ? `R$ ${formatBRL(l.base)}${l.unidade ? `/${l.unidade}` : ''}` : '—'}</span>
                   <div className="flex items-center gap-1.5">
                     <input value={l.ajustePct} inputMode="decimal" disabled={isAvulso} onChange={(e) => upd(l.key, 'ajustePct', e.target.value)} className={`input-field text-sm py-1.5 px-2 w-14 text-right tabular-nums ${isAvulso ? 'opacity-40 cursor-not-allowed' : ''}`} placeholder="%" title={isAvulso ? 'Ajuste % vale só para itens do catálogo' : '% sobre o preço base'} />
                     <span className="text-[11px] text-faint">%</span>

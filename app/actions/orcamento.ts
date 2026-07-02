@@ -7,12 +7,13 @@ import { getUnidadeAutorizada, getUnidadePreferida } from '@/app/actions/unidade
 import { getPainelFinanceiro } from '@/app/actions/painel'
 import { subtotalItem, totalPedido } from '@/lib/pedido-calc'
 import { upsertCliente } from '@/app/lib/cliente-upsert'
+import { valorPorGrande, unidadeGrande } from '@/lib/format'
 
 type ActionResult<T = void> = T extends void
   ? { error?: string; success?: boolean }
   : { error?: string; data?: T }
 
-export type ProdutoOrcamento = { id: string; nome: string; categoria: string | null; preco_base: number; local: string | null }
+export type ProdutoOrcamento = { id: string; nome: string; categoria: string | null; preco_base: number; unidade_venda: string; local: string | null }
 
 export type OrcamentoItemInput = {
   produto_id: string | null
@@ -45,7 +46,7 @@ export type OrcamentoDetalhe = {
   total: number
   created_at: string
   unidade_nome: string | null
-  itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number }[]
+  itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; unidade: string | null }[]
 }
 
 async function getEmpresaId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
@@ -77,8 +78,12 @@ export async function getProdutosParaOrcamento(): Promise<ProdutoOrcamento[]> {
   const { data: locaisData } = await lq
   const localMap = new Map((locaisData ?? []).map((p: { id: string; local: string | null }) => [p.id, p.local]))
 
+  // Preço vem da view por unidade-base (por grama, p/ fichas em peso). No pedido,
+  // usamos o preço por unidade de venda (kg/L/un) e a quantidade nessa unidade.
   return fichas.map((p) => ({
-    id: p.produto_id, nome: p.produto_nome, categoria: p.categoria, preco_base: p.preco_venda,
+    id: p.produto_id, nome: p.produto_nome, categoria: p.categoria,
+    preco_base: valorPorGrande(p.preco_venda, p.rendimento_unidade),
+    unidade_venda: unidadeGrande(p.rendimento_unidade),
     local: localMap.get(p.produto_id) ?? null,
   }))
 }
@@ -212,6 +217,23 @@ export async function getOrcamento(id: string): Promise<ActionResult<OrcamentoDe
   const orc = orcRes.data as (Record<string, unknown> & { unidade: { nome: string } | null }) | null
   if (!orc) return { error: 'Orçamento não encontrado' }
 
+  // Unidade de venda por item (produto → receita.rendimento_unidade).
+  type ItemRaw = Omit<OrcamentoDetalhe['itens'][number], 'unidade'>
+  const itensRaw = (itensRes.data as ItemRaw[]) ?? []
+  const pids = itensRaw.map((i) => i.produto_id).filter((x): x is string => !!x)
+  const unidadeMap = new Map<string, string | null>()
+  if (pids.length > 0) {
+    const { data: prods } = await supabase.from('produto').select('id, receita:receita_id ( rendimento_unidade )').in('id', pids)
+    for (const p of (prods ?? []) as { id: string; receita: { rendimento_unidade: string | null } | { rendimento_unidade: string | null }[] | null }[]) {
+      const rec = Array.isArray(p.receita) ? p.receita[0] : p.receita
+      unidadeMap.set(p.id, rec?.rendimento_unidade ?? null)
+    }
+  }
+  const itensComUnidade = itensRaw.map((i) => ({
+    ...i,
+    unidade: i.produto_id ? unidadeGrande(unidadeMap.get(i.produto_id) ?? null) : null,
+  }))
+
   return {
     data: {
       id: orc.id as string,
@@ -224,7 +246,7 @@ export async function getOrcamento(id: string): Promise<ActionResult<OrcamentoDe
       total: orc.total as number,
       created_at: orc.created_at as string,
       unidade_nome: orc.unidade?.nome ?? null,
-      itens: (itensRes.data as OrcamentoDetalhe['itens']) ?? [],
+      itens: itensComUnidade,
     },
   }
 }
