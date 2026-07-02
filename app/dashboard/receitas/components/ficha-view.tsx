@@ -28,6 +28,7 @@ export function FichaView({ receita, custo, itens }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
+  const [confirmItemId, setConfirmItemId] = useState<string | null>(null)
   const keyRef = useRef(0)
 
   function openEditReceita() { setEditReceitaKey(keyRef.current += 1); setEditReceitaOpen(true) }
@@ -45,6 +46,7 @@ export function FichaView({ receita, custo, itens }: Props) {
     setDeletingItemId(item.id)
     await removeItem(item.id, receita.id)
     setDeletingItemId(null)
+    setConfirmItemId(null)
   }
 
   const pendentes = itens.filter(i => i.is_pendente)
@@ -158,8 +160,8 @@ export function FichaView({ receita, custo, itens }: Props) {
           </div>
         ) : (
           <div>
-            {/* Desktop: tabela */}
-            <div className="hidden md:block">
+            {/* Desktop (telas largas): tabela */}
+            <div className="hidden lg:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-input text-secondary text-[11px] uppercase tracking-wider">
@@ -203,14 +205,23 @@ export function FichaView({ receita, custo, itens }: Props) {
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEditItem(item)} className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/40 hover:text-accent-primary hover:bg-accent-primary/10 transition-all" aria-label="Editar">
-                            <Pencil size={12} />
-                          </button>
-                          <button onClick={() => handleRemoveItem(item)} disabled={deletingItemId === item.id} className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/40 hover:text-red-400 hover:bg-red-500/10 transition-all" aria-label="Remover">
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
+                        {confirmItemId === item.id ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button onClick={() => handleRemoveItem(item)} disabled={deletingItemId === item.id} className="text-[11px] font-medium text-red-400 border border-red-500/30 rounded-lg px-2.5 py-1.5 hover:bg-red-500/10 transition-colors">
+                              {deletingItemId === item.id ? '…' : 'Excluir'}
+                            </button>
+                            <button onClick={() => setConfirmItemId(null)} className="text-[11px] text-secondary hover:text-primary px-2 py-1.5">Cancelar</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button onClick={() => openEditItem(item)} className="inline-flex items-center gap-1 text-xs text-secondary hover:text-accent-primary border border-subtle hover:border-accent-primary/30 hover:bg-accent-primary/8 rounded-lg px-2.5 py-1.5 transition-all" aria-label="Editar item">
+                              <Pencil size={12} /> Editar
+                            </button>
+                            <button onClick={() => setConfirmItemId(item.id)} className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-secondary hover:text-red-400 border border-subtle hover:border-red-500/30 hover:bg-red-500/8 transition-all" aria-label="Excluir item">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -218,8 +229,8 @@ export function FichaView({ receita, custo, itens }: Props) {
               </table>
             </div>
 
-            {/* Mobile: cards */}
-            <div className="md:hidden divide-y divide-accent-primary/8">
+            {/* Tablet e celular: cards (ações sempre visíveis) */}
+            <div className="lg:hidden divide-y divide-accent-primary/8">
               {[...pendentes, ...normais].map(item => (
                 <div key={item.id} className={`px-4 py-3 ${item.is_pendente ? 'bg-amber-500/8' : ''}`}>
                   <div className="flex items-start justify-between gap-3">
@@ -248,14 +259,23 @@ export function FichaView({ receita, custo, itens }: Props) {
                         ) : null}
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button onClick={() => openEditItem(item)} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary/40 hover:text-accent-primary hover:bg-accent-primary/10 transition-all">
-                        <Pencil size={13} />
-                      </button>
-                      <button onClick={() => handleRemoveItem(item)} disabled={deletingItemId === item.id} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary/40 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                    {confirmItemId === item.id ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button onClick={() => handleRemoveItem(item)} disabled={deletingItemId === item.id} className="text-[11px] font-medium text-red-400 border border-red-500/30 rounded-lg px-2.5 py-1.5 hover:bg-red-500/10 transition-colors">
+                          {deletingItemId === item.id ? '…' : 'Excluir'}
+                        </button>
+                        <button onClick={() => setConfirmItemId(null)} className="text-[11px] text-secondary px-2 py-1.5">Cancelar</button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1.5 shrink-0">
+                        <button onClick={() => openEditItem(item)} className="inline-flex items-center gap-1 text-xs text-secondary hover:text-accent-primary border border-subtle hover:border-accent-primary/30 hover:bg-accent-primary/8 rounded-lg px-2.5 py-1.5 transition-all" aria-label="Editar item">
+                          <Pencil size={13} /> Editar
+                        </button>
+                        <button onClick={() => setConfirmItemId(item.id)} className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-secondary hover:text-red-400 border border-subtle hover:border-red-500/30 hover:bg-red-500/8 transition-all" aria-label="Excluir item">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

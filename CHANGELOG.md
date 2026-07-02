@@ -7,6 +7,14 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Ficha — editar/excluir item visível no tablet
+> No tablet a **tabela** de ingredientes era larga demais e a coluna de ações ficava **cortada** pelo
+> `overflow-hidden` do card — parecia que não dava pra editar/excluir. Agora telas até `lg` usam o
+> **layout de cards** (ações sempre visíveis) e a tabela só aparece em telas largas.
+- Botões **"Editar"** (rotulado) e **excluir** (com **confirmação** antes de apagar) claros e com bom
+  alvo de toque, em cada ingrediente. Fim do apagar acidental.
+
+
 ### Produto Fabricado — cadastro habilitado
 - **Aba "Fabricado" no modal de Novo Produto** (antes "Em breve"): cria um produto ligado a uma
   **ficha técnica**. Seletor de ficha com **busca** e **prévia do custo unitário** (ex.: `R$ 0,67 / un`);
