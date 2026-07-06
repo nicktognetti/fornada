@@ -23,6 +23,7 @@ import {
 import { avisarEquipe } from '@/lib/atendimento/aviso'
 import { upsertClienteAtendimento, buscarFichaCliente } from '@/lib/atendimento/cliente'
 import { criarPedidoAutomatico } from '@/lib/atendimento/pedido-auto'
+import { buscarInfoLoja } from '@/lib/atendimento/info-loja'
 
 /**
  * GET /api/atendimento/webhook — verificação do webhook (cadastro na Meta).
@@ -115,12 +116,13 @@ async function responderComIA(
 
     // Ficha do cliente (se o número já é conhecido) entra no prompt:
     // o robô cumprimenta pelo nome e oferece o endereço salvo.
-    const [historico, fichaCliente] = await Promise.all([
+    const [historico, fichaCliente, infoLoja] = await Promise.all([
       buscarHistorico(conversa.id),
       buscarFichaCliente(ctx, numeroRemetente),
+      buscarInfoLoja(ctx.unidadeId),
     ])
     if (fichaCliente) console.log(`👤 Cliente conhecido (${numeroRemetente}) — ficha aplicada ao prompt.`)
-    const respostaDaIA = await gerarResposta(ctx, textoRecebido, historico, fichaCliente)
+    const respostaDaIA = await gerarResposta(ctx, textoRecebido, historico, fichaCliente, infoLoja)
 
     // Marcações internas (encomenda/foto): captura os dados e limpa o texto
     const extracao = extrairEncomenda(respostaDaIA)

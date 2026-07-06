@@ -34,6 +34,50 @@ export async function enviarMensagemTexto(
   return true
 }
 
+/**
+ * Envia uma mensagem de TEMPLATE aprovado na Meta (corpo com {{1}}).
+ * Templates furam a janela de 24h — usado no aviso à equipe.
+ */
+export async function enviarTemplate(
+  phoneNumberId: string,
+  para: string,
+  templateNome: string,
+  parametro: string,
+): Promise<boolean> {
+  const token = process.env.WHATSAPP_TOKEN
+  if (!token || !phoneNumberId) {
+    console.error('ERRO: WHATSAPP_TOKEN ou phone_number_id ausentes.')
+    return false
+  }
+
+  const resposta = await fetch(`${GRAPH}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: para,
+      type: 'template',
+      template: {
+        name: templateNome,
+        language: { code: 'pt_BR' },
+        components: [
+          {
+            type: 'body',
+            // Parâmetro de template não aceita \n/\t — o chamador já manda em linha única
+            parameters: [{ type: 'text', text: parametro.slice(0, 1024) }],
+          },
+        ],
+      },
+    }),
+  })
+
+  if (!resposta.ok) {
+    console.error('Falha ao enviar template:', resposta.status, await resposta.text())
+    return false
+  }
+  return true
+}
+
 /** Envia uma IMAGEM (foto de produto) com legenda opcional. */
 export async function enviarImagem(
   phoneNumberId: string,

@@ -1,27 +1,43 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bot, Plus, Loader2, Save, Bell, BellOff, Truck, ClipboardList, Zap } from 'lucide-react'
-import { listarCanais, salvarCanal, type CanalConfig } from '@/app/actions/atendimento'
+import { Bot, Plus, Loader2, Save, Bell, BellOff, Truck, ClipboardList, Zap, Store, Volume2, VolumeX } from 'lucide-react'
+import {
+  listarCanais, salvarCanal, listarInfoLojas, salvarInfoLoja,
+  type CanalConfig, type InfoLojaConfig,
+} from '@/app/actions/atendimento'
 import type { CanalAtendimento } from '@/lib/atendimento/canal-tipos'
+
+// Som de pedido novo é POR APARELHO (mesma lógica da impressão automática)
+const SOM_KEY = 'fornada_atendimento_som'
 
 // Aba "Robô": números de WhatsApp por loja/canal + aviso de pedido novo
 // para a equipe (liga/desliga por canal — ex.: delivery avisa, encomendas não).
 export function CanaisView() {
   const [canais, setCanais] = useState<CanalConfig[]>([])
   const [unidades, setUnidades] = useState<{ id: string; nome: string }[]>([])
+  const [infos, setInfos] = useState<InfoLojaConfig[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [novoAberto, setNovoAberto] = useState(false)
+  const [som, setSom] = useState(false)
+
+  useEffect(() => { setSom(localStorage.getItem(SOM_KEY) === '1') }, [])
+  function toggleSom() {
+    const novo = !som
+    setSom(novo)
+    localStorage.setItem(SOM_KEY, novo ? '1' : '0')
+  }
 
   const carregar = useCallback(async () => {
-    const res = await listarCanais()
+    const [res, infoRes] = await Promise.all([listarCanais(), listarInfoLojas()])
     if (res.error || !res.data) setErro(res.error ?? 'Erro ao carregar')
     else {
       setErro(null)
       setCanais(res.data.canais)
       setUnidades(res.data.unidades)
     }
+    if (infoRes.data) setInfos(infoRes.data.infos)
     setCarregando(false)
   }, [])
 
@@ -59,6 +75,106 @@ export function CanaisView() {
           Adicionar número
         </button>
       )}
+
+      {/* ── Som de pedido novo (este aparelho) ── */}
+      <div className="card-surface p-4 flex items-center gap-3 flex-wrap">
+        <button
+          onClick={toggleSom}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            som
+              ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/30'
+              : 'bg-input text-secondary border-transparent hover:text-primary'
+          }`}
+        >
+          {som ? <Volume2 size={13} /> : <VolumeX size={13} />}
+          {som ? 'Som de pedido novo: LIGADO' : 'Som de pedido novo'}
+        </button>
+        <p className="text-[11px] text-faint">
+          Toca um aviso sonoro <b>neste aparelho</b> quando o robô anota um pedido (com o sistema aberto em qualquer tela).
+        </p>
+      </div>
+
+      {/* ── Informações oficiais por loja ── */}
+      <div className="rounded-xl bg-canvas border border-subtle px-4 py-3">
+        <p className="text-sm text-primary flex items-center gap-2"><Store size={14} className="text-accent-primary" /> Informações oficiais da loja</p>
+        <p className="text-xs text-faint mt-1">
+          O que estiver preenchido aqui o robô <b>pode informar</b> ao cliente (horários, endereço, pagamento, entrega).
+          O que ficar em branco, ele continua respondendo &quot;confirmo com a equipe&quot;.
+        </p>
+      </div>
+
+      {infos.map((info) => (
+        <InfoLojaCard key={info.unidade_id} info={info} />
+      ))}
+    </div>
+  )
+}
+
+function InfoLojaCard({ info }: { info: InfoLojaConfig }) {
+  const [horarios, setHorarios] = useState(info.horarios ?? '')
+  const [endereco, setEndereco] = useState(info.endereco ?? '')
+  const [pagamento, setPagamento] = useState(info.pagamento ?? '')
+  const [entrega, setEntrega] = useState(info.entrega ?? '')
+  const [extra, setExtra] = useState(info.extra ?? '')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+  // Base = último estado salvo (para o botão Salvar aparecer só quando mudou)
+  const [base, setBase] = useState({
+    horarios: info.horarios ?? '', endereco: info.endereco ?? '',
+    pagamento: info.pagamento ?? '', entrega: info.entrega ?? '', extra: info.extra ?? '',
+  })
+
+  const mudou =
+    horarios.trim() !== base.horarios || endereco.trim() !== base.endereco ||
+    pagamento.trim() !== base.pagamento || entrega.trim() !== base.entrega ||
+    extra.trim() !== base.extra
+
+  async function salvar() {
+    setSalvando(true)
+    setErro(null)
+    setOk(false)
+    const res = await salvarInfoLoja(info.unidade_id, { horarios, endereco, pagamento, entrega, extra })
+    setSalvando(false)
+    if (res.error) { setErro(res.error); return }
+    setBase({ horarios: horarios.trim(), endereco: endereco.trim(), pagamento: pagamento.trim(), entrega: entrega.trim(), extra: extra.trim() })
+    setOk(true)
+  }
+
+  const campos: { rotulo: string; valor: string; set: (v: string) => void; placeholder: string }[] = [
+    { rotulo: 'Horários de funcionamento', valor: horarios, set: setHorarios, placeholder: 'ex: seg a sáb 6h–19h, dom 6h–12h' },
+    { rotulo: 'Endereço da loja', valor: endereco, set: setEndereco, placeholder: 'ex: Rua do Trigo, 100 — Centro' },
+    { rotulo: 'Formas de pagamento', valor: pagamento, set: setPagamento, placeholder: 'ex: dinheiro, pix, cartão (débito/crédito)' },
+    { rotulo: 'Entrega (taxa/área/tempo)', valor: entrega, set: setEntrega, placeholder: 'ex: taxa R$ 5 no centro, ~40 min' },
+    { rotulo: 'Outras informações', valor: extra, set: setExtra, placeholder: 'ex: encomendas de bolo com 48h de antecedência' },
+  ]
+
+  return (
+    <div className="card-surface p-4 space-y-3">
+      <p className="text-sm font-semibold text-primary flex items-center gap-2">
+        <Store size={14} className="text-secondary" />
+        {info.unidade_nome}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {campos.map((c) => (
+          <div key={c.rotulo} className={c.rotulo === 'Outras informações' ? 'sm:col-span-2' : ''}>
+            <label className="field-label">{c.rotulo}</label>
+            <input type="text" value={c.valor} onChange={(e) => { c.set(e.target.value); setOk(false) }}
+              placeholder={c.placeholder} className="input-field text-sm" />
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        {mudou && (
+          <button onClick={salvar} disabled={salvando}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-primary/15 text-accent-primary border border-accent-primary/25 hover:bg-accent-primary/25 transition-colors disabled:opacity-50">
+            {salvando ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+            Salvar
+          </button>
+        )}
+        {ok && <span className="text-xs text-success">Salvo ✓ — o robô já usa na próxima mensagem</span>}
+        {erro && <span className="text-xs text-danger">{erro}</span>}
+      </div>
     </div>
   )
 }
@@ -66,13 +182,15 @@ export function CanaisView() {
 function CanalCard({ canal: c, onSalvo }: { canal: CanalConfig; onSalvo: () => void }) {
   const [avisarAtivo, setAvisarAtivo] = useState(c.avisar_ativo)
   const [avisarNumero, setAvisarNumero] = useState(c.avisar_numero ?? '')
+  const [avisarTemplate, setAvisarTemplate] = useState(c.avisar_template ?? '')
   const [ativo, setAtivo] = useState(c.ativo)
   const [pedidoAuto, setPedidoAuto] = useState(c.pedido_auto)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
 
-  const mudou = avisarAtivo !== c.avisar_ativo || (avisarNumero.trim() || null) !== (c.avisar_numero ?? null) || ativo !== c.ativo || pedidoAuto !== c.pedido_auto
+  const mudou = avisarAtivo !== c.avisar_ativo || (avisarNumero.trim() || null) !== (c.avisar_numero ?? null) ||
+    (avisarTemplate.trim() || null) !== (c.avisar_template ?? null) || ativo !== c.ativo || pedidoAuto !== c.pedido_auto
   const CanalIcon = c.canal === 'delivery' ? Truck : ClipboardList
 
   async function salvar() {
@@ -88,6 +206,7 @@ function CanalCard({ canal: c, onSalvo }: { canal: CanalConfig; onSalvo: () => v
       ativo,
       avisar_ativo: avisarAtivo,
       avisar_numero: avisarNumero,
+      avisar_template: avisarTemplate,
       pedido_auto: pedidoAuto,
     })
     setSalvando(false)
@@ -162,10 +281,24 @@ function CanalCard({ canal: c, onSalvo }: { canal: CanalConfig; onSalvo: () => v
       </div>
 
       {avisarAtivo && (
-        <p className="text-[11px] text-faint">
-          Dica: para o aviso chegar sempre, o número da equipe deve mandar um &quot;oi&quot; para o robô de vez em quando
-          (a Meta só libera mensagem livre dentro de 24h desde o último contato).
-        </p>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="text-[11px] text-secondary uppercase tracking-wider shrink-0">Template aprovado (opcional):</label>
+            <input
+              type="text"
+              value={avisarTemplate}
+              onChange={(e) => setAvisarTemplate(e.target.value)}
+              placeholder="ex: aviso_pedido"
+              className="input-field text-xs py-1.5 px-2 w-48"
+              title="Nome de um template aprovado na Meta com {{1}} no corpo — o aviso passa a chegar SEMPRE, sem depender da janela de 24h"
+            />
+          </div>
+          <p className="text-[11px] text-faint">
+            {avisarTemplate.trim()
+              ? <>Com template, o aviso <b>fura a janela de 24h</b> e chega sempre. O template precisa estar aprovado na Meta com <code>{'{{1}}'}</code> no corpo (se falhar, caímos na mensagem livre).</>
+              : <>Sem template: para o aviso chegar, o número da equipe deve mandar um &quot;oi&quot; para o robô a cada 24h. Aprove um template na Meta (corpo com <code>{'{{1}}'}</code>) e informe o nome aqui para eliminar essa limitação.</>}
+          </p>
+        </div>
       )}
       {erro && <p className="text-xs text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>}
     </div>

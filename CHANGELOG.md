@@ -7,6 +7,28 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Atendimento — pacote de operação: infos da loja, template, agente de impressão, som, relatório e cliente
+> As 6 melhorias indicadas. Migration `20260706000003` **APLICADA**.
+- **Informações oficiais da loja** (aba Robô, por loja): horários, endereço, pagamento, entrega e
+  extras. O que estiver preenchido o robô **informa ao cliente** (testado: "que horas abrem no
+  domingo?" → resposta com o horário oficial + taxa de entrega); o que ficar vazio segue
+  "confirmo com a equipe". Vale na próxima mensagem, sem deploy. Tabela `atendimento_loja_info`.
+- **Template aprovado no aviso à equipe** (campo no canal): com um template da Meta (corpo
+  `{{1}}`), o aviso **fura a janela de 24h** e chega sempre; se o template falhar, cai na
+  mensagem livre. Envio via `enviarTemplate` (pt_BR); resumo em linha única (regra da Meta).
+- **Agente de impressão local** (`scripts/agente-impressao.mjs`): térmica **100% silenciosa** —
+  script standalone (Node 18+) que roda no PC da loja, consulta `GET /api/atendimento/comandas`
+  (token `IMPRESSAO_TOKEN`), imprime comanda 42 colunas via `Out-Printer` e marca `impresso_em`.
+  Ciclo da API validado: 401 sem token → lista → marca → some da fila.
+- **Som de pedido novo** (toggle por aparelho, aba Robô): aviso sonoro em qualquer tela quando o
+  contador de pendentes sobe (WebAudio, sem arquivo).
+- **Aba Relatório**: mês a mês por loja — total, por canal, % anotado→virou pedido, pedidos por
+  dia e produtos mais pedidos.
+- **Cadastro do cliente pela conversa**: botão "Cliente" no cabeçalho mostra/edita nome,
+  endereço salvo e observação (mesma tabela da tela Clientes; o robô usa na próxima conversa).
+- E2E no preview: info salva pela UI → robô respondeu horário/taxa; ciclo completo da API de
+  comandas; relatório com KPIs/gráficos; cliente editado e persistido. 99 testes ✅.
+
 ### Atendimento — memória de cliente, comanda térmica, badge, anti-duplicata e pedido automático
 > Fecha o ciclo operacional do robô. Migration `20260706000002` **APLICADA**.
 - **Memória de cliente**: quando o robô anota um pedido, **cadastra/atualiza o cliente**

@@ -39,6 +39,7 @@ export async function gerarResposta(
   mensagemDoCliente: string,
   historico: MensagemDaConversa[] = [],
   fichaCliente?: string | null,
+  infoLoja?: string | null,
 ): Promise<string> {
   const chave = process.env.GROQ_API_KEY
   if (!chave) {
@@ -48,7 +49,7 @@ export async function gerarResposta(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mensagens: any[] = [
-    { role: 'system', content: montarPrompt(ctx.canal, ctx.unidadeNome, fichaCliente) },
+    { role: 'system', content: montarPrompt(ctx.canal, ctx.unidadeNome, fichaCliente, infoLoja) },
     ...historico,
     { role: 'user', content: mensagemDoCliente },
   ]

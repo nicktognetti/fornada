@@ -47,18 +47,43 @@ aguardando, viraram pedido). Por linha: **🖨️ imprimir comanda 80mm**, **Con
 
 **Impressão automática** (botão no topo): liga **por aparelho** — no computador da impressora
 térmica, deixe o painel aberto e a térmica como impressora padrão; pedido novo já abre o diálogo
-com a comanda pronta (endereço em destaque). *Impressão 100% silenciosa exige um agente local —
-está no roadmap.*
+com a comanda pronta (endereço em destaque).
+
+**Impressão 100% SILENCIOSA (sem diálogo)**: use o agente local `scripts/agente-impressao.mjs`
+no computador da loja — ele vigia os pedidos e manda direto pra térmica, sem navegador:
+
+```
+node agente-impressao.mjs --token=IMPRESSAO_TOKEN [--unidade=UUID] [--impressora="Nome"]
+```
+
+O token é o env `IMPRESSAO_TOKEN` (Vercel). Instruções completas no cabeçalho do script.
+API usada: `GET/POST /api/atendimento/comandas` (protegida pelo token; controla o que já
+saiu via `impresso_em`).
+
+### `Atendimento → Relatório`
+Números do mês por loja: total de pedidos, por canal, % que virou pedido oficial,
+**pedidos por dia** e **produtos mais pedidos**. Troque o mês no seletor.
 
 ### `Atendimento → Robô` (configuração)
 Cadastro dos números: loja + canal + Phone Number ID (painel da Meta). Por número:
 - **Número ativo** — liga/desliga o canal.
 - **Avisar equipe no WhatsApp** — pedido novo manda resumo pro número da equipe.
-  ⚠️ Janela de 24h da Meta: a equipe deve mandar um "oi" pro robô de vez em quando.
+  ⚠️ Janela de 24h da Meta: a equipe deve mandar um "oi" pro robô de vez em quando —
+  **OU** aprove um template na Meta (corpo com `{{1}}`) e informe o nome no campo
+  "Template aprovado": o aviso passa a chegar SEMPRE.
 - **Virar pedido automaticamente** — anotou → encomenda oficial na hora (entrega hoje, valor em
   aberto). Pensado pro delivery.
+- **Som de pedido novo** — aviso sonoro NESTE aparelho quando o robô anota (funciona em
+  qualquer tela do sistema).
+- **Informações oficiais da loja** — horários, endereço, pagamento e entrega POR LOJA.
+  O que estiver preenchido o robô **informa ao cliente**; o que ficar em branco continua
+  "confirmo com a equipe". Salvou → vale na próxima mensagem, sem deploy.
 
 Todos os toggles nascem **desligados**.
+
+### Cadastro do cliente pela conversa
+Na conversa aberta, o botão **Cliente** mostra/edita o cadastro do número (nome, endereço
+salvo do delivery, observação da equipe) — o robô usa na próxima conversa.
 
 ### Produtos (o que o robô vende)
 Por linha: chips **D**/**E** (em quais canais vende — clique liga/desliga), botão **tem/acabou
@@ -93,12 +118,10 @@ específicos). Disponibilidade não informada = o robô diz que "confirma com a 
 
 ## Roadmap sugerido (não feito)
 
-- **Agente de impressão local** → térmica 100% silenciosa, sem diálogo.
-- **UI pros dados do prompt** (horários/endereços/pagamento editáveis em Cadastros, sem mexer em código).
-- **Relatório mensal** de atendimento (pedidos por canal/dia, taxa de conversão anotado→pedido).
-- **Botão "cadastrar cliente" manual** na conversa + editar endereço salvo pelo painel.
-- **Template de WhatsApp aprovado** pro aviso da equipe (elimina a janela de 24h).
-- **Som/notificação do navegador** no painel quando cai pedido.
+- Estruturar endereço (CEP/bairro separados) quando entrar cálculo de taxa por região.
+- Notificação push do navegador (Notification API) além do som.
+- Dashboard de atendimento no Resumo (pedidos do robô de hoje ao lado das encomendas).
+- Exportar o relatório mensal (PDF/impressão).
 
 ## Mapa técnico (para desenvolvimento)
 

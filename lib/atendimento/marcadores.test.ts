@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { extrairEncomenda, extrairFoto, limparVazamentoDeFerramenta } from './marcadores'
 import { calcularDisponibilidade } from './disponibilidade'
-import { formatarAvisoPedido } from './aviso-texto'
+import { formatarAvisoPedido, formatarAvisoPedidoLinha } from './aviso-texto'
 import { formatarFichaCliente } from './ficha-texto'
+import { formatarInfoLoja } from './info-texto'
 
 describe('extrairEncomenda', () => {
   it('sem marcação: devolve o texto intacto e encomenda null', () => {
@@ -90,6 +91,43 @@ describe('calcularDisponibilidade (canais encomendas × delivery)', () => {
 
   it('flags ausentes (produto sem linha): seguro por padrão', () => {
     expect(calcularDisponibilidade(undefined, 'delivery')).toBe('confirmar_com_equipe')
+  })
+})
+
+describe('formatarInfoLoja (dados oficiais no prompt)', () => {
+  it('com dados: monta o bloco e mantém a regra de ouro', () => {
+    const txt = formatarInfoLoja({
+      horarios: 'seg a sáb 6h–19h',
+      endereco: 'Rua do Trigo, 100',
+      pagamento: 'pix e cartão',
+      entrega: 'taxa R$ 5 no centro',
+      extra: null,
+    })
+    expect(txt).toContain('Informações OFICIAIS desta loja')
+    expect(txt).toContain('Horários de funcionamento: seg a sáb 6h–19h')
+    expect(txt).toContain('Entrega (taxa/área/tempo): taxa R$ 5 no centro')
+    expect(txt).not.toContain('Outras informações')
+    expect(txt).toContain('regra de ouro')
+  })
+
+  it('tudo vazio ou null: retorna null (prompt fica no modo recepcionista)', () => {
+    expect(formatarInfoLoja(null)).toBeNull()
+    expect(formatarInfoLoja({ horarios: null, endereco: null, pagamento: null, entrega: null, extra: null })).toBeNull()
+  })
+})
+
+describe('formatarAvisoPedidoLinha (parâmetro de template Meta)', () => {
+  it('linha única, sem \\n nem tab (regra da Meta)', () => {
+    const linha = formatarAvisoPedidoLinha(
+      'delivery',
+      { produto: '10 pães', quantidade: '10', data: 'hoje', nome: 'João', endereco: 'Rua A,\n123' },
+      'Morada do Sol',
+      '5511999990002',
+    )
+    expect(linha).not.toMatch(/[\n\t]/)
+    expect(linha).toContain('PEDIDO DE DELIVERY — Morada do Sol')
+    expect(linha).toContain('entregar em: Rua A, 123')
+    expect(linha).toContain('whatsapp: 5511999990002')
   })
 })
 

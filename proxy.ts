@@ -58,10 +58,13 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const isLoginPage = pathname === '/login'
-  // Webhook do WhatsApp: a Meta chama sem sessão — a rota se protege
-  // sozinha (VERIFY_TOKEN no GET; POST só processa payloads conhecidos).
-  const isWebhook = pathname.startsWith('/api/atendimento/webhook')
-  const isPublicPath = isLoginPage || isWebhook
+  // APIs do atendimento chamadas SEM sessão: o webhook (Meta) e as
+  // comandas (agente de impressão local). Cada rota se protege sozinha
+  // (VERIFY_TOKEN / IMPRESSAO_TOKEN).
+  const isApiAtendimento =
+    pathname.startsWith('/api/atendimento/webhook') ||
+    pathname.startsWith('/api/atendimento/comandas')
+  const isPublicPath = isLoginPage || isApiAtendimento
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()

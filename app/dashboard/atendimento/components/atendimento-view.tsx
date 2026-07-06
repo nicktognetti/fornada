@@ -4,16 +4,17 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   Bot, User, Send, RefreshCw, Loader2, MessageCircle, Truck,
-  ClipboardList, Check, ArrowRight, PhoneOff, Phone,
+  ClipboardList, Check, ArrowRight, PhoneOff, Phone, BarChart3, ContactRound, Save,
 } from 'lucide-react'
 import {
   listarConversas, getConversa, assumirConversa, devolverConversa,
-  responderConversa, confirmarEncomendaAnotada,
-  type ConversaResumo, type ConversaDetalhe, type EncomendaAnotada,
+  responderConversa, confirmarEncomendaAnotada, getClienteDaConversa, salvarClienteDaConversa,
+  type ConversaResumo, type ConversaDetalhe, type EncomendaAnotada, type ClienteDaConversa,
 } from '@/app/actions/atendimento'
 import { VirarPedidoModal } from './virar-pedido-modal'
 import { PedidosView } from './pedidos-view'
 import { CanaisView } from './canais-view'
+import { RelatorioView } from './relatorio-view'
 
 type CanalFiltro = 'todos' | 'encomendas' | 'delivery'
 
@@ -31,7 +32,7 @@ function horaCurta(iso: string): string {
 }
 
 export function AtendimentoView({ conversasIniciais }: { conversasIniciais: ConversaResumo[] }) {
-  const [modo, setModo] = useState<'conversas' | 'pedidos' | 'robo'>('conversas')
+  const [modo, setModo] = useState<'conversas' | 'pedidos' | 'relatorio' | 'robo'>('conversas')
   const [conversas, setConversas] = useState<ConversaResumo[]>(conversasIniciais)
   const [canal, setCanal] = useState<CanalFiltro>('todos')
   const [selecionada, setSelecionada] = useState<string | null>(null)
@@ -111,6 +112,7 @@ export function AtendimentoView({ conversasIniciais }: { conversasIniciais: Conv
       {([
         { id: 'conversas', label: 'Conversas', icon: MessageCircle },
         { id: 'pedidos',   label: 'Pedidos',   icon: ClipboardList },
+        { id: 'relatorio', label: 'Relatório', icon: BarChart3 },
         { id: 'robo',      label: 'Robô',      icon: Bot },
       ] as const).map((aba) => (
         <button
@@ -132,6 +134,15 @@ export function AtendimentoView({ conversasIniciais }: { conversasIniciais: Conv
       <>
         {abas}
         <PedidosView onVerConversa={verConversa} />
+      </>
+    )
+  }
+
+  if (modo === 'relatorio') {
+    return (
+      <>
+        {abas}
+        <RelatorioView />
       </>
     )
   }
@@ -256,6 +267,7 @@ export function AtendimentoView({ conversasIniciais }: { conversasIniciais: Conv
                 <p className="text-sm font-semibold text-primary truncate">{detalhe.nome || detalhe.numero}</p>
                 <p className="text-[11px] text-faint">{detalhe.numero} · {CANAL_CHIP[detalhe.canal].label}</p>
               </div>
+              <ClientePanel conversaId={detalhe.id} />
               <button
                 onClick={togglePausa}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
@@ -383,5 +395,93 @@ export function AtendimentoView({ conversasIniciais }: { conversasIniciais: Conv
       )}
     </div>
     </>
+  )
+}
+
+// ── Cadastro do cliente pela conversa (nome, endereço, observação) ────────────
+function ClientePanel({ conversaId }: { conversaId: string }) {
+  const [aberto, setAberto] = useState(false)
+  const [cliente, setCliente] = useState<ClienteDaConversa | null>(null)
+  const [carregando, setCarregando] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  async function abrir() {
+    if (aberto) { setAberto(false); return }
+    setAberto(true)
+    setMsg(null)
+    setCarregando(true)
+    const res = await getClienteDaConversa(conversaId)
+    if (res.data) setCliente(res.data)
+    else setMsg(res.error ?? 'Erro ao carregar')
+    setCarregando(false)
+  }
+
+  async function salvar() {
+    if (!cliente) return
+    setSalvando(true)
+    setMsg(null)
+    const res = await salvarClienteDaConversa(conversaId, {
+      nome: cliente.nome,
+      endereco: cliente.endereco,
+      observacao: cliente.observacao,
+    })
+    setSalvando(false)
+    setMsg(res.error ?? 'Salvo ✓ — o robô já usa na próxima conversa')
+  }
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={abrir}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+          aberto
+            ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/30'
+            : 'bg-input text-secondary border-transparent hover:text-primary'
+        }`}
+        title="Ver/editar o cadastro deste cliente (nome, endereço salvo, observação)"
+      >
+        <ContactRound size={12} />
+        Cliente
+      </button>
+
+      {aberto && (
+        <div className="absolute right-0 top-10 z-30 w-80 card-surface border border-subtle p-4 space-y-3 shadow-xl">
+          {carregando && <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-secondary" /></div>}
+          {!carregando && cliente && (
+            <>
+              <p className="text-[11px] text-faint">WhatsApp: {cliente.telefone}{cliente.id ? '' : ' · ainda sem cadastro'}</p>
+              <div>
+                <label className="field-label">Nome</label>
+                <input type="text" value={cliente.nome}
+                  onChange={(e) => setCliente({ ...cliente, nome: e.target.value })}
+                  className="input-field text-sm" />
+              </div>
+              <div>
+                <label className="field-label">Endereço salvo (delivery)</label>
+                <input type="text" value={cliente.endereco ?? ''}
+                  onChange={(e) => setCliente({ ...cliente, endereco: e.target.value || null })}
+                  placeholder="rua, número, bairro" className="input-field text-sm" />
+              </div>
+              <div>
+                <label className="field-label">Observação da equipe</label>
+                <input type="text" value={cliente.observacao ?? ''}
+                  onChange={(e) => setCliente({ ...cliente, observacao: e.target.value || null })}
+                  placeholder="ex: cliente antigo, prefere retirar cedo" className="input-field text-sm" />
+              </div>
+              {msg && <p className={`text-xs ${msg.startsWith('Salvo') ? 'text-success' : 'text-danger'}`}>{msg}</p>}
+              <div className="flex justify-end">
+                <button onClick={salvar} disabled={salvando || !cliente.nome.trim()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-primary/15 text-accent-primary border border-accent-primary/25 hover:bg-accent-primary/25 transition-colors disabled:opacity-50">
+                  {salvando ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Salvar
+                </button>
+              </div>
+            </>
+          )}
+          {!carregando && !cliente && msg && <p className="text-xs text-danger">{msg}</p>}
+        </div>
+      )}
+    </div>
   )
 }

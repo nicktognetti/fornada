@@ -334,6 +334,7 @@ export type CanalConfig = {
   ativo: boolean
   avisar_ativo: boolean
   avisar_numero: string | null
+  avisar_template: string | null
   pedido_auto: boolean
 }
 
@@ -347,7 +348,7 @@ export async function listarCanais(): Promise<ActionResult<{ canais: CanalConfig
   const [canaisRes, unidadesRes] = await Promise.all([
     supabase
       .from('atendimento_canal')
-      .select('id, unidade_id, canal, phone_number_id, numero_exibicao, ativo, avisar_ativo, avisar_numero, pedido_auto, unidade:unidade_id ( nome )')
+      .select('id, unidade_id, canal, phone_number_id, numero_exibicao, ativo, avisar_ativo, avisar_numero, avisar_template, pedido_auto, unidade:unidade_id ( nome )')
       .order('canal'),
     supabase.from('unidade').select('id, nome').eq('ativo', true).order('nome'),
   ])
@@ -366,6 +367,7 @@ export async function listarCanais(): Promise<ActionResult<{ canais: CanalConfig
       ativo: r.ativo,
       avisar_ativo: r.avisar_ativo,
       avisar_numero: r.avisar_numero,
+      avisar_template: r.avisar_template,
       pedido_auto: r.pedido_auto,
     }
   })
@@ -383,6 +385,7 @@ export async function salvarCanal(dados: {
   ativo?: boolean
   avisar_ativo?: boolean
   avisar_numero?: string | null
+  avisar_template?: string | null
   pedido_auto?: boolean
 }): Promise<ActionResult<{ id: string }>> {
   const supabase = await createClient()
@@ -402,6 +405,7 @@ export async function salvarCanal(dados: {
     ativo: dados.ativo ?? true,
     avisar_ativo: dados.avisar_ativo ?? false,
     avisar_numero: dados.avisar_numero?.trim().replace(/\D/g, '') || null,
+    avisar_template: dados.avisar_template?.trim() || null,
     pedido_auto: dados.pedido_auto ?? false,
   }
 
@@ -430,6 +434,209 @@ export async function salvarCanal(dados: {
 
   revalidatePath('/dashboard/atendimento')
   return { data: { id: novo.id } }
+}
+
+// ── Informações oficiais da loja (o robô pode informar) ───────────────────────
+
+export type InfoLojaConfig = {
+  unidade_id: string
+  unidade_nome: string
+  horarios: string | null
+  endereco: string | null
+  pagamento: string | null
+  entrega: string | null
+  extra: string | null
+}
+
+export async function listarInfoLojas(): Promise<ActionResult<{ infos: InfoLojaConfig[] }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' }))) return { error: 'Sem permissão' }
+
+  const [unidadesRes, infosRes] = await Promise.all([
+    supabase.from('unidade').select('id, nome').eq('ativo', true).order('nome'),
+    supabase.from('atendimento_loja_info').select('unidade_id, horarios, endereco, pagamento, entrega, extra'),
+  ])
+  if (unidadesRes.error) return { error: unidadesRes.error.message }
+
+  type InfoRow = Omit<InfoLojaConfig, 'unidade_nome'>
+  const porUnidade = new Map(((infosRes.data ?? []) as InfoRow[]).map((i) => [i.unidade_id, i]))
+  const infos: InfoLojaConfig[] = ((unidadesRes.data ?? []) as { id: string; nome: string }[]).map((u) => {
+    const i = porUnidade.get(u.id)
+    return {
+      unidade_id: u.id,
+      unidade_nome: u.nome,
+      horarios: i?.horarios ?? null,
+      endereco: i?.endereco ?? null,
+      pagamento: i?.pagamento ?? null,
+      entrega: i?.entrega ?? null,
+      extra: i?.extra ?? null,
+    }
+  })
+  return { data: { infos } }
+}
+
+export async function salvarInfoLoja(
+  unidadeId: string,
+  campos: { horarios?: string | null; endereco?: string | null; pagamento?: string | null; entrega?: string | null; extra?: string | null },
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'admin', unidadeId })))
+    return { error: 'Só admin do Atendimento pode editar as informações da loja' }
+
+  const { data: unidade } = await supabase.from('unidade').select('empresa_id').eq('id', unidadeId).maybeSingle()
+  if (!unidade) return { error: 'Unidade não encontrada' }
+
+  const limpo = (s?: string | null) => s?.trim() || null
+  const { error } = await supabase.from('atendimento_loja_info').upsert(
+    {
+      empresa_id: unidade.empresa_id,
+      unidade_id: unidadeId,
+      horarios: limpo(campos.horarios),
+      endereco: limpo(campos.endereco),
+      pagamento: limpo(campos.pagamento),
+      entrega: limpo(campos.entrega),
+      extra: limpo(campos.extra),
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: 'unidade_id' },
+  )
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/atendimento')
+  return { success: true }
+}
+
+// ── Relatório de atendimento (mês) ────────────────────────────────────────────
+
+export type PedidoRelatorio = {
+  canal: CanalAtendimento
+  status: 'anotada' | 'confirmada' | 'virou_pedido'
+  produto: string
+  criado_em: string
+}
+
+export async function relatorioAtendimento(
+  mes: string, // YYYY-MM
+): Promise<ActionResult<{ pedidos: PedidoRelatorio[] }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' }))) return { error: 'Sem permissão' }
+  if (!/^\d{4}-\d{2}$/.test(mes)) return { error: 'Mês inválido' }
+
+  const unidadeId = await getUnidadePreferida()
+  // Mês no fuso da padaria (Brasil, UTC-3)
+  const inicio = `${mes}-01T00:00:00-03:00`
+  const fimDate = new Date(inicio)
+  fimDate.setMonth(fimDate.getMonth() + 1)
+
+  let q = supabase
+    .from('atendimento_encomenda')
+    .select('canal, status, produto, criado_em')
+    .gte('criado_em', inicio)
+    .lt('criado_em', fimDate.toISOString())
+    .order('criado_em', { ascending: true })
+    .limit(2000)
+  if (unidadeId) q = q.eq('unidade_id', unidadeId)
+
+  const { data, error } = await q
+  if (error) return { error: error.message }
+  return { data: { pedidos: (data ?? []) as PedidoRelatorio[] } }
+}
+
+// ── Cadastro do cliente pela conversa ─────────────────────────────────────────
+
+export type ClienteDaConversa = {
+  id: string | null
+  nome: string
+  telefone: string
+  endereco: string | null
+  observacao: string | null
+}
+
+export async function getClienteDaConversa(conversaId: string): Promise<ActionResult<ClienteDaConversa>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' }))) return { error: 'Sem permissão' }
+
+  const { data: conv } = await supabase
+    .from('atendimento_conversa')
+    .select('numero, nome, unidade_id')
+    .eq('id', conversaId)
+    .maybeSingle()
+  if (!conv) return { error: 'Conversa não encontrada' }
+
+  const { data: cliente } = await supabase
+    .from('cliente')
+    .select('id, nome, endereco, observacao')
+    .eq('unidade_id', conv.unidade_id)
+    .eq('telefone', conv.numero)
+    .limit(1)
+    .maybeSingle()
+
+  return {
+    data: {
+      id: cliente?.id ?? null,
+      nome: cliente?.nome ?? conv.nome ?? '',
+      telefone: conv.numero,
+      endereco: cliente?.endereco ?? null,
+      observacao: cliente?.observacao ?? null,
+    },
+  }
+}
+
+export async function salvarClienteDaConversa(
+  conversaId: string,
+  dados: { nome: string; endereco?: string | null; observacao?: string | null },
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['atendimento']))) return { error: 'Sem permissão' }
+  if (!dados.nome.trim()) return { error: 'Informe o nome do cliente' }
+
+  const { data: conv } = await supabase
+    .from('atendimento_conversa')
+    .select('numero, unidade_id, empresa_id')
+    .eq('id', conversaId)
+    .maybeSingle()
+  if (!conv) return { error: 'Conversa não encontrada' }
+
+  const { data: existente } = await supabase
+    .from('cliente')
+    .select('id')
+    .eq('unidade_id', conv.unidade_id)
+    .eq('telefone', conv.numero)
+    .limit(1)
+    .maybeSingle()
+
+  const campos = {
+    nome: dados.nome.trim(),
+    endereco: dados.endereco?.trim() || null,
+    observacao: dados.observacao?.trim() || null,
+  }
+
+  const { error } = existente
+    ? await supabase.from('cliente').update(campos).eq('id', existente.id)
+    : await supabase.from('cliente').insert({
+        ...campos,
+        empresa_id: conv.empresa_id,
+        unidade_id: conv.unidade_id,
+        telefone: conv.numero,
+      })
+  if (error) {
+    if (error.code === '23505') return { error: 'Já existe um cliente com este nome nesta loja — use outro nome' }
+    return { error: error.message }
+  }
+
+  revalidatePath('/dashboard/atendimento')
+  revalidatePath('/dashboard/clientes')
+  return { success: true }
 }
 
 // ── Marcar encomenda anotada como confirmada ──────────────────────────────────

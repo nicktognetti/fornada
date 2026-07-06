@@ -11,6 +11,34 @@ import { logout } from '@/app/login/actions'
 import { usePermissions } from '@/app/context/permissions-context'
 import { contarPedidosPendentes } from '@/app/actions/atendimento'
 
+// Aviso sonoro de pedido novo (dois toques curtos, sem arquivo de áudio).
+// Liga/desliga por aparelho na aba Robô do Atendimento (localStorage).
+function tocarAvisoSonoro() {
+  try {
+    type JanelaComAudio = Window & { webkitAudioContext?: typeof AudioContext }
+    const Ctx = window.AudioContext ?? (window as JanelaComAudio).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const tocar = (freq: number, inicio: number) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.frequency.value = freq
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + inicio)
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + inicio + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + inicio + 0.35)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(ctx.currentTime + inicio)
+      osc.stop(ctx.currentTime + inicio + 0.4)
+    }
+    tocar(880, 0)
+    tocar(1174, 0.28)
+    setTimeout(() => ctx.close().catch(() => {}), 1500)
+  } catch {
+    // navegador bloqueou o áudio (sem interação ainda) — segue só o badge
+  }
+}
+
 // Menu agrupado por fluxo: visão geral → custos/produtos → vendas/clientes → estoque → config.
 // Cada grupo interno é separado por uma divisória (grupos vazios após filtro somem).
 const NAV_GROUPS: { href: string; icon: typeof LayoutDashboard; label: string; tela: string }[][] = [
@@ -56,9 +84,19 @@ export function Sidebar({ userEmail }: SidebarProps) {
   useEffect(() => {
     if (!temAtendimento) return
     let ativo = true
+    let anterior: number | null = null
     const carregar = () =>
       contarPedidosPendentes()
-        .then((r) => { if (ativo && r.data) setPendentes(r.data.total) })
+        .then((r) => {
+          if (!ativo || !r.data) return
+          const total = r.data.total
+          // Subiu = pedido novo → toca o aviso (se ligado neste aparelho)
+          if (anterior !== null && total > anterior && localStorage.getItem('fornada_atendimento_som') === '1') {
+            tocarAvisoSonoro()
+          }
+          anterior = total
+          setPendentes(total)
+        })
         .catch(() => {})
     carregar()
     const t = setInterval(carregar, 60_000)
