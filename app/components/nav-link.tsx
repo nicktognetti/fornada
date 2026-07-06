@@ -10,9 +10,11 @@ interface NavLinkProps {
   label: string
   exact?: boolean
   onClick?: () => void
+  /** Contador exibido num chip ao lado do label (ex.: pedidos pendentes). */
+  badge?: number
 }
 
-export function NavLink({ href, icon: Icon, label, exact = false, onClick }: NavLinkProps) {
+export function NavLink({ href, icon: Icon, label, exact = false, onClick, badge }: NavLinkProps) {
   const pathname = usePathname()
   const active = exact ? pathname === href : pathname === href || pathname.startsWith(href + '/')
 
@@ -41,6 +43,11 @@ export function NavLink({ href, icon: Icon, label, exact = false, onClick }: Nav
         className={`shrink-0 ml-0.5 ${active ? 'text-accent-primary' : 'text-faint'}`}
       />
       <span>{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-accent-primary text-[11px] font-bold text-canvas flex items-center justify-center tabular-nums">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </Link>
   )
 }

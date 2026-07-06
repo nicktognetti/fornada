@@ -1,14 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import {
   X, Menu, LayoutDashboard, Package, BookOpen, Tag,
-  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box, FileText, ClipboardList, Users, HelpCircle,
+  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box, FileText, ClipboardList, Users, HelpCircle, MessageCircle,
 } from 'lucide-react'
 import { NavLink } from './nav-link'
 import { logout } from '@/app/login/actions'
 import { usePermissions } from '@/app/context/permissions-context'
+import { contarPedidosPendentes } from '@/app/actions/atendimento'
 
 // Menu agrupado por fluxo: visão geral → custos/produtos → vendas/clientes → estoque → config.
 // Cada grupo interno é separado por uma divisória (grupos vazios após filtro somem).
@@ -29,6 +30,7 @@ const NAV_GROUPS: { href: string; icon: typeof LayoutDashboard; label: string; t
     { href: '/dashboard/orcamentos',              icon: FileText,        label: 'Orçamentos',     tela: 'orcamento'      },
     { href: '/dashboard/encomendas',              icon: ClipboardList,   label: 'Encomendas',     tela: 'encomenda'      },
     { href: '/dashboard/clientes',                icon: Users,           label: 'Clientes',       tela: 'clientes'       },
+    { href: '/dashboard/atendimento',             icon: MessageCircle,   label: 'Atendimento',    tela: 'atendimento'    },
   ],
   [
     { href: '/dashboard/transferencias',          icon: ArrowLeftRight,  label: 'Transferências', tela: 'transferencias' },
@@ -46,6 +48,22 @@ interface SidebarProps {
 export function Sidebar({ userEmail }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { canAccess, isLoading } = usePermissions()
+
+  // Badge do Atendimento: nº de pedidos anotados pelo robô ainda não tratados.
+  // Atualiza a cada 60s (só para quem tem a tela).
+  const [pendentes, setPendentes] = useState(0)
+  const temAtendimento = !isLoading && canAccess('atendimento')
+  useEffect(() => {
+    if (!temAtendimento) return
+    let ativo = true
+    const carregar = () =>
+      contarPedidosPendentes()
+        .then((r) => { if (ativo && r.data) setPendentes(r.data.total) })
+        .catch(() => {})
+    carregar()
+    const t = setInterval(carregar, 60_000)
+    return () => { ativo = false; clearInterval(t) }
+  }, [temAtendimento])
 
   // Durante carregamento mostra todos (otimista); após carregamento filtra por permissão real.
   // Mantém a estrutura de grupos para desenhar as divisórias entre eles.
@@ -91,6 +109,7 @@ export function Sidebar({ userEmail }: SidebarProps) {
                   href={item.href}
                   icon={item.icon}
                   label={item.label}
+                  badge={item.tela === 'atendimento' ? pendentes : undefined}
                   onClick={() => setMobileOpen(false)}
                 />
               ))}
