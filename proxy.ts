@@ -22,6 +22,7 @@ function telaParaRota(pathname: string): string | null {
     orcamentos: 'orcamento',
     encomendas: 'encomenda',
     clientes: 'clientes',
+    atendimento: 'atendimento',
     configuracoes: 'configuracoes',
   }
   return mapa[seg] ?? null
@@ -57,7 +58,10 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const isLoginPage = pathname === '/login'
-  const isPublicPath = isLoginPage
+  // Webhook do WhatsApp: a Meta chama sem sessão — a rota se protege
+  // sozinha (VERIFY_TOKEN no GET; POST só processa payloads conhecidos).
+  const isWebhook = pathname.startsWith('/api/atendimento/webhook')
+  const isPublicPath = isLoginPage || isWebhook
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()
