@@ -5,6 +5,7 @@ import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
 import { getReceitaComposicao, type ReceitaComposicao } from '@/app/dashboard/receitas/composicao'
 import { valorPorGrande } from '@/lib/format'
+import type { ProdutoAtendimento } from '@/app/actions/produto-atendimento'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,8 @@ export type ProdutoDetalhe = {
   markup_percentual: number
   /** Composição de custo da ficha (só para produtos produzidos com receita). */
   composicao: ReceitaComposicao | null
+  /** Campos do agente WhatsApp. null = migration do módulo Atendimento ainda não aplicada. */
+  atendimento: ProdutoAtendimento | null
 }
 
 type ActionResult<T = void> = T extends void
@@ -343,7 +346,7 @@ export async function getProdutoDetalhe(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  const [prodRes, finRes, precoRes] = await Promise.all([
+  const [prodRes, finRes, precoRes, atdRes] = await Promise.all([
     supabase
       .from('produto')
       .select('id, nome, tipo, categoria, receita_id, custo_compra, custo_embalagem, receita:receita_id ( rendimento_unidade )')
@@ -358,6 +361,12 @@ export async function getProdutoDetalhe(
       .from('produto_preco')
       .select('preco_praticado, volume_mensal')
       .eq('produto_id', produtoId)
+      .maybeSingle(),
+    // Query separada: se a migration do Atendimento não foi aplicada, só esta falha.
+    supabase
+      .from('produto')
+      .select('sempre_disponivel, disponivel_hoje, foto_url, sugestao_do_dia, vende_delivery, vende_encomenda')
+      .eq('id', produtoId)
       .maybeSingle(),
   ])
 
@@ -399,6 +408,16 @@ export async function getProdutoDetalhe(
       margem_percentual: fin?.margem_percentual ?? 0,
       markup_percentual: fin?.markup_percentual ?? 0,
       composicao,
+      atendimento: atdRes.error || !atdRes.data
+        ? null
+        : {
+            sempre_disponivel: atdRes.data.sempre_disponivel ?? false,
+            disponivel_hoje: atdRes.data.disponivel_hoje ?? null,
+            foto_url: atdRes.data.foto_url ?? null,
+            sugestao_do_dia: atdRes.data.sugestao_do_dia ?? false,
+            vende_delivery: atdRes.data.vende_delivery !== false,
+            vende_encomenda: atdRes.data.vende_encomenda === true,
+          },
     },
   }
 }

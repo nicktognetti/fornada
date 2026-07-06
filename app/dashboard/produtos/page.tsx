@@ -5,6 +5,7 @@ import { getPainelFinanceiro } from '@/app/actions/painel'
 import { getUnidadePreferida } from '@/app/actions/unidade'
 import { getConfigAction } from '@/app/actions/config'
 import { LOCAIS_CONFIG_KEY, LOCAIS_PADRAO } from '@/app/lib/locais'
+import type { ProdutoAtendimento } from '@/app/actions/produto-atendimento'
 import { ProdutoList } from './components/produto-list'
 
 export default async function ProdutosPage() {
@@ -24,13 +25,39 @@ export default async function ProdutosPage() {
     getConfigAction<string[]>(LOCAIS_CONFIG_KEY),
   ])
 
-  // Local (setor) + ficha ligada de cada produto — não vêm na view financeira.
-  let localQuery = supabase.from('produto').select('id, local, receita_id').eq('ativo', true)
+  // Local (setor), ficha ligada e campos do agente WhatsApp — não vêm na view financeira.
+  type ProdutoExtra = {
+    id: string; local: string | null; receita_id: string | null
+    sempre_disponivel?: boolean | null; disponivel_hoje?: boolean | null
+    foto_url?: string | null; sugestao_do_dia?: boolean | null
+    vende_delivery?: boolean | null; vende_encomenda?: boolean | null
+  }
+  const CAMPOS_ATENDIMENTO = ', sempre_disponivel, disponivel_hoje, foto_url, sugestao_do_dia, vende_delivery, vende_encomenda'
+  let localQuery = supabase.from('produto').select(`id, local, receita_id${CAMPOS_ATENDIMENTO}`).eq('ativo', true)
   if (unidadeId) localQuery = localQuery.eq('unidade_id', unidadeId)
-  const { data: locaisData } = await localQuery
-  const localMap: Record<string, string | null> = Object.fromEntries((locaisData ?? []).map((p: { id: string; local: string | null }) => [p.id, p.local]))
+  let locaisData = (await localQuery).data as ProdutoExtra[] | null
+  let temAtendimento = locaisData !== null
+  if (locaisData === null) {
+    // Migration 20260705000000 ainda não aplicada — segue sem os campos do agente.
+    let fb = supabase.from('produto').select('id, local, receita_id').eq('ativo', true)
+    if (unidadeId) fb = fb.eq('unidade_id', unidadeId)
+    locaisData = (await fb).data as ProdutoExtra[] | null
+    temAtendimento = false
+  }
+  const extras = (locaisData ?? []) as ProdutoExtra[]
+  const localMap: Record<string, string | null> = Object.fromEntries(extras.map((p) => [p.id, p.local]))
+  const atendimentoMap: Record<string, ProdutoAtendimento> = temAtendimento
+    ? Object.fromEntries(extras.map((p) => [p.id, {
+        sempre_disponivel: p.sempre_disponivel ?? false,
+        disponivel_hoje: p.disponivel_hoje ?? null,
+        foto_url: p.foto_url ?? null,
+        sugestao_do_dia: p.sugestao_do_dia ?? false,
+        vende_delivery: p.vende_delivery !== false,
+        vende_encomenda: p.vende_encomenda === true,
+      }]))
+    : {}
   // Fichas que já viraram produto nesta loja — não devem reaparecer no seletor de "Fabricado".
-  const receitasUsadas = new Set((locaisData ?? []).map((p: { receita_id: string | null }) => p.receita_id).filter(Boolean))
+  const receitasUsadas = new Set(extras.map((p) => p.receita_id).filter(Boolean))
 
   const produtos = result.data?.fichas ?? []
   const unidades = (unidadesRes.data ?? []) as { id: string; nome: string }[]
@@ -51,6 +78,7 @@ export default async function ProdutosPage() {
         receitas={receitas}
         locais={locais}
         localMap={localMap}
+        atendimentoMap={atendimentoMap}
       />
     </div>
   )

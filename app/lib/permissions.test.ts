@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAcesso, isGlobalAdmin, type PermissaoMap } from './permissions'
+import { getAcesso, isGlobalAdmin, TELAS, TELA_LABEL, type PermissaoMap } from './permissions'
 
 const LOJA_A = 'aaaaaaaa-0000-0000-0000-000000000000'
 
@@ -38,5 +38,16 @@ describe('getAcesso', () => {
 
   it('devolve null para mapa vazio (usuário desabilitado)', () => {
     expect(getAcesso({}, 'insumos')).toBe(null)
+  })
+})
+
+describe('TELAS', () => {
+  it('inclui a tela do módulo de atendimento (agente WhatsApp)', () => {
+    expect(TELAS).toContain('atendimento')
+    expect(TELA_LABEL.atendimento).toBe('Atendimento')
+  })
+
+  it('toda tela tem label', () => {
+    for (const tela of TELAS) expect(TELA_LABEL[tela]).toBeTruthy()
   })
 })

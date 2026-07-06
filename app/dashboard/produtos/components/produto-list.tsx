@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Pencil, Package, ShoppingBag, Search, Plus } from 'lucide-react'
+import { Pencil, Package, ShoppingBag, Search, Plus, Star, ListChecks, Check, Loader2 } from 'lucide-react'
 import { formatBRL, formatCustoGrande, valorPorGrande, unidadeGrande } from '@/lib/format'
 import { setProdutoLocal, type ProdutoFinanceiro } from '@/app/actions/painel'
+import { setProdutoAtendimento, setProdutoCanaisLote, type ProdutoAtendimento } from '@/app/actions/produto-atendimento'
 import { NovoProdutoModal, type FichaOpcao } from './novo-produto-modal'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
@@ -15,6 +16,8 @@ interface Props {
   receitas: FichaOpcao[]
   locais: string[]
   localMap: Record<string, string | null>
+  /** Campos do agente WhatsApp por produto. Vazio = migration ainda não aplicada (esconde os controles). */
+  atendimentoMap: Record<string, ProdutoAtendimento>
 }
 
 const TIPO_CONFIG = {
@@ -22,22 +25,86 @@ const TIPO_CONFIG = {
   revenda:   { icon: ShoppingBag, label: 'Revenda',   cls: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
 }
 
-export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais, localMap }: Props) {
+export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais, localMap, atendimentoMap }: Props) {
   const [search, setSearch] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'produzido' | 'revenda'>('todos')
   const [modalOpen, setModalOpen] = useState(false)
   const [detalheId, setDetalheId] = useState<string | null>(null)
   const [locaisMap, setLocaisMap] = useState<Record<string, string | null>>(localMap)
+  const [atdMap, setAtdMap] = useState<Record<string, ProdutoAtendimento>>(atendimentoMap)
+  // Modo "canais em lote": seleciona vários produtos e marca/desmarca
+  // Delivery/Encomendas de uma vez (pedido da Natali)
+  const [loteMode, setLoteMode] = useState(false)
+  const [selIds, setSelIds] = useState<Set<string>>(new Set())
+  const [loteMsg, setLoteMsg] = useState<string | null>(null)
+  const [aplicandoLote, setAplicandoLote] = useState(false)
 
   // Após criar/editar produto, o server revalida e envia um novo localMap. Puxa
   // os locais de produtos novos sem descartar as edições otimistas já feitas.
   useEffect(() => {
     setLocaisMap((prev) => ({ ...localMap, ...prev }))
   }, [localMap])
+  useEffect(() => {
+    setAtdMap((prev) => ({ ...atendimentoMap, ...prev }))
+  }, [atendimentoMap])
 
   async function mudarLocal(produtoId: string, local: string) {
     setLocaisMap((m) => ({ ...m, [produtoId]: local || null }))
     await setProdutoLocal(produtoId, local || null)
+  }
+
+  // Toggle diário tem/acabou: "Hoje?" (não informado) → Tem hoje → Acabou → Tem hoje…
+  async function mudarDisponibilidade(produtoId: string) {
+    const atual = atdMap[produtoId]
+    if (!atual || atual.sempre_disponivel) return
+    const proximo = atual.disponivel_hoje !== true
+    setAtdMap((m) => ({ ...m, [produtoId]: { ...atual, disponivel_hoje: proximo } }))
+    await setProdutoAtendimento(produtoId, { disponivel_hoje: proximo })
+  }
+
+  async function toggleSugestao(produtoId: string) {
+    const atual = atdMap[produtoId]
+    if (!atual) return
+    const proximo = !atual.sugestao_do_dia
+    setAtdMap((m) => ({ ...m, [produtoId]: { ...atual, sugestao_do_dia: proximo } }))
+    await setProdutoAtendimento(produtoId, { sugestao_do_dia: proximo })
+  }
+
+  // Chip D/E na linha: liga/desliga o canal de venda deste produto
+  async function toggleCanal(produtoId: string, campo: 'vende_delivery' | 'vende_encomenda') {
+    const atual = atdMap[produtoId]
+    if (!atual) return
+    const proximo = !atual[campo]
+    setAtdMap((m) => ({ ...m, [produtoId]: { ...atual, [campo]: proximo } }))
+    await setProdutoAtendimento(produtoId, { [campo]: proximo })
+  }
+
+  function toggleSel(produtoId: string) {
+    setSelIds((s) => {
+      const novo = new Set(s)
+      if (novo.has(produtoId)) novo.delete(produtoId)
+      else novo.add(produtoId)
+      return novo
+    })
+  }
+
+  async function aplicarLote(patch: { vende_delivery?: boolean; vende_encomenda?: boolean }) {
+    if (selIds.size === 0 || aplicandoLote) return
+    setAplicandoLote(true)
+    setLoteMsg(null)
+    const ids = [...selIds]
+    setAtdMap((m) => {
+      const novo = { ...m }
+      for (const id of ids) if (novo[id]) novo[id] = { ...novo[id], ...patch }
+      return novo
+    })
+    const res = await setProdutoCanaisLote(ids, patch)
+    setAplicandoLote(false)
+    if (res.error || !res.data) setLoteMsg(res.error ?? 'Erro ao aplicar')
+    else setLoteMsg(
+      `${res.data.atualizados} produto${res.data.atualizados !== 1 ? 's' : ''} atualizado${res.data.atualizados !== 1 ? 's' : ''}` +
+      (res.data.semPermissao > 0 ? ` · ${res.data.semPermissao} sem permissão` : '')
+    )
   }
 
   const filtered = produtos.filter((p) => {
@@ -75,6 +142,20 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
             </button>
           ))}
         </div>
+        {Object.keys(atdMap).length > 0 && (
+          <button
+            onClick={() => { setLoteMode((v) => !v); setSelIds(new Set()); setLoteMsg(null) }}
+            className={`shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+              loteMode
+                ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/30'
+                : 'bg-input text-secondary border-transparent hover:text-primary'
+            }`}
+            title="Selecionar vários produtos e marcar/desmarcar os canais Delivery e Encomendas de uma vez"
+          >
+            <ListChecks size={16} />
+            Canais em lote
+          </button>
+        )}
         <BotaoImprimir label="Imprimir" className="px-4" />
 
         <button onClick={() => setModalOpen(true)} className="btn-primary shrink-0">
@@ -82,6 +163,59 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
           Novo Produto
         </button>
       </div>
+
+      {/* Barra do modo lote */}
+      {loteMode && (
+        <div className="card-surface flex items-center gap-2 flex-wrap px-4 py-3 mb-4">
+          <span className="text-sm text-primary font-medium tabular-nums">
+            {selIds.size} selecionado{selIds.size !== 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={() => setSelIds(new Set(filtered.map((p) => p.produto_id).filter((id) => atdMap[id])))}
+            className="text-xs text-secondary hover:text-primary px-2 py-1 rounded-lg hover:bg-input transition-colors"
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setSelIds(new Set())}
+            className="text-xs text-secondary hover:text-primary px-2 py-1 rounded-lg hover:bg-input transition-colors"
+          >
+            Nenhum
+          </button>
+
+          <div className="h-5 w-px bg-border-subtle mx-1" style={{ backgroundColor: 'var(--color-border-subtle, rgba(255,255,255,0.08))' }} />
+
+          <span className="text-[11px] uppercase tracking-wider text-secondary">Encomendas:</span>
+          <button onClick={() => aplicarLote({ vende_encomenda: true })} disabled={selIds.size === 0 || aplicandoLote}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-accent-primary/15 text-accent-primary border border-accent-primary/25 hover:bg-accent-primary/25 transition-colors disabled:opacity-40">
+            Vender
+          </button>
+          <button onClick={() => aplicarLote({ vende_encomenda: false })} disabled={selIds.size === 0 || aplicandoLote}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-input text-secondary hover:text-primary transition-colors disabled:opacity-40">
+            Não vender
+          </button>
+
+          <span className="text-[11px] uppercase tracking-wider text-secondary ml-2">Delivery:</span>
+          <button onClick={() => aplicarLote({ vende_delivery: true })} disabled={selIds.size === 0 || aplicandoLote}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 transition-colors disabled:opacity-40">
+            Vender
+          </button>
+          <button onClick={() => aplicarLote({ vende_delivery: false })} disabled={selIds.size === 0 || aplicandoLote}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-input text-secondary hover:text-primary transition-colors disabled:opacity-40">
+            Não vender
+          </button>
+
+          {aplicandoLote && <Loader2 size={14} className="animate-spin text-secondary" />}
+          {loteMsg && <span className="text-xs text-success">{loteMsg}</span>}
+
+          <button
+            onClick={() => { setLoteMode(false); setSelIds(new Set()); setLoteMsg(null) }}
+            className="ml-auto text-xs font-medium text-secondary hover:text-primary px-3 py-1.5 rounded-lg hover:bg-input transition-colors"
+          >
+            Concluir
+          </button>
+        </div>
+      )}
 
       {/* Empty state */}
       {filtered.length === 0 && (
@@ -108,18 +242,37 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
             const Icon = tipoConf.icon
             const comPreco = p.preco_venda > 0
             const margem = comPreco ? p.margem_percentual : null
+            const atd = atdMap[p.produto_id]
+            const selecionado = selIds.has(p.produto_id)
+            // No modo lote, os controles da linha ficam inertes (o clique seleciona)
+            const inerte = loteMode ? ' pointer-events-none opacity-50' : ''
 
             return (
               <div
                 key={p.produto_id}
-                onClick={() => setDetalheId(p.produto_id)}
-                title="Ver detalhe do produto"
-                className="card-surface flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-input transition-colors"
+                onClick={() => (loteMode ? atd && toggleSel(p.produto_id) : setDetalheId(p.produto_id))}
+                title={loteMode ? (atd ? 'Selecionar produto' : 'Produto sem dados de atendimento') : 'Ver detalhe do produto'}
+                className={`card-surface flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors ${
+                  loteMode && selecionado ? 'bg-accent-primary/10 border border-accent-primary/30' : 'hover:bg-input'
+                }`}
               >
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: 'var(--color-input)' }}>
-                  <Icon size={16} className="text-secondary" />
-                </div>
+                {loteMode && (
+                  <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    selecionado ? 'bg-accent-primary border-accent-primary text-canvas' : 'border-subtle text-transparent'
+                  }`}>
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                )}
+                {atd?.foto_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={atd.foto_url} alt={p.produto_nome}
+                    className="w-9 h-9 rounded-xl object-cover shrink-0 border border-subtle" />
+                ) : (
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: 'var(--color-input)' }}>
+                    <Icon size={16} className="text-secondary" />
+                  </div>
+                )}
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -165,11 +318,88 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
                   )}
                 </div>
 
+                {atd && (
+                  <>
+                    {/* Canais: D = Delivery, E = Encomendas (clique liga/desliga) */}
+                    <div className={`flex items-center gap-1 shrink-0${inerte}`}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleCanal(p.produto_id, 'vende_delivery') }}
+                        className={`w-6 h-6 rounded-md text-[10px] font-bold border transition-all ${
+                          atd.vende_delivery
+                            ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                            : 'text-secondary/30 border-subtle hover:text-blue-400/70'
+                        }`}
+                        title={atd.vende_delivery
+                          ? 'Vendido no Delivery — clique para tirar deste canal'
+                          : 'Fora do Delivery — clique para vender neste canal'}
+                      >
+                        D
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleCanal(p.produto_id, 'vende_encomenda') }}
+                        className={`w-6 h-6 rounded-md text-[10px] font-bold border transition-all ${
+                          atd.vende_encomenda
+                            ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/30'
+                            : 'text-secondary/30 border-subtle hover:text-accent-primary/70'
+                        }`}
+                        title={atd.vende_encomenda
+                          ? 'Vendido por Encomendas — clique para tirar deste canal'
+                          : 'Fora de Encomendas — clique para vender neste canal'}
+                      >
+                        E
+                      </button>
+                    </div>
+
+                    {/* ⭐ Sugestão do dia — o robô só oferece produtos marcados */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleSugestao(p.produto_id) }}
+                      className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border transition-all${inerte} ${
+                        atd.sugestao_do_dia
+                          ? 'text-amber-400 bg-amber-500/10 border-amber-500/25'
+                          : 'text-secondary/30 border-transparent hover:text-amber-400/70 hover:bg-input'
+                      }`}
+                      title={atd.sugestao_do_dia
+                        ? 'Sugestão do dia — o robô do WhatsApp oferece este produto. Clique para desmarcar.'
+                        : 'Marcar como sugestão do dia (o robô do WhatsApp passa a oferecer)'}
+                    >
+                      <Star size={15} className={atd.sugestao_do_dia ? 'fill-amber-400' : ''} />
+                    </button>
+
+                    {/* Tem/acabou hoje — toggle diário do agente */}
+                    {atd.sempre_disponivel ? (
+                      <span
+                        className={`shrink-0 w-24 text-center px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-success/10 text-success border border-success/25${inerte}`}
+                        title="Produto de sempre — o robô considera disponível todo dia. Configure no detalhe do produto."
+                      >
+                        Sempre tem
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); mudarDisponibilidade(p.produto_id) }}
+                        className={`shrink-0 w-24 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all${inerte} ${
+                          atd.disponivel_hoje === true
+                            ? 'bg-success/10 text-success border-success/25 hover:bg-success/20'
+                            : atd.disponivel_hoje === false
+                              ? 'bg-danger/10 text-danger border-danger/25 hover:bg-danger/20'
+                              : 'bg-input text-secondary border-dashed border-subtle hover:text-primary'
+                        }`}
+                        title={atd.disponivel_hoje === true
+                          ? 'Tem hoje — clique quando acabar'
+                          : atd.disponivel_hoje === false
+                            ? 'Acabou hoje — clique se voltar a ter'
+                            : 'Disponibilidade de hoje não informada — clique para marcar que tem'}
+                      >
+                        {atd.disponivel_hoje === true ? 'Tem hoje' : atd.disponivel_hoje === false ? 'Acabou' : 'Hoje?'}
+                      </button>
+                    )}
+                  </>
+                )}
+
                 <select
                   value={locaisMap[p.produto_id] ?? ''}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => { e.stopPropagation(); mudarLocal(p.produto_id, e.target.value) }}
-                  className="input-field text-xs py-1.5 px-2 w-32 shrink-0"
+                  className={`input-field text-xs py-1.5 px-2 w-32 shrink-0${inerte}`}
                   title="Setor de produção (aparece na comanda da encomenda)"
                 >
                   <option value="">Sem local</option>
@@ -179,7 +409,7 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
 
                 <button
                   onClick={(e) => { e.stopPropagation(); setDetalheId(p.produto_id) }}
-                  className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-secondary/40 hover:text-accent-primary hover:bg-accent-primary/10 border border-transparent hover:border-accent-primary/20 transition-all"
+                  className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-secondary/40 hover:text-accent-primary hover:bg-accent-primary/10 border border-transparent hover:border-accent-primary/20 transition-all${inerte}`}
                   title="Ver detalhe do produto"
                 >
                   <Pencil size={15} />
