@@ -1,6 +1,36 @@
 # ERP Fornada — Plano de Desenvolvimento
 
-## ▶ Ponto de retomada (atualizado 01/07/2026)
+## ▶ Ponto de retomada (atualizado 06/07/2026)
+
+**Sessão 06/07 — Módulo Atendimento COMPLETO (Fases 2 e 3 + canais Encomendas × Delivery):**
+- ✅ **Requisito novo da Natali incorporado:** Encomendas e Delivery são números de WhatsApp SEPARADOS, com catálogo próprio por produto (`vende_encomenda`/`vende_delivery`), comportamentos distintos (retirada com data/horário × entrega imediata com endereço) e tudo por unidade. Migration `20260706000000_atendimento_canais` **APLICADA**; número de teste da Meta semeado em `atendimento_canal` (Encomendas/Morada).
+- ✅ **Motor portado** para `lib/atendimento/*` + `app/api/atendimento/webhook` (Groq + tool use + Whisper + fotos + #ENCOMENDA#; memória nas tabelas, não mais Redis; `after()` do Next 16; proxy liberando o webhook). Hardening: busca sem acento, retry `tool_use_failed`, sanitização `<function=...>`.
+- ✅ **Painel `/dashboard/atendimento`** (Fase 3): lista por canal, badges Robô/Humano, assumir/devolver, responder pelo WhatsApp, "Confirmada" e "Virar pedido" → encomenda oficial. Sidebar + proxy + RBAC `atendimento`.
+- ✅ Envs do agente na Vercel (production+preview) e no `.env.local`. Build/tsc/**92 testes** verdes. E2E validado no preview (webhook simulado + painel), dados de teste limpos.
+- ✅ **UX de canais nos Produtos**: chips D/E clicáveis por linha + modo "Canais em lote" (`setProdutoCanaisLote`, permissão por loja).
+- ✅ **Aba Pedidos** no Atendimento (visão consolidada por dia/canal/status, ações na linha, atalho pra conversa) + **aviso de pedido novo no WhatsApp da equipe** com liga/desliga POR NÚMERO na aba **Robô** (que também virou a UI de cadastro de canais). Migration `20260706000001` **APLICADA**.
+- ✅ **Memória de cliente** (auto-cadastro pelo WhatsApp + ficha no prompt: "Boa tarde, Carlos!"), **endereço obrigatório no delivery**, **comanda térmica 80mm** (botão + impressão automática por aparelho via iframe), **badge de pendentes no menu**, **anti-duplicata** (15 min) e **pedido automático** (toggle por número → encomenda oficial na hora). Migration `20260706000002` **APLICADA**. 96 testes ✅.
+- ⚠️ **Código NÃO commitado/deployado ainda.** Para ligar de verdade: (1) commit + push (auto-deploya), (2) **trocar a URL do webhook no painel da Meta** para `https://fornada.vercel.app/api/atendimento/webhook` (mesmo VERIFY_TOKEN). O projeto agente-whatsapp antigo pode então ser desativado como webhook.
+- 🔲 Próximos do módulo: número BR real (bloqueio 130497 é pendência Meta), segundo número p/ Delivery (cadastra na aba Robô), preencher dados oficiais no prompt (horários/endereços/pagamento).
+
+---
+
+## ▶ Retomada anterior (05/07/2026)
+
+**Sessão 05/07 — Módulo Atendimento (agente WhatsApp), Fase 1 (fundação):**
+- ✅ **Carta de passagem** do projeto agente-whatsapp implementada (`Agente-whatsapp/docs/plano-modulo-atendimento-fornada.md`): o robô de WhatsApp vira módulo do Fornada. Fase 2 = motor (webhook/IA), Fase 3 = painel `/dashboard/atendimento`.
+- ✅ **Migration `20260705000000_atendimento_fase1` APLICADA** (via `supabase db push`): campos `sempre_disponivel`/`disponivel_hoje`/`foto_url`/`sugestao_do_dia` no `produto`; tabelas `atendimento_conversa`/`atendimento_mensagem`/`atendimento_encomenda` (RLS por loja); bucket público `produto-fotos`.
+- ✅ **UI**: toggle tem/acabou + estrela de sugestão na lista de Produtos; seção "Atendimento — robô do WhatsApp" no drawer (upload/troca/remoção de foto, sempre disponível, disponibilidade de hoje, sugestão do dia). Actions em `app/actions/produto-atendimento.ts`.
+- ✅ **RBAC**: tela `atendimento` em `permissions.TELAS` (grade de permissões pronta; página e entrada no sidebar/proxy ficam pra Fase 3).
+- ✅ **BUG PRÉ-EXISTENTE CORRIGIDO — migration `20260705000001` APLICADA:** todo UPDATE direto em `produto` e `despesa_fixa_empresa` falhava (trigger setava `atualizado_em` mas a coluna é `updated_at`) — `setProdutoLocal`/`linkProdutoReceita`/edição de despesa fixa nunca persistiam (UI otimista escondia). Criada `fn_set_updated_at()` + triggers recriados.
+- ✅ **Histórico de migrations do CLI reparado** (`supabase migration repair` das 23 aplicadas manualmente) → `supabase db push` agora funciona incremental.
+- ✅ Validado end-to-end no preview com usuário QA temporário (criado → testado → removido; dados de teste revertidos). Build/tsc/79 testes verdes.
+- ⚠️ **Código ainda NÃO commitado/deployado** (push na master auto-deploya). O banco JÁ tem os campos — o agente-whatsapp (projeto irmão) já consegue lê-los via fallback.
+- 🔲 Próximo: Fase 2 (motor no Fornada: webhook Meta, lib/ia, memória nas tabelas novas, envs Groq/Meta na Vercel) e Fase 3 (página `/dashboard/atendimento` + sidebar + proxy `telaParaRota`).
+
+---
+
+## ▶ Retomada anterior (01/07/2026)
 
 **Sessão 30/06–01/07 — Módulos novos + impressão + deploy (8 commits, todos no GitHub):**
 - ✅ **Menu lateral fixo a partir de 768px** (era 1024px) — resolve o "menu oculto" em laptops com escala do Windows. (`ecf7a9f`)

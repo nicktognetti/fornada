@@ -7,6 +7,124 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Atendimento — memória de cliente, comanda térmica, badge, anti-duplicata e pedido automático
+> Fecha o ciclo operacional do robô. Migration `20260706000002` **APLICADA**.
+- **Memória de cliente**: quando o robô anota um pedido, **cadastra/atualiza o cliente**
+  automaticamente (telefone = WhatsApp, nome, endereço do delivery) na tabela de Clientes que a
+  Natali já usa. Na volta, o robô recebe a ficha (nome, endereço salvo, últimos 3 pedidos) e
+  **cumprimenta pelo nome** ("Boa tarde, Carlos! 😊"); no delivery, oferece entregar no endereço
+  salvo (sempre confirmando antes). Nunca recita o histórico.
+- **Endereço obrigatório no delivery**: o robô não fecha pedido sem **rua + número + bairro/ponto
+  de referência** — pergunta o que faltar antes de confirmar.
+- **Comanda térmica 80mm**: botão 🖨️ em cada pedido da aba Pedidos (endereço em destaque com
+  borda, fonte grande) + **"Impressão automática"** (toggle POR APARELHO, via localStorage):
+  pedido novo já abre o diálogo de impressão com a comanda pronta — deixar o painel aberto no
+  computador da térmica e a térmica como impressora padrão. Impressão 100% silenciosa (sem
+  diálogo) exige agente local — anotado como evolução futura.
+- **Badge no menu**: o item Atendimento mostra o nº de pedidos "anotada" ainda não tratados
+  (da loja atual; atualiza a cada 60s).
+- **Anti-duplicata**: se a IA marcar o mesmo produto na mesma conversa em 15 min (cliente
+  confirmou 2×), não anota em dobro — e não dispara aviso/pedido automático de novo.
+- **Pedido automático** (toggle "Virar pedido automaticamente" por número, na aba Robô — pensado
+  p/ delivery): o pedido anotado já vira **encomenda oficial** (entrega hoje, valor em aberto,
+  observação com endereço/quantidade) e a anotação linka nela. Padrão: desligado.
+- **Resumo do período** na aba Pedidos: total, por canal, aguardando e "viraram pedido".
+- Validado E2E: pedido → cliente Carlos cadastrado + encomenda #17 automática num tiro só;
+  "boa tarde" seguinte respondido com **"Boa tarde, Carlos!"**; toggle da UI desligou o auto e o
+  pedido seguinte ficou "anotada" alimentando o badge ①. Tudo revertido. 96 testes ✅.
+
+### Atendimento — aba Pedidos (controle diário) + aviso à equipe no WhatsApp
+> A Natali acompanha o que o robô anotou SEM abrir conversa por conversa; e a equipe pode ser
+> avisada na hora que cai pedido. Migration `20260706000001` **APLICADA**.
+- **Abas no Atendimento**: `Conversas | Pedidos | Robô`.
+- **Aba Pedidos** (visão consolidada por loja): tudo que o robô anotou, com filtro por **canal**
+  (Encomendas/Delivery), **status** (anotada/confirmada/virou pedido) e **dia** (padrão hoje;
+  botão "Todos os dias" para o histórico). Cada linha mostra produto, quantidade, cliente,
+  WhatsApp, endereço (delivery) ou texto de retirada (encomendas) e hora — com as ações
+  **Confirmada**, **Virar pedido** e atalho para **abrir a conversa completa**. Auto-atualiza a
+  cada 30s.
+- **Aviso à equipe**: quando o robô anota um pedido, pode mandar um resumo no WhatsApp de um
+  número interno ("🛵 PEDIDO DE DELIVERY — Morada do Sol / Entregar em: ... / Cliente: ...").
+  **Liga/desliga POR NÚMERO** (por loja e por canal) na aba **Robô** — dá pra deixar o delivery
+  avisando e encomendas só na tela. Padrão: desligado. Falha no aviso nunca derruba o
+  atendimento (o pedido continua no painel). ⚠️ Janela de 24h da Meta: o número da equipe deve
+  falar com o robô de vez em quando (dica exibida na própria tela).
+- **Aba Robô**: cadastro dos números (loja + canal + Phone Number ID da Meta), ativar/desativar
+  e configuração do aviso — sai o SQL manual da Fase 2.
+- Backend: `listarPedidos`, `listarCanais`, `salvarCanal` (admin da tela atendimento);
+  `avisarEquipe` no webhook; `formatarAvisoPedido` puro com testes (94 testes ✅).
+- `VirarPedidoModal` extraído para componente compartilhado (Conversas + Pedidos).
+
+### Produtos — canais de venda visíveis na lista + marcação em lote
+> Para a Natali marcar os produtos "de encomenda" sem abrir um por um.
+- **Chips D / E em cada linha** da lista de Produtos: mostram em quais canais o robô vende o
+  produto (D = Delivery azul, E = Encomendas laranja) e **clicar liga/desliga** o canal na hora.
+- **Botão "Canais em lote"**: entra num modo de seleção (clique nas linhas, "Todos"/"Nenhum") com
+  barra de ações — Encomendas: Vender/Não vender · Delivery: Vender/Não vender — aplicadas a todos
+  os selecionados de uma vez, com feedback ("N produtos atualizados").
+- Backend: `setProdutoCanaisLote(ids, patch)` com checagem de permissão **por loja** (1× por
+  unidade presente no lote; informa quantos ficaram de fora por falta de permissão).
+- Validado end-to-end no preview (chip individual + lote nos 2 produtos da Morada, revertido).
+
+### Módulo Atendimento — Fases 2 e 3: motor + painel, com canais Encomendas × Delivery
+> Requisito da Natali: **Encomendas** é um número de WhatsApp (produtos específicos, retirada com
+> data/horário) e **Delivery** é outro (praticamente todos os produtos, pediu → já entrega).
+> Tudo separado por unidade. Migration `20260706000000` **APLICADA**.
+- **Canais**: tabela `atendimento_canal` mapeia cada `phone_number_id` da Meta → (unidade, canal);
+  o webhook resolve de qual loja/canal a mensagem veio. Número de teste da Meta já semeado como
+  Encomendas/Morada do Sol. Produto ganhou `vende_delivery` (padrão sim) e `vende_encomenda`
+  (padrão não) — **checkboxes "Canais de venda" no drawer do produto**. Conversa única por
+  (unidade, canal, número); pedido anotado ganhou `canal` e `endereco`.
+- **Motor no Fornada** (`lib/atendimento/*` + `POST /api/atendimento/webhook`): porta o agente do
+  projeto agente-whatsapp — Groq llama-3.3-70b com tool use (consultar_produtos agora consulta o
+  banco DIRETO, filtrado por loja+canal), transcrição de áudio (Whisper), fotos via `#FOTO#`,
+  pedidos via `#ENCOMENDA#` (com endereço no delivery). **Memória de conversa saiu do Redis** →
+  tabelas `atendimento_conversa`/`atendimento_mensagem` (contexto 24h/20 msgs). `after()` do
+  Next 16 no lugar do waitUntil. Prompt por canal (encomendas pede data+horário de retirada;
+  delivery pede endereço). Proxy libera o webhook (Meta chama sem sessão).
+- **Robustez da IA**: busca de produto **ignora acento** ("pao" acha "Pão"); retry no
+  `tool_use_failed` do Groq (quirk do llama) com fallback sem ferramentas; sanitização de
+  vazamento `<function=...>` no texto (cliente nunca vê código). Testes unitários dos marcadores,
+  disponibilidade por canal e sanitização (92 testes ✅).
+- **Painel `/dashboard/atendimento`** (tela RBAC `atendimento`, entrada no menu Vendas): conversas
+  por unidade com filtro por canal, badge Robô/Humano, **assumir/devolver** (robô fica mudo 1h,
+  renova a cada resposta do humano), **responder pelo painel** (envia no WhatsApp pelo número do
+  canal), pedidos anotados destacados com **"Confirmada"** e **"Virar pedido"** (modal completa
+  data/hora → cria encomenda oficial sem valor no módulo de Encomendas, com contato e origem;
+  anotação vira `virou_pedido` com link).
+- **Envs**: WHATSAPP_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN e GROQ_API_KEY copiadas para o
+  `.env.local` e adicionadas na **Vercel (production+preview)**. Falta só apontar o webhook da
+  Meta para `https://fornada.vercel.app/api/atendimento/webhook` após o deploy.
+- Validado end-to-end no preview: webhook verificado (GET 200/403), conversa de encomenda com
+  preço por kg + anotação completa, conversa de delivery com endereço, painel com
+  assumir/virar pedido (encomenda #16 criada e removida no teste). Dados e usuário QA limpos.
+
+### Módulo Atendimento (agente WhatsApp) — Fase 1: fundação
+> Carta de passagem do projeto agente-whatsapp: o robô de WhatsApp vira módulo do Fornada.
+> Fase 1 = campos no produto + tabelas do módulo + permissão RBAC. Migration `20260705000000` **APLICADA** no Supabase.
+- **Campos novos no `produto`** para o agente vender melhor: `sempre_disponivel` (produto "de sempre",
+  ex. pão francês), `disponivel_hoje` (toggle diário tem/acabou; NULL = não informado → agente confirma
+  com a equipe), `foto_url` (foto que o agente envia no WhatsApp) e `sugestao_do_dia` (⭐ o agente só
+  oferece produtos marcados).
+- **Tela de Produtos**: botão **tem/acabou hoje** e **estrela de sugestão do dia** em cada linha
+  (pedido da Natali: uma pessoa marca/desmarca por dia); thumbnail da foto no lugar do ícone.
+- **Drawer do produto**: seção "Atendimento — robô do WhatsApp" com **upload de foto**
+  (bucket público `produto-fotos` no Storage, JPG/PNG/WebP até 5 MB, troca/remoção),
+  toggle "Sempre disponível", disponibilidade de hoje e sugestão do dia.
+- **Tabelas do módulo** (com `empresa_id`/`unidade_id` + RLS por loja): `atendimento_conversa`
+  (1 por número/loja, `pausada_ate` = humano assumiu), `atendimento_mensagem` (histórico) e
+  `atendimento_encomenda` (anotada→confirmada→virou_pedido, liga em `encomenda_id`).
+- **RBAC**: nova tela `atendimento` (aparece na grade de permissões; página vem na Fase 3).
+- Backend: `app/actions/produto-atendimento.ts` (`setProdutoAtendimento`, `uploadProdutoFoto`,
+  `removeProdutoFoto`) com checagem de permissão por loja. `bodySizeLimit: 8mb` p/ upload.
+- **Fix (bug pré-existente!)**: triggers `trg_produto_updated_at` e `trg_despesa_fixa_updated_at`
+  setavam `NEW.atualizado_em` em tabelas cuja coluna é `updated_at` → **todo UPDATE direto em
+  `produto` e `despesa_fixa_empresa` falhava** com 42703 (afetava `setProdutoLocal`,
+  `linkProdutoReceita` e edição de despesa fixa; a UI otimista escondia). Migration
+  `20260705000001` cria `fn_set_updated_at()` e recria os triggers — **APLICADA**.
+- Infra: histórico de migrations do Supabase CLI **reparado** (`migration repair` das 23 já aplicadas
+  manualmente) — de agora em diante `supabase db push` aplica só o que falta.
+
 ### Ficha — editar/excluir item visível no tablet
 > No tablet a **tabela** de ingredientes era larga demais e a coluna de ações ficava **cortada** pelo
 > `overflow-hidden` do card — parecia que não dava pra editar/excluir. Agora telas até `lg` usam o
