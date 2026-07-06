@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { BarChart3, Truck, ClipboardList, Loader2 } from 'lucide-react'
 import { relatorioAtendimento, type PedidoRelatorio } from '@/app/actions/atendimento'
+import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 
 /** Mês atual no fuso local (YYYY-MM). */
 function mesAtual(): string {
@@ -66,6 +67,7 @@ export function RelatorioView() {
         <input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)}
           className="input-field text-sm py-1.5 px-2 w-44" />
         {carregando && <Loader2 size={14} className="animate-spin text-secondary" />}
+        <BotaoImprimir label="Imprimir / PDF" className="ml-auto px-4" />
       </div>
 
       {erro && <p className="text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>}
@@ -134,6 +136,51 @@ export function RelatorioView() {
           </p>
         </div>
       )}
+
+      {/* Documento de impressão / PDF (Ctrl+P → salvar como PDF) */}
+      <DocumentoImpressao
+        titulo="Relatório de Atendimento — Robô do WhatsApp"
+        subtitulo={`Mês ${mes.split('-').reverse().join('/')} · ${stats.total} pedido${stats.total !== 1 ? 's' : ''}`}
+      >
+        <table style={T.table}>
+          <thead>
+            <tr>
+              <th style={T.th}>Indicador</th>
+              <th style={T.thRight}>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style={T.td}>Pedidos no mês</td><td style={T.tdRight}>{stats.total}</td></tr>
+            <tr><td style={T.td}>Delivery</td><td style={T.tdRight}>{stats.delivery}</td></tr>
+            <tr><td style={T.td}>Encomendas</td><td style={T.tdRight}>{stats.encomendas}</td></tr>
+            <tr><td style={T.td}>Viraram pedido oficial</td><td style={T.tdRight}>{stats.viraram} ({stats.conversao}%)</td></tr>
+          </tbody>
+        </table>
+        {stats.dias.length > 0 && (
+          <table style={{ ...T.table, marginTop: 16 }}>
+            <thead>
+              <tr><th style={T.th}>Dia</th><th style={T.thRight}>Pedidos</th></tr>
+            </thead>
+            <tbody>
+              {stats.dias.map(([dia, n]) => (
+                <tr key={dia}><td style={T.td}>{dia}</td><td style={T.tdRight}>{n}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {stats.topProdutos.length > 0 && (
+          <table style={{ ...T.table, marginTop: 16 }}>
+            <thead>
+              <tr><th style={T.th}>Produto mais pedido</th><th style={T.thRight}>Vezes</th></tr>
+            </thead>
+            <tbody>
+              {stats.topProdutos.map(([produto, n]) => (
+                <tr key={produto}><td style={T.td}>{produto}</td><td style={T.tdRight}>{n}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </DocumentoImpressao>
     </div>
   )
 }

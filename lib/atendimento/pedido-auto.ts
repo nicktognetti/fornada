@@ -70,17 +70,23 @@ export async function criarPedidoAutomatico(
       return
     }
 
-    const { error: e2 } = await supabaseAdmin.from('encomenda_item').insert({
-      encomenda_id: enc.id,
-      produto_id: null,
-      descricao: dados.produto,
-      quantidade: 1,
-      preco_unitario: 0,
-      subtotal: 0,
-      observacao: dados.quantidade && dados.quantidade !== '?' ? `Cliente pediu: ${dados.quantidade}` : null,
-      local: null,
-    })
-    if (e2) console.error('Pedido automático: falha no item:', e2.message)
+    // Um item por produto anotado (multi-itens); fallback = item único
+    const itens = dados.itens.length > 0
+      ? dados.itens
+      : [{ produto: dados.produto, quantidade: dados.quantidade }]
+    const { error: e2 } = await supabaseAdmin.from('encomenda_item').insert(
+      itens.map((i) => ({
+        encomenda_id: enc.id,
+        produto_id: null,
+        descricao: i.produto,
+        quantidade: 1,
+        preco_unitario: 0,
+        subtotal: 0,
+        observacao: i.quantidade && i.quantidade !== '?' ? `Cliente pediu: ${i.quantidade}` : null,
+        local: null,
+      }))
+    )
+    if (e2) console.error('Pedido automático: falha nos itens:', e2.message)
 
     await supabaseAdmin.from('encomenda_status_log').insert({
       empresa_id: ctx.empresaId,

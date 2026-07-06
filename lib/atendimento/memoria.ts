@@ -76,6 +76,29 @@ export async function obterOuCriarConversa(
   return { id: nova.id, pausada: false }
 }
 
+/**
+ * Anti-abuso: quantas mensagens o CLIENTE mandou nesta conversa na
+ * janela recente. Acima do limite, o robô para de chamar a IA (a
+ * mensagem fica salva e aparece no painel — só não gasta Groq/Meta).
+ */
+export async function contarMensagensRecentes(
+  conversaId: string,
+  janelaSegundos: number,
+): Promise<number> {
+  try {
+    const desde = new Date(Date.now() - janelaSegundos * 1000).toISOString()
+    const { count } = await supabaseAdmin
+      .from('atendimento_mensagem')
+      .select('id', { count: 'exact', head: true })
+      .eq('conversa_id', conversaId)
+      .eq('role', 'user')
+      .gte('criado_em', desde)
+    return count ?? 0
+  } catch {
+    return 0 // na dúvida, atende
+  }
+}
+
 /** Histórico recente da conversa, no formato que a IA espera. */
 export async function buscarHistorico(conversaId: string): Promise<MensagemDaConversa[]> {
   try {
@@ -165,6 +188,7 @@ export async function salvarEncomendaAnotada(
         data_texto: dados.data,
         nome: dados.nome,
         endereco: dados.endereco,
+        itens: dados.itens,
         status: 'anotada',
       })
       .select('id')

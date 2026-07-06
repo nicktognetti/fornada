@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   LayoutDashboard, Package, BookOpen, ShoppingBag, TrendingUp,
-  ArrowRight, AlertTriangle, BarChart2, TrendingDown, Clock, Plus, CalendarClock
+  ArrowRight, AlertTriangle, BarChart2, TrendingDown, Clock, Plus, CalendarClock, MessageCircle
 } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { SectionLabel } from '@/app/components/ui/section-label'
@@ -176,6 +176,28 @@ export default async function ResumePage() {
     .filter((e) => e.status !== 'entregue' && e.status !== 'cancelada')
     .slice(0, 5)
 
+  // Robô do WhatsApp hoje (tolerante: módulo pode não estar migrado/acessível)
+  const hojeInicio = new Date(new Date().toLocaleDateString('sv') + 'T00:00:00-03:00').toISOString()
+  let roboHoje = { total: 0, delivery: 0, pendentes: 0, ok: false }
+  {
+    let q = supabase
+      .from('atendimento_encomenda')
+      .select('canal, status')
+      .gte('criado_em', hojeInicio)
+      .limit(500)
+    if (unidadeId) q = q.eq('unidade_id', unidadeId)
+    const { data: robos, error: roboErr } = await q
+    if (!roboErr && robos) {
+      const rows = robos as { canal: string; status: string }[]
+      roboHoje = {
+        total: rows.length,
+        delivery: rows.filter((r) => r.canal === 'delivery').length,
+        pendentes: rows.filter((r) => r.status === 'anotada').length,
+        ok: true,
+      }
+    }
+  }
+
   const cards = [
     { label: 'INSUMOS CADASTRADOS', icon: Package, href: '/dashboard/insumos', valueStr: insumoCount.toString(), sub: 'matérias-primas com custo' },
     { label: 'FICHAS TÉCNICAS', icon: BookOpen, href: '/dashboard/receitas', valueStr: receitaCount.toString(), sub: 'receitas e sub-receitas' },
@@ -295,6 +317,34 @@ export default async function ResumePage() {
               Ver todas as encomendas <ArrowRight size={12} />
             </Link>
           </div>
+        </div>
+      )}
+
+      {/* Robô do WhatsApp — pedidos anotados hoje */}
+      {roboHoje.ok && roboHoje.total > 0 && (
+        <div className="space-y-3">
+          <SectionLabel icon={MessageCircle}>Robô do WhatsApp hoje</SectionLabel>
+          <Link
+            href="/dashboard/atendimento"
+            className="flex items-center gap-4 px-5 py-4 rounded-xl group transition-colors hover:bg-input/40"
+            style={{ backgroundColor: 'var(--t-card-bg)', border: '1px solid var(--t-card-border)' }}
+          >
+            <MessageCircle size={18} className="shrink-0" style={{ color: 'var(--t-accent)' }} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium" style={{ color: 'var(--t-text-1)' }}>
+                {roboHoje.total} pedido{roboHoje.total !== 1 ? 's' : ''} anotado{roboHoje.total !== 1 ? 's' : ''} hoje
+                <span style={{ color: 'var(--t-text-2)' }}>
+                  {' '}· {roboHoje.delivery} delivery · {roboHoje.total - roboHoje.delivery} encomendas
+                </span>
+              </p>
+              {roboHoje.pendentes > 0 && (
+                <p className="text-xs mt-0.5 text-amber-400">
+                  {roboHoje.pendentes} aguardando a equipe
+                </p>
+              )}
+            </div>
+            <ArrowRight size={13} className="opacity-0 group-hover:opacity-100 transition-all shrink-0" style={{ color: 'var(--t-accent)' }} />
+          </Link>
         </div>
       )}
 

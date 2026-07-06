@@ -12,7 +12,7 @@ describe('extrairEncomenda', () => {
     expect(r.encomenda).toBeNull()
   })
 
-  it('extrai encomenda de retirada (canal encomendas) e limpa o texto', () => {
+  it('extrai encomenda de retirada (formato antigo, item único) e limpa o texto', () => {
     const r = extrairEncomenda(
       'Anotado! 2 bolos para sábado às 14h, no nome da Maria. 😊\n#ENCOMENDA# {"produto":"bolo de fubá","quantidade":"2","data":"sábado 14h","nome":"Maria"}'
     )
@@ -23,7 +23,21 @@ describe('extrairEncomenda', () => {
       data: 'sábado 14h',
       nome: 'Maria',
       endereco: null,
+      itens: [{ produto: 'bolo de fubá', quantidade: '2' }],
     })
+  })
+
+  it('multi-itens: lista estruturada + resumo em texto', () => {
+    const r = extrairEncomenda(
+      'Anotado, João!\n#ENCOMENDA# {"itens":[{"produto":"pão francês","quantidade":"10"},{"produto":"bolo de fubá","quantidade":"1kg"}],"data":"hoje","nome":"João","endereco":"Rua das Flores, 123"}'
+    )
+    expect(r.encomenda?.itens).toEqual([
+      { produto: 'pão francês', quantidade: '10' },
+      { produto: 'bolo de fubá', quantidade: '1kg' },
+    ])
+    expect(r.encomenda?.produto).toBe('10 pão francês + 1kg bolo de fubá')
+    expect(r.encomenda?.quantidade).toBe('2 itens')
+    expect(r.encomenda?.endereco).toBe('Rua das Flores, 123')
   })
 
   it('extrai pedido de delivery com endereço', () => {
@@ -120,7 +134,7 @@ describe('formatarAvisoPedidoLinha (parâmetro de template Meta)', () => {
   it('linha única, sem \\n nem tab (regra da Meta)', () => {
     const linha = formatarAvisoPedidoLinha(
       'delivery',
-      { produto: '10 pães', quantidade: '10', data: 'hoje', nome: 'João', endereco: 'Rua A,\n123' },
+      { produto: '10 pães', quantidade: '10', data: 'hoje', nome: 'João', endereco: 'Rua A,\n123', itens: [] },
       'Morada do Sol',
       '5511999990002',
     )
@@ -155,7 +169,7 @@ describe('formatarAvisoPedido (aviso à equipe)', () => {
   it('delivery: título de delivery + endereço', () => {
     const txt = formatarAvisoPedido(
       'delivery',
-      { produto: '10 pães', quantidade: '10', data: 'hoje', nome: 'João', endereco: 'Rua das Flores, 123' },
+      { produto: '10 pães', quantidade: '10', data: 'hoje', nome: 'João', endereco: 'Rua das Flores, 123', itens: [] },
       'Morada do Sol',
       '5511999990002',
     )
@@ -168,7 +182,7 @@ describe('formatarAvisoPedido (aviso à equipe)', () => {
   it('encomendas: título de encomenda + retirada; omite campos "?"', () => {
     const txt = formatarAvisoPedido(
       'encomendas',
-      { produto: 'bolo de fubá', quantidade: '?', data: 'sábado 14h', nome: '?', endereco: null },
+      { produto: 'bolo de fubá', quantidade: '?', data: 'sábado 14h', nome: '?', endereco: null, itens: [] },
       'Centro',
       '5511999990001',
     )

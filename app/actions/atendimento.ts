@@ -39,6 +39,8 @@ export type EncomendaAnotada = {
   data_texto: string | null
   nome: string | null
   endereco: string | null
+  /** Itens estruturados ([{produto, quantidade}]); null em pedidos antigos. */
+  itens: { produto: string; quantidade: string }[] | null
   status: 'anotada' | 'confirmada' | 'virou_pedido'
   encomenda_id: string | null
   criado_em: string
@@ -143,7 +145,7 @@ export async function getConversa(conversaId: string): Promise<ActionResult<Conv
       .limit(200),
     supabase
       .from('atendimento_encomenda')
-      .select('id, canal, produto, quantidade, data_texto, nome, endereco, status, encomenda_id, criado_em')
+      .select('id, canal, produto, quantidade, data_texto, nome, endereco, itens, status, encomenda_id, criado_em')
       .eq('conversa_id', conversaId)
       .order('criado_em', { ascending: false }),
   ])
@@ -262,7 +264,7 @@ export async function listarPedidos(filtros?: {
 
   let q = supabase
     .from('atendimento_encomenda')
-    .select('id, conversa_id, canal, produto, quantidade, data_texto, nome, endereco, status, encomenda_id, criado_em, conversa:conversa_id ( numero, nome )')
+    .select('id, conversa_id, canal, produto, quantidade, data_texto, nome, endereco, itens, status, encomenda_id, criado_em, conversa:conversa_id ( numero, nome )')
     .order('criado_em', { ascending: false })
     .limit(200)
   if (unidadeId) q = q.eq('unidade_id', unidadeId)
@@ -293,6 +295,7 @@ export async function listarPedidos(filtros?: {
       data_texto: r.data_texto,
       nome: r.nome,
       endereco: r.endereco,
+      itens: r.itens,
       status: r.status,
       encomenda_id: r.encomenda_id,
       criado_em: r.criado_em,
@@ -670,7 +673,7 @@ export async function virarPedido(
 
   const { data: anotada } = await supabase
     .from('atendimento_encomenda')
-    .select('id, produto, quantidade, nome, endereco, canal, status, conversa:conversa_id ( numero, nome )')
+    .select('id, produto, quantidade, nome, endereco, itens, canal, status, conversa:conversa_id ( numero, nome )')
     .eq('id', atendimentoEncomendaId)
     .maybeSingle()
   if (!anotada) return { error: 'Encomenda anotada não encontrada' }
@@ -685,6 +688,27 @@ export async function virarPedido(
     anotada.endereco ? `Entrega: ${anotada.endereco}` : null,
   ].filter(Boolean).join(' · ')
 
+  // Multi-itens: um item da encomenda por linha anotada; pedido antigo
+  // (sem itens) segue como item único com a quantidade informada no modal.
+  const itensAnotados = (anotada.itens ?? []) as { produto: string; quantidade: string }[]
+  const itensEncomenda = itensAnotados.length > 0
+    ? itensAnotados.map((i) => ({
+        produto_id: null,
+        descricao: i.produto,
+        quantidade: 1,
+        preco_unitario: 0,
+        observacao: i.quantidade && i.quantidade !== '?' ? `Cliente pediu: ${i.quantidade}` : null,
+        local: null,
+      }))
+    : [{
+        produto_id: null,
+        descricao: anotada.produto,
+        quantidade: dados.quantidade > 0 ? dados.quantidade : 1,
+        preco_unitario: 0,
+        observacao: anotada.quantidade ? `Cliente pediu: ${anotada.quantidade}` : null,
+        local: null,
+      }]
+
   // criarEncomenda valida permissão da tela encomenda + loja e registra o status
   const res = await criarEncomenda(
     {
@@ -696,14 +720,7 @@ export async function virarPedido(
       rastrear_status: true,
       observacao: obs,
     },
-    [{
-      produto_id: null,
-      descricao: anotada.produto,
-      quantidade: dados.quantidade > 0 ? dados.quantidade : 1,
-      preco_unitario: 0,
-      observacao: anotada.quantidade ? `Cliente pediu: ${anotada.quantidade}` : null,
-      local: null,
-    }],
+    itensEncomenda,
   )
   if (res.error || !res.data) return { error: res.error ?? 'Erro ao criar a encomenda' }
 

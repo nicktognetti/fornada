@@ -8,8 +8,9 @@ import {
 } from '@/app/actions/atendimento'
 import type { CanalAtendimento } from '@/lib/atendimento/canal-tipos'
 
-// Som de pedido novo é POR APARELHO (mesma lógica da impressão automática)
+// Som e notificação de pedido novo são POR APARELHO (localStorage)
 const SOM_KEY = 'fornada_atendimento_som'
+const PUSH_KEY = 'fornada_atendimento_push'
 
 // Aba "Robô": números de WhatsApp por loja/canal + aviso de pedido novo
 // para a equipe (liga/desliga por canal — ex.: delivery avisa, encomendas não).
@@ -21,12 +22,29 @@ export function CanaisView() {
   const [erro, setErro] = useState<string | null>(null)
   const [novoAberto, setNovoAberto] = useState(false)
   const [som, setSom] = useState(false)
+  const [push, setPush] = useState(false)
 
-  useEffect(() => { setSom(localStorage.getItem(SOM_KEY) === '1') }, [])
+  useEffect(() => {
+    setSom(localStorage.getItem(SOM_KEY) === '1')
+    setPush(localStorage.getItem(PUSH_KEY) === '1')
+  }, [])
   function toggleSom() {
     const novo = !som
     setSom(novo)
     localStorage.setItem(SOM_KEY, novo ? '1' : '0')
+  }
+  async function togglePush() {
+    if (push) {
+      setPush(false)
+      localStorage.setItem(PUSH_KEY, '0')
+      return
+    }
+    // Precisa da permissão do navegador (pergunta uma vez)
+    if (typeof Notification === 'undefined') { alert('Este navegador não suporta notificações.'); return }
+    const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
+    if (perm !== 'granted') { alert('Permissão de notificação negada no navegador.'); return }
+    setPush(true)
+    localStorage.setItem(PUSH_KEY, '1')
   }
 
   const carregar = useCallback(async () => {
@@ -89,8 +107,19 @@ export function CanaisView() {
           {som ? <Volume2 size={13} /> : <VolumeX size={13} />}
           {som ? 'Som de pedido novo: LIGADO' : 'Som de pedido novo'}
         </button>
+        <button
+          onClick={togglePush}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            push
+              ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/30'
+              : 'bg-input text-secondary border-transparent hover:text-primary'
+          }`}
+        >
+          {push ? <Bell size={13} /> : <BellOff size={13} />}
+          {push ? 'Notificação do navegador: LIGADA' : 'Notificação do navegador'}
+        </button>
         <p className="text-[11px] text-faint">
-          Toca um aviso sonoro <b>neste aparelho</b> quando o robô anota um pedido (com o sistema aberto em qualquer tela).
+          Aviso sonoro e/ou notificação <b>neste aparelho</b> quando o robô anota um pedido (com o sistema aberto em qualquer tela).
         </p>
       </div>
 

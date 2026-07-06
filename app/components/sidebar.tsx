@@ -90,9 +90,20 @@ export function Sidebar({ userEmail }: SidebarProps) {
         .then((r) => {
           if (!ativo || !r.data) return
           const total = r.data.total
-          // Subiu = pedido novo → toca o aviso (se ligado neste aparelho)
-          if (anterior !== null && total > anterior && localStorage.getItem('fornada_atendimento_som') === '1') {
-            tocarAvisoSonoro()
+          // Subiu = pedido novo → som e/ou notificação (se ligados neste aparelho)
+          if (anterior !== null && total > anterior) {
+            if (localStorage.getItem('fornada_atendimento_som') === '1') tocarAvisoSonoro()
+            if (
+              localStorage.getItem('fornada_atendimento_push') === '1' &&
+              typeof Notification !== 'undefined' && Notification.permission === 'granted'
+            ) {
+              try {
+                new Notification('🥐 Pedido novo no WhatsApp', {
+                  body: `${total} pedido${total !== 1 ? 's' : ''} aguardando no Atendimento`,
+                  tag: 'fornada-atendimento',
+                })
+              } catch { /* navegador sem suporte — segue o badge */ }
+            }
           }
           anterior = total
           setPendentes(total)

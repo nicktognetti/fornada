@@ -7,6 +7,27 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Atendimento — blindagem e refinamentos pré-go-live (rodada final)
+> Segurança + robustez antes do número real. Migration `20260707000000` **APLICADA**.
+- **🔒 Assinatura do webhook**: valida o `X-Hub-Signature-256` da Meta (HMAC-SHA256 do corpo cru
+  com o App Secret). Com `META_APP_SECRET` configurado, requisição sem/with assinatura errada
+  leva **401** (validado ao vivo: 401/401/200 com HMAC correto); sem o env, aceita com aviso no
+  log (rollout suave — cadastrar o secret na Vercel fecha a porta).
+- **Anti-abuso**: número que metralha mensagens para de gastar IA/WhatsApp — limite de
+  **6/min e 40/h** por conversa (validado: 7 mensagens → 6 respostas; as excedentes ficam salvas
+  e visíveis no painel).
+- **Pedido com VÁRIOS itens**: "2kg de bolacha e 3 brioches" agora vira lista estruturada
+  (`itens` JSONB) + resumo em texto. "Virar pedido" e o pedido automático criam **um item da
+  encomenda por produto** (quantidade do cliente na observação); modal mostra a lista.
+- **Fora do expediente**: o prompt recebe o dia/hora atual (Brasília) e cruza com os horários
+  oficiais — fora do horário, o robô avisa que está fechado e quando abre, mas segue anotando.
+- **Alerta de erro no WhatsApp do admin**: falha crítica (Groq fora etc.) manda "🚨 Robô com
+  problema" pro número do env `ALERTA_WHATSAPP` (opcional; trava de 1 alerta/30min por origem).
+- **Polimentos**: botão **Imprimir/PDF** na aba Relatório (documento A4 com KPIs, por dia e top
+  produtos); **notificação do navegador** de pedido novo (toggle por aparelho, pede permissão);
+  card **"Robô do WhatsApp hoje"** no Resumo (total, por canal, aguardando → link pro painel).
+- 105 testes ✅ (assinatura com HMAC real, multi-itens, linha de template).
+
 ### Atendimento — pacote de operação: infos da loja, template, agente de impressão, som, relatório e cliente
 > As 6 melhorias indicadas. Migration `20260706000003` **APLICADA**.
 - **Informações oficiais da loja** (aba Robô, por loja): horários, endereço, pagamento, entrega e

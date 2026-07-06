@@ -19,7 +19,10 @@ import {
   buscarHistorico,
   salvarMensagens,
   salvarEncomendaAnotada,
+  contarMensagensRecentes,
 } from '@/lib/atendimento/memoria'
+import { validarAssinatura } from '@/lib/atendimento/assinatura'
+import { alertarAdmin } from '@/lib/atendimento/alerta'
 import { avisarEquipe } from '@/lib/atendimento/aviso'
 import { upsertClienteAtendimento, buscarFichaCliente } from '@/lib/atendimento/cliente'
 import { criarPedidoAutomatico } from '@/lib/atendimento/pedido-auto'
@@ -46,9 +49,29 @@ export async function GET(request: NextRequest) {
  * SEMPRE devolve 200 rápido (senão a Meta reenvia); o trabalho pesado
  * roda depois da resposta, via after().
  */
+// Anti-abuso: acima disso de mensagens do cliente por janela, o robô
+// para de chamar a IA (mensagens continuam salvas e visíveis no painel).
+const LIMITE_POR_MINUTO = 6
+const LIMITE_POR_HORA = 40
+
 export async function POST(request: NextRequest) {
   try {
-    const payload = await request.json()
+    // Corpo CRU primeiro: a assinatura da Meta é o HMAC destes bytes.
+    const corpoCru = await request.text()
+    const assinatura = validarAssinatura(
+      corpoCru,
+      request.headers.get('x-hub-signature-256'),
+      process.env.META_APP_SECRET,
+    )
+    if (assinatura === 'invalida') {
+      console.error('Webhook com assinatura INVÁLIDA — requisição rejeitada (não é a Meta).')
+      return new NextResponse('Assinatura inválida', { status: 401 })
+    }
+    if (assinatura === 'sem-secret') {
+      console.warn('META_APP_SECRET não configurado — webhook aceito SEM validar assinatura (configure para fechar essa porta).')
+    }
+
+    const payload = JSON.parse(corpoCru)
     const value = payload?.entry?.[0]?.changes?.[0]?.value
 
     // Confirmações de entrega/leitura das NOSSAS mensagens: só log.
@@ -114,6 +137,17 @@ async function responderComIA(
       return
     }
 
+    // Anti-abuso: número metralhando mensagens não gasta IA nem envio.
+    const [porMinuto, porHora] = await Promise.all([
+      contarMensagensRecentes(conversa.id, 60),
+      contarMensagensRecentes(conversa.id, 3600),
+    ])
+    if (porMinuto >= LIMITE_POR_MINUTO || porHora >= LIMITE_POR_HORA) {
+      await salvarMensagens(ctx, conversa.id, [{ role: 'user', content: textoRecebido }])
+      console.warn(`Anti-abuso: ${numeroRemetente} excedeu o limite (${porMinuto}/min, ${porHora}/h) — IA não respondeu.`)
+      return
+    }
+
     // Ficha do cliente (se o número já é conhecido) entra no prompt:
     // o robô cumprimenta pelo nome e oferece o endereço salvo.
     const [historico, fichaCliente, infoLoja] = await Promise.all([
@@ -171,6 +205,7 @@ async function responderComIA(
     ])
   } catch (erro) {
     console.error('Erro ao gerar/enviar resposta da IA:', erro)
+    await alertarAdmin('Webhook (responder cliente)', erro instanceof Error ? erro.message : String(erro), ctx.phoneNumberId)
   }
 }
 

@@ -105,8 +105,9 @@ const ENCOMENDAS = `
   Nossa equipe confirma o valor e a disponibilidade com você em
   breve! 😊"
 - Nessa mensagem de confirmação (e SOMENTE nela), acrescente no final,
-  em uma linha separada, EXATAMENTE neste formato:
-  #ENCOMENDA# {"produto":"...","quantidade":"...","data":"dia e horário de retirada","nome":"..."}
+  em uma linha separada, EXATAMENTE neste formato (um objeto em "itens"
+  para CADA produto encomendado):
+  #ENCOMENDA# {"itens":[{"produto":"...","quantidade":"..."}],"data":"dia e horário de retirada","nome":"..."}
   Essa linha é uma marcação interna — o cliente não vai vê-la.
   Preencha os campos apenas com o que o cliente disse (não invente).
 - Só use a marcação de novo se o cliente fizer uma NOVA encomenda.
@@ -141,12 +142,37 @@ const DELIVERY = `
   123, no nome do João. Nossa equipe confirma o valor e já prepara a
   entrega! 😊"
 - Nessa mensagem de confirmação (e SOMENTE nela), acrescente no final,
-  em uma linha separada, EXATAMENTE neste formato:
-  #ENCOMENDA# {"produto":"...","quantidade":"...","data":"hoje","nome":"...","endereco":"endereço completo"}
+  em uma linha separada, EXATAMENTE neste formato (um objeto em "itens"
+  para CADA produto pedido):
+  #ENCOMENDA# {"itens":[{"produto":"...","quantidade":"..."}],"data":"hoje","nome":"...","endereco":"endereço completo"}
   Essa linha é uma marcação interna — o cliente não vai vê-la.
   Preencha os campos apenas com o que o cliente disse (não invente).
 - Só use a marcação de novo se o cliente fizer um NOVO pedido.
 `
+
+/**
+ * Bloco com o dia/hora ATUAL (fuso da padaria) + regra de fora do
+ * expediente. A IA cruza com os horários das Informações oficiais
+ * (texto livre) — sem precisar de campo estruturado.
+ */
+export function blocoAgora(agora: Date = new Date()): string {
+  const texto = agora.toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `
+## Agora
+- Neste momento são: ${texto} (horário de Brasília).
+- Se as Informações OFICIAIS tiverem horário de funcionamento e AGORA
+  estiver fora dele, avise com carinho que a loja está fechada e quando
+  abre — mas continue atendendo normalmente e anotando pedidos e
+  encomendas para quando abrir.
+`
+}
 
 /**
  * Monta o prompt do agente conforme o canal do número.
@@ -164,6 +190,7 @@ export function montarPrompt(
     BASE(unidadeNome) +
     (canal === 'delivery' ? DELIVERY : ENCOMENDAS) +
     (infoLoja ?? '') +
+    (infoLoja ? blocoAgora() : '') +
     (fichaCliente ?? '')
   )
 }

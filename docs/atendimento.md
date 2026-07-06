@@ -105,11 +105,23 @@ específicos). Disponibilidade não informada = o robô diz que "confirma com a 
 - RBAC: tela `atendimento` (leitura = ver; escrita = assumir/responder/virar pedido;
   admin = configurar números). RLS por loja em todas as tabelas do módulo.
 
+## Blindagens ativas
+
+- **Assinatura da Meta**: com o env `META_APP_SECRET` (App Secret do app na Meta) cadastrado na
+  Vercel, só requisições assinadas pela Meta passam (outros POSTs levam 401). Sem o env, o
+  webhook funciona mas loga um aviso — **cadastre antes do go-live**.
+- **Anti-abuso**: máx. 6 mensagens/min e 40/h por conversa — acima disso o robô silencia (as
+  mensagens seguem salvas no painel) e não gasta Groq/Meta.
+- **Alerta de pane**: com o env `ALERTA_WHATSAPP` (número do responsável), falha crítica do robô
+  manda "🚨" no WhatsApp (máx. 1 a cada 30 min por tipo).
+- Anti-duplicata de pedido (15 min), anti-invenção (regra de ouro), sanitização de vazamentos.
+
 ## Para LIGAR em produção (checklist)
 
 1. ✅ Código na master (deploy automático) + migrations aplicadas + envs na Vercel.
 2. 🔲 **Painel da Meta**: trocar a URL do webhook para
-   `https://fornada.vercel.app/api/atendimento/webhook` (mesmo VERIFY_TOKEN).
+   `https://fornada.vercel.app/api/atendimento/webhook` (mesmo VERIFY_TOKEN) e cadastrar o
+   **App Secret** como env `META_APP_SECRET` na Vercel (fecha o webhook para não-Meta).
 3. 🔲 Número BR de verdade (o atual é o de teste da Meta — só entrega pra números autorizados)
    e um segundo número pro Delivery → cadastrar na aba **Robô**.
 4. 🔲 Preencher os dados oficiais no prompt (`lib/atendimento/prompt.ts`): horários, endereços

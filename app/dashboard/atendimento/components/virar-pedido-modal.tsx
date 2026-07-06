@@ -19,6 +19,8 @@ export function VirarPedidoModal({
   const [qtd, setQtd] = useState('1')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  // Multi-itens: a encomenda é criada com um item por linha anotada
+  const multiItens = (anotada.itens?.length ?? 0) > 1
 
   async function salvar() {
     if (!data || !hora) { setErro('Informe data e hora de entrega/retirada'); return }
@@ -39,11 +41,24 @@ export function VirarPedidoModal({
       <div className="card-surface w-full max-w-sm p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
           <h3 className="font-playfair text-primary text-lg font-semibold">Virar pedido</h3>
-          <p className="text-xs text-secondary mt-1">
-            <span className="font-medium text-primary">{anotada.produto}</span>
-            {anotada.quantidade && ` · ${anotada.quantidade}`}
-            {anotada.data_texto && ` · cliente falou: "${anotada.data_texto}"`}
-          </p>
+          {multiItens ? (
+            <div className="mt-2 rounded-lg bg-canvas border border-subtle divide-y divide-subtle">
+              {anotada.itens!.map((i, idx) => (
+                <p key={idx} className="text-xs text-primary px-3 py-1.5">
+                  <span className="font-medium">{i.produto}</span>
+                  {i.quantidade && i.quantidade !== '?' && <span className="text-secondary"> · {i.quantidade}</span>}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-secondary mt-1">
+              <span className="font-medium text-primary">{anotada.produto}</span>
+              {anotada.quantidade && ` · ${anotada.quantidade}`}
+            </p>
+          )}
+          {anotada.data_texto && (
+            <p className="text-[11px] text-faint mt-1">cliente falou: &quot;{anotada.data_texto}&quot;</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -56,11 +71,18 @@ export function VirarPedidoModal({
             <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className="input-field" />
           </div>
         </div>
-        <div>
-          <label className="field-label">Quantidade</label>
-          <input type="text" inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} className="input-field" />
-          <p className="text-[11px] text-faint mt-1">O valor fica em aberto (encomenda sem valor) — ajuste depois em Encomendas.</p>
-        </div>
+        {multiItens ? (
+          <p className="text-[11px] text-faint">
+            A encomenda sai com {anotada.itens!.length} itens (quantidade do cliente vai na observação de cada um).
+            O valor fica em aberto — ajuste depois em Encomendas.
+          </p>
+        ) : (
+          <div>
+            <label className="field-label">Quantidade</label>
+            <input type="text" inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} className="input-field" />
+            <p className="text-[11px] text-faint mt-1">O valor fica em aberto (encomenda sem valor) — ajuste depois em Encomendas.</p>
+          </div>
+        )}
 
         {erro && <p className="text-xs text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>}
 

@@ -6,6 +6,7 @@
 import { montarPrompt } from './prompt'
 import { buscarProdutos } from './catalogo'
 import { limparVazamentoDeFerramenta } from './marcadores'
+import { alertarAdmin } from './alerta'
 import type { MensagemDaConversa } from './memoria'
 import type { CanalCtx } from './canal'
 
@@ -90,6 +91,7 @@ export async function gerarResposta(
         continue
       }
       console.error('Falha na chamada do Groq:', resposta.status, corpo)
+      await alertarAdmin('IA (Groq)', `HTTP ${resposta.status}: ${corpo.slice(0, 200)}`, ctx.phoneNumberId)
       return RESPOSTA_DE_EMERGENCIA
     }
 
