@@ -18,6 +18,8 @@ interface Props {
   localMap: Record<string, string | null>
   /** Campos do agente WhatsApp por produto. Vazio = migration ainda não aplicada (esconde os controles). */
   atendimentoMap: Record<string, ProdutoAtendimento>
+  /** false = operação (só tem/acabou, robô etc.): custo/preço/margem somem da tela e da impressão. */
+  podeVerValores: boolean
 }
 
 const TIPO_CONFIG = {
@@ -25,7 +27,7 @@ const TIPO_CONFIG = {
   revenda:   { icon: ShoppingBag, label: 'Revenda',   cls: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
 }
 
-export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais, localMap, atendimentoMap }: Props) {
+export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais, localMap, atendimentoMap, podeVerValores }: Props) {
   const [search, setSearch] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'produzido' | 'revenda'>('todos')
   const [modalOpen, setModalOpen] = useState(false)
@@ -287,17 +289,20 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
                     {p.categoria && (
                       <span className="text-secondary text-xs">{p.categoria}</span>
                     )}
-                    <span className="text-secondary text-xs">
-                      custo: {p.custo_total > 0
-                        ? (p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`)
-                        : '—'}
-                    </span>
+                    {podeVerValores && (
+                      <span className="text-secondary text-xs">
+                        custo: {p.custo_total > 0
+                          ? (p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`)
+                          : '—'}
+                      </span>
+                    )}
                     {p.unidade_nome && (
                       <span className="text-faint text-xs">{p.unidade_nome}</span>
                     )}
                   </div>
                 </div>
 
+                {podeVerValores && (
                 <div className="shrink-0 text-right">
                   {comPreco ? (
                     <>
@@ -317,6 +322,7 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
                     </span>
                   )}
                 </div>
+                )}
 
                 {atd && (
                   <>
@@ -440,16 +446,20 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
 
       <ProdutoDetalheDrawer produtoId={detalheId} onClose={() => setDetalheId(null)} />
 
-      {/* Documento de impressão — tabela de preços (respeita busca/filtro atuais) */}
-      <DocumentoImpressao titulo="Tabela de Preços" subtitulo={`${filtered.length} produto${filtered.length !== 1 ? 's' : ''}`}>
+      {/* Documento de impressão — tabela de produtos (valores só p/ quem pode ver) */}
+      <DocumentoImpressao titulo={podeVerValores ? 'Tabela de Preços' : 'Lista de Produtos'} subtitulo={`${filtered.length} produto${filtered.length !== 1 ? 's' : ''}`}>
         <table style={T.table}>
           <thead>
             <tr>
               <th style={T.th}>Produto</th>
               <th style={T.th}>Categoria</th>
-              <th style={T.thRight}>Custo</th>
-              <th style={T.thRight}>Preço</th>
-              <th style={T.thRight}>Margem</th>
+              {podeVerValores && (
+                <>
+                  <th style={T.thRight}>Custo</th>
+                  <th style={T.thRight}>Preço</th>
+                  <th style={T.thRight}>Margem</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -457,9 +467,13 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
               <tr key={p.produto_id}>
                 <td style={T.td}>{p.produto_nome}</td>
                 <td style={T.td}>{p.categoria ?? '—'}</td>
-                <td style={T.tdRight}>{p.custo_total > 0 ? (p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`) : '—'}</td>
-                <td style={T.tdRight}>{p.preco_venda > 0 ? (p.rendimento_unidade ? `R$ ${formatBRL(valorPorGrande(p.preco_venda, p.rendimento_unidade))}/${unidadeGrande(p.rendimento_unidade)}` : `R$ ${formatBRL(p.preco_venda)}`) : '—'}</td>
-                <td style={T.tdRight}>{p.preco_venda > 0 ? `${p.margem_percentual.toFixed(1)}%` : '—'}</td>
+                {podeVerValores && (
+                  <>
+                    <td style={T.tdRight}>{p.custo_total > 0 ? (p.rendimento_unidade ? formatCustoGrande(p.custo_total, p.rendimento_unidade) : `R$ ${formatBRL(p.custo_total)}`) : '—'}</td>
+                    <td style={T.tdRight}>{p.preco_venda > 0 ? (p.rendimento_unidade ? `R$ ${formatBRL(valorPorGrande(p.preco_venda, p.rendimento_unidade))}/${unidadeGrande(p.rendimento_unidade)}` : `R$ ${formatBRL(p.preco_venda)}`) : '—'}</td>
+                    <td style={T.tdRight}>{p.preco_venda > 0 ? `${p.margem_percentual.toFixed(1)}%` : '—'}</td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>

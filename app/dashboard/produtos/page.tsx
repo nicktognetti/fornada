@@ -5,6 +5,7 @@ import { getPainelFinanceiro } from '@/app/actions/painel'
 import { getUnidadePreferida } from '@/app/actions/unidade'
 import { getConfigAction } from '@/app/actions/config'
 import { LOCAIS_CONFIG_KEY, LOCAIS_PADRAO } from '@/app/lib/locais'
+import { podeVerValoresProdutos } from '@/app/lib/authz'
 import type { ProdutoAtendimento } from '@/app/actions/produto-atendimento'
 import { ProdutoList } from './components/produto-list'
 
@@ -59,10 +60,27 @@ export default async function ProdutosPage() {
   // Fichas que já viraram produto nesta loja — não devem reaparecer no seletor de "Fabricado".
   const receitasUsadas = new Set(extras.map((p) => p.receita_id).filter(Boolean))
 
-  const produtos = result.data?.fichas ?? []
+  // Valores (custo/preço/margem) só para admin de produtos ou quem tem
+  // precos/painel — a operação (tem/acabou, robô) trabalha sem números.
+  const { data: { user } } = await supabase.auth.getUser()
+  const podeVerValores = user ? await podeVerValoresProdutos(user.id) : false
+
+  const produtosBrutos = result.data?.fichas ?? []
+  const produtos = podeVerValores
+    ? produtosBrutos
+    : produtosBrutos.map((p) => ({
+        ...p,
+        custo_total: 0,
+        preco_venda: 0,
+        margem_rs: 0,
+        margem_percentual: 0,
+        markup_percentual: 0,
+      }))
   const unidades = (unidadesRes.data ?? []) as { id: string; nome: string }[]
   type FichaOpt = { id: string; nome: string; custo_unitario: number | null; rendimento_unidade: string | null }
-  const receitas = ((receitasRes.data ?? []) as FichaOpt[]).filter((r) => !receitasUsadas.has(r.id))
+  const receitas = ((receitasRes.data ?? []) as FichaOpt[])
+    .filter((r) => !receitasUsadas.has(r.id))
+    .map((r) => (podeVerValores ? r : { ...r, custo_unitario: null }))
   const locais = locaisEncomendaRes.data ?? LOCAIS_PADRAO
 
   return (
@@ -79,6 +97,7 @@ export default async function ProdutosPage() {
         locais={locais}
         localMap={localMap}
         atendimentoMap={atendimentoMap}
+        podeVerValores={podeVerValores}
       />
     </div>
   )

@@ -7,6 +7,19 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Produtos — valores (custo/preço/margem) só para quem pode ver
+> A pessoa da operação (tem/acabou, foto, canais do robô) trabalha na tela de Produtos
+> **sem ver números** — mesmo padrão do podeVerValores das Encomendas.
+- Regra (`podeVerValoresProdutos` em authz): vê valores quem é **admin** da tela `produtos`
+  OU tem qualquer acesso a `precos`/`painel` (onde os valores aparecem de qualquer forma).
+  Escrita/leitura em produtos = opera o robô e o setor, sem custo/preço/margem.
+- O corte é **no servidor** (payload já vai zerado, não é só esconder na tela): lista, drawer
+  (Rentabilidade, Composição, Custo de compra e Preço/volume somem; a seção do robô continua),
+  custo das fichas no modal Novo Produto e a impressão (vira "Lista de Produtos" sem colunas
+  de valor).
+- Validado E2E: usuário escrita → zero "R$" na tela e no drawer, controles do robô intactos;
+  promovido a admin → valores voltam.
+
 ### Atendimento — blindagem e refinamentos pré-go-live (rodada final)
 > Segurança + robustez antes do número real. Migration `20260707000000` **APLICADA**.
 - **🔒 Assinatura do webhook**: valida o `X-Hub-Signature-256` da Meta (HMAC-SHA256 do corpo cru

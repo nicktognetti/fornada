@@ -127,7 +127,8 @@ export function ProdutoDetalheDrawer({ produtoId, onClose }: Props) {
 
       {detalhe && !loading && (
         <div className="space-y-6">
-          {/* ── Margem decomposta ── */}
+          {/* ── Margem decomposta (só para quem pode ver valores) ── */}
+          {detalhe.podeVerValores && (
           <section className="rounded-xl bg-canvas border border-subtle p-4 space-y-3">
             <p className="field-label">Rentabilidade</p>
             {comPreco ? (
@@ -170,6 +171,7 @@ export function ProdutoDetalheDrawer({ produtoId, onClose }: Props) {
               </p>
             )}
           </section>
+          )}
 
           {/* ── Composição de custo (produzido) ── */}
           {detalhe.composicao && detalhe.composicao.itens.length > 0 && (
@@ -205,7 +207,7 @@ export function ProdutoDetalheDrawer({ produtoId, onClose }: Props) {
           )}
 
           {/* ── Revenda: custo de compra ── */}
-          {detalhe.tipo === 'revenda' && (
+          {detalhe.podeVerValores && detalhe.tipo === 'revenda' && (
             <section className="space-y-2">
               <p className="field-label">Custo de compra</p>
               <div className="rounded-xl bg-surface border border-subtle px-4 py-3 flex items-center justify-between">
@@ -218,6 +220,7 @@ export function ProdutoDetalheDrawer({ produtoId, onClose }: Props) {
           )}
 
           {/* ── Preço e volume ── */}
+          {detalhe.podeVerValores && (
           <section className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-surface border border-subtle px-4 py-3">
               <p className="text-[10px] uppercase tracking-wider text-secondary">Preço de venda</p>
@@ -228,6 +231,7 @@ export function ProdutoDetalheDrawer({ produtoId, onClose }: Props) {
               <p className="text-sm font-semibold text-ink-soft tabular-nums mt-1">{detalhe.volume_mensal > 0 ? `${detalhe.volume_mensal} un` : '—'}</p>
             </div>
           </section>
+          )}
 
           {/* ── Atendimento (robô do WhatsApp) ── */}
           {atd && (

@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { temAcesso } from '@/app/lib/authz'
+import { temAcesso, podeVerValoresProdutos } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
 import { getReceitaComposicao, type ReceitaComposicao } from '@/app/dashboard/receitas/composicao'
 import { valorPorGrande } from '@/lib/format'
@@ -78,6 +78,8 @@ export type ProdutoDetalhe = {
   composicao: ReceitaComposicao | null
   /** Campos do agente WhatsApp. null = migration do módulo Atendimento ainda não aplicada. */
   atendimento: ProdutoAtendimento | null
+  /** false = operação: custo/preço/margem/composição vêm zerados e o drawer os esconde. */
+  podeVerValores: boolean
 }
 
 type ActionResult<T = void> = T extends void
@@ -380,13 +382,16 @@ export async function getProdutoDetalhe(
   const receitaRel = Array.isArray(prod.receita) ? prod.receita[0] : prod.receita
   const rendimentoUnidade = receitaRel?.rendimento_unidade ?? null
 
+  // Valores só para admin de produtos ou quem tem precos/painel
+  const podeVerValores = await podeVerValoresProdutos(user.id)
+
   const fin = finRes.data as {
     custo_total: number | null; preco_venda: number | null; margem_rs: number | null
     margem_percentual: number | null; markup_percentual: number | null; unidade_nome: string | null
   } | null
 
   const composicao =
-    prod.tipo === 'produzido' && prod.receita_id
+    podeVerValores && prod.tipo === 'produzido' && prod.receita_id
       ? await getReceitaComposicao(prod.receita_id)
       : null
 
@@ -399,15 +404,16 @@ export async function getProdutoDetalhe(
       unidade_nome: fin?.unidade_nome ?? null,
       receita_id: prod.receita_id,
       rendimento_unidade: rendimentoUnidade,
-      custo_compra: prod.custo_compra,
-      custo_embalagem: prod.custo_embalagem ?? 0,
-      custo_total: fin?.custo_total ?? 0,
-      preco: fin?.preco_venda ?? 0,
-      volume_mensal: precoRes.data?.volume_mensal ?? 0,
-      margem_rs: fin?.margem_rs ?? 0,
-      margem_percentual: fin?.margem_percentual ?? 0,
-      markup_percentual: fin?.markup_percentual ?? 0,
+      custo_compra: podeVerValores ? prod.custo_compra : null,
+      custo_embalagem: podeVerValores ? prod.custo_embalagem ?? 0 : 0,
+      custo_total: podeVerValores ? fin?.custo_total ?? 0 : 0,
+      preco: podeVerValores ? fin?.preco_venda ?? 0 : 0,
+      volume_mensal: podeVerValores ? precoRes.data?.volume_mensal ?? 0 : 0,
+      margem_rs: podeVerValores ? fin?.margem_rs ?? 0 : 0,
+      margem_percentual: podeVerValores ? fin?.margem_percentual ?? 0 : 0,
+      markup_percentual: podeVerValores ? fin?.markup_percentual ?? 0 : 0,
       composicao,
+      podeVerValores,
       atendimento: atdRes.error || !atdRes.data
         ? null
         : {

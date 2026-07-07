@@ -31,6 +31,22 @@ export async function temAcesso(
 }
 
 /**
+ * Quem pode ver VALORES (custo/preço/margem) na tela de Produtos.
+ *
+ * Regra: nível ADMIN na tela produtos, OU qualquer acesso a precos/painel
+ * (nessas telas os valores aparecem de qualquer jeito). Quem tem só
+ * escrita/leitura em produtos (operação: tem/acabou, foto, canais do robô)
+ * trabalha sem ver números — mesmo padrão do podeVerValores das Encomendas.
+ */
+export async function podeVerValoresProdutos(userId: string): Promise<boolean> {
+  const [admin, telasDeValor] = await Promise.all([
+    temAcesso(userId, ['produtos'], { nivel: 'admin' }),
+    temAcesso(userId, ['precos', 'painel'], { nivel: 'leitura' }),
+  ])
+  return admin || telasDeValor
+}
+
+/**
  * `unidade_id` de um registro de negócio, para checagem de permissão por loja.
  *
  * Usa `supabaseAdmin` de propósito: precisamos saber a loja REAL do registro
