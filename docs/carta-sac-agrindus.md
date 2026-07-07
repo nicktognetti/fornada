@@ -1,15 +1,45 @@
 # 🥛 Carta de passagem: agente WhatsApp para o SAC da Agrindus
 
-> **Para a sessão do Claude no projeto SAC da Agrindus.** O robô de WhatsApp da
-> Padaria Flor do Trigo (projeto Fornada) está maduro, testado e em produção —
+> **Para a sessão do Claude no projeto SAC da Agrindus**
+> (`C:\Projetos IA - Nicholas Tognetti\Sac - Agrindus SA`). O robô de WhatsApp
+> da Padaria Flor do Trigo (projeto Fornada) está maduro, testado e em produção —
 > e o motor foi desenhado para ser portado. Esta carta diz o que copiar, o que
 > trocar e as armadilhas que já custaram horas. Decisão do Nicholas (jul/2026):
-> replicar o agente como canal de SAC (atendimento ao consumidor final,
-> reclamações de produto etc. — SEM delivery/encomendas).
+> adicionar um canal de **atendimento ao consumidor final** via WhatsApp
+> (reclamações/dúvidas sobre produtos — SEM delivery/encomendas).
 >
 > Código-fonte de referência:
 > `C:\Projetos IA - Nicholas Tognetti\Fornada - Flor do Trigo\fornada`
 > Guia do módulo original: `docs/atendimento.md` (mesmo repo).
+
+## ⚠️ Reconhecimento do terreno (feito em 07/07 pela sessão do Fornada)
+
+O projeto SAC **não é um SAC de consumidor hoje** — é o sistema INTERNO de
+ocorrências/OS da Agrindus (manutenção, RH, TI...), com:
+- **Backend Python 3.14 + FastAPI + SQLAlchemy 2.0 async + Supabase Postgres**
+  (deploy Render) — o motor do Fornada é TypeScript, então aqui é **portar a
+  LÓGICA, não copiar arquivos**: as chamadas são todas HTTP puras (Meta Graph,
+  Groq OpenAI-compatible), reescrevem direto em `httpx`; assinatura é `hmac` da
+  stdlib; memória vira modelos SQLAlchemy.
+- **Frontend Next.js 16 + React 19 + Tailwind v4** — MESMA stack do painel do
+  Fornada: a página de Atendimento (conversas/chamados) porta quase 1:1.
+- **Sistema de tickets pronto e rico**: `Ticket` com status/prioridade,
+  categorias dinâmicas com **campos customizados** (`dados_extras` JSONB),
+  comentários, histórico e **notificações internas** já existentes.
+
+O encaixe de ouro: `#CHAMADO#` do robô **cria um Ticket de verdade** —
+- categoria nova "SAC Consumidor" com campos customizados (produto, lote,
+  validade, onde comprou) caindo em `dados_extras`;
+- `aberto_por` = um usuário-robô de serviço (criar `robo@agrindus...`);
+- o fluxo de supervisores/notificações do sistema cuida do resto sozinho.
+O consumidor NÃO é `usuarios` (que é interno) — criar tabela leve
+`sac_cliente` (telefone, nome, observação) no padrão do `cliente.ts` daqui.
+
+Fases sugeridas: **1)** modelos + webhook + IA respondendo (modo recepcionista);
+**2)** `#CHAMADO#` → Ticket + página de conversas no frontend; **3)** blindagem
+(assinatura, anti-abuso, alertas) + infos oficiais editáveis. Webhook público =
+URL do Render (`/webhook/whatsapp`); atenção ao rate limiter existente
+(`app/limiter.py`) para não bloquear a Meta.
 
 ## O que o motor já resolve (copiar quase como está, de `lib/atendimento/`)
 
