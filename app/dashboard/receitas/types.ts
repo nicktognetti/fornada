@@ -19,6 +19,8 @@ export interface Receita {
   tempo_forno_min: number | null
   dificuldade: Dificuldade | null
   foto_url: string | null
+  // Criada/alterada pela produção no Caderno, aguardando a Natali precificar.
+  revisao_pendente: boolean
 }
 
 export interface ReceitaComCusto extends Receita {

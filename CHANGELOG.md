@@ -7,6 +7,26 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Caderno ⇄ Fichas — produção cria receita, Natali precifica (com aviso)
+> Fecha o ciclo dos dois lados: a produção cria a receita no Caderno (com
+> ingredientes ligados ao insumo, sem ver custo) e ela cai automática nas Fichas
+> da Natali para precificar, com um aviso pra ela. Migration
+> `20260708120000_receita_revisao` **APLICADA** (coluna `revisao_pendente`).
+- **Nova receita no Caderno**: botão + modal (nome, rendimento, tempos, passos, dica) →
+  `createReceitaCaderno` (nasce `revisao_pendente=true`) → abre a receita para a produção
+  **adicionar os ingredientes** reusando o seletor de insumos (`ItemModal`), sem custo.
+- O detalhe do Caderno virou a **página da receita** (ingredientes editáveis + modo de
+  fazer + botão "Modo Cozinha" → checklist na bancada, agora em `caderno/[id]/cozinha`).
+- Ingredientes editáveis pela produção: `addItem`/`addItensLote`/`updateItem`/`removeItem`
+  passam a aceitar permissão `caderno`; mudança de quem não vê Fichas re-marca
+  `revisao_pendente` (Natali reconfere).
+- **Aviso pra Natali**: badge no menu "Fichas" (`contarReceitasPendentes`), tag
+  "NOVA · REVISAR" e ordenação no topo da lista, banner na ficha + botão "Marcar como
+  revisada" (`marcarReceitaRevisada`). Mesma receita, uma fonte só — a Natali vê o custo
+  calculado e precifica no fluxo normal.
+- Validado E2E: produção (só `caderno`) criou receita + ingredientes sem custo; Natali
+  (`receitas`) recebeu badge/tag/banner, viu o custo (R$ 1,79), marcou revisada → aviso sumiu.
+
 ### Placeholder de imagem com a marca Flor do Trigo
 > Produtos e receitas **sem foto** passam a mostrar o logo da Flor do Trigo esmaecido,
 > no lugar de um ícone genérico — fica com cara de casa.

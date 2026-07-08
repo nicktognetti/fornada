@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { getReceitaComposicao } from '@/app/dashboard/receitas/composicao'
 import { temAcesso } from '@/app/lib/authz'
-import { CadernoReceita } from '../components/caderno-receita'
+import { CadernoReceitaView, type ItemCaderno } from '../components/caderno-receita-view'
 import type { Receita } from '@/app/dashboard/receitas/types'
 
 interface Props {
@@ -22,17 +22,20 @@ export default async function CadernoReceitaPage({ params }: Props) {
   if (receitaRes.error || !receitaRes.data) notFound()
 
   const receita = receitaRes.data as Receita
-  const ingredientes = composicao.itens.map((i) => ({
+  // Cost-free: nunca mandamos custo pro cliente do Caderno.
+  const itens: ItemCaderno[] = composicao.itens.map((i) => ({
     id: i.id,
-    nome: i.nome_display,
+    insumo_id: i.insumo_id,
+    sub_receita_id: i.sub_receita_id,
     quantidade: i.quantidade,
+    nome: i.nome_display,
     unidade: i.unidade,
+    is_pendente: i.is_pendente,
   }))
 
-  // Pode editar o modo de fazer quem tem escrita em caderno OU fichas técnicas nesta loja.
   const podeEditar = user
     ? await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId: receita.unidade_id, nivel: 'escrita' })
     : false
 
-  return <CadernoReceita receita={receita} ingredientes={ingredientes} podeEditar={podeEditar} />
+  return <CadernoReceitaView receita={receita} itens={itens} podeEditar={podeEditar} />
 }

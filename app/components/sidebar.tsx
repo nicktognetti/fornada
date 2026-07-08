@@ -10,6 +10,7 @@ import { NavLink } from './nav-link'
 import { logout } from '@/app/login/actions'
 import { usePermissions } from '@/app/context/permissions-context'
 import { contarPedidosPendentes } from '@/app/actions/atendimento'
+import { contarReceitasPendentes } from '@/app/dashboard/receitas/actions'
 
 // Aviso sonoro de pedido novo (dois toques curtos, sem arquivo de áudio).
 // Liga/desliga por aparelho na aba Robô do Atendimento (localStorage).
@@ -115,6 +116,21 @@ export function Sidebar({ userEmail }: SidebarProps) {
     return () => { ativo = false; clearInterval(t) }
   }, [temAtendimento])
 
+  // Badge das Fichas: receitas criadas/alteradas pela produção aguardando preço.
+  const [receitasPendentes, setReceitasPendentes] = useState(0)
+  const temReceitas = !isLoading && canAccess('receitas')
+  useEffect(() => {
+    if (!temReceitas) return
+    let ativo = true
+    const carregar = () =>
+      contarReceitasPendentes()
+        .then((r) => { if (ativo) setReceitasPendentes(r.total) })
+        .catch(() => {})
+    carregar()
+    const t = setInterval(carregar, 60_000)
+    return () => { ativo = false; clearInterval(t) }
+  }, [temReceitas])
+
   // Durante carregamento mostra todos (otimista); após carregamento filtra por permissão real.
   // Mantém a estrutura de grupos para desenhar as divisórias entre eles.
   const navGroups = NAV_GROUPS
@@ -159,7 +175,7 @@ export function Sidebar({ userEmail }: SidebarProps) {
                   href={item.href}
                   icon={item.icon}
                   label={item.label}
-                  badge={item.tela === 'atendimento' ? pendentes : undefined}
+                  badge={item.tela === 'atendimento' ? pendentes : item.tela === 'receitas' ? receitasPendentes : undefined}
                   onClick={() => setMobileOpen(false)}
                 />
               ))}

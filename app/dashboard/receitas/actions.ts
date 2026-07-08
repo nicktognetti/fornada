@@ -273,8 +273,8 @@ export async function addItem(
   if (!base.success) return { error: base.error.issues[0].message }
 
   const unidadeId = await unidadeDoRegistro('receita', base.data.receita_id)
-  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
-    return { error: 'Sem permissão para editar fichas nesta unidade' }
+  if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
+    return { error: 'Sem permissão para editar esta receita nesta unidade' }
 
   const insumo_id = (formData.get('insumo_id') as string) || null
   const sub_receita_id = (formData.get('sub_receita_id') as string) || null
@@ -306,7 +306,8 @@ export async function addItem(
 
   if (error) return { error: 'Erro ao adicionar item: ' + error.message }
 
-  revalidatePath(`/dashboard/receitas/${base.data.receita_id}`)
+  await flagRevisaoSeProducao(user.id, base.data.receita_id)
+  revalidarReceita(base.data.receita_id)
   return { success: true }
 }
 
@@ -326,8 +327,8 @@ export async function addItensLote(
   if (!itens || itens.length === 0) return { error: 'Nenhum item para adicionar' }
 
   const unidadeId = await unidadeDoRegistro('receita', receitaId)
-  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
-    return { error: 'Sem permissão para editar fichas nesta unidade' }
+  if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
+    return { error: 'Sem permissão para editar esta receita nesta unidade' }
 
   for (const it of itens) {
     if (!it.insumo_id && !it.sub_receita_id) return { error: 'Um dos itens está sem insumo ou sub-receita' }
@@ -351,7 +352,8 @@ export async function addItensLote(
 
   if (error) return { error: 'Erro ao adicionar itens: ' + error.message }
 
-  revalidatePath(`/dashboard/receitas/${receitaId}`)
+  await flagRevisaoSeProducao(user.id, receitaId)
+  revalidarReceita(receitaId)
   return { success: true }
 }
 
@@ -370,8 +372,8 @@ export async function updateItem(
   if (!id || !receita_id) return { error: 'IDs não informados' }
 
   const unidadeId = await unidadeDoRegistro('receita', receita_id)
-  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
-    return { error: 'Sem permissão para editar fichas nesta unidade' }
+  if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
+    return { error: 'Sem permissão para editar esta receita nesta unidade' }
 
   const quantidade = formData.get('quantidade') as string
   if (!isPositiveNum(quantidade)) return { error: 'Quantidade deve ser maior que zero' }
@@ -401,7 +403,8 @@ export async function updateItem(
 
   if (error) return { error: 'Erro ao salvar item: ' + error.message }
 
-  revalidatePath(`/dashboard/receitas/${receita_id}`)
+  await flagRevisaoSeProducao(user.id, receita_id)
+  revalidarReceita(receita_id)
   return { success: true }
 }
 
@@ -413,13 +416,14 @@ export async function removeItem(id: string, receitaId: string): Promise<ActionR
   if (!user) return { error: 'Não autenticado' }
 
   const unidadeId = await unidadeDoRegistro('receita', receitaId)
-  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
-    return { error: 'Sem permissão para editar fichas nesta unidade' }
+  if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
+    return { error: 'Sem permissão para editar esta receita nesta unidade' }
 
   const { error } = await supabase.from('receita_item').delete().eq('id', id)
   if (error) return { error: 'Erro ao remover item: ' + error.message }
 
-  revalidatePath(`/dashboard/receitas/${receitaId}`)
+  await flagRevisaoSeProducao(user.id, receitaId)
+  revalidarReceita(receitaId)
   return { success: true }
 }
 
@@ -581,4 +585,113 @@ export async function updateModoPreparo(
 
   revalidarReceita(receitaId)
   return { success: true }
+}
+
+// ─── Fluxo Caderno → Ficha (revisão pela Natali) ──────────────────────────────
+
+// Marca a receita como "aguardando revisão da Natali" SE quem alterou é da
+// produção (não tem a tela de Fichas Técnicas). Mudança da própria Natali não
+// dispara aviso pra ela mesma. Chamado após alterações de ingredientes no Caderno.
+async function flagRevisaoSeProducao(userId: string, receitaId: string) {
+  const ehGestao = await temAcesso(userId, ['receitas'])
+  if (ehGestao) return
+  const supabase = await createClient()
+  await supabase.from('receita').update({ revisao_pendente: true }).eq('id', receitaId)
+  revalidatePath('/dashboard/receitas')
+}
+
+// Produção cria uma receita nova pelo Caderno. Nasce como 'final', marcada para
+// revisão da Natali (conferir ingredientes + precificar). Ingredientes são
+// adicionados na sequência, na própria tela do Caderno.
+export async function createReceitaCaderno(payload: {
+  nome: string
+  rendimento: string
+  rendimento_unidade: 'g' | 'kg' | 'ml' | 'l' | 'un'
+  passos: string[]
+  tempo_preparo_min: number | null
+  temperatura_forno: number | null
+  tempo_forno_min: number | null
+  dificuldade: 'facil' | 'media' | 'dificil' | null
+  observacao: string | null
+}): Promise<{ error?: string; id?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const empresaId = await getEmpresaId(user.id)
+  if (!empresaId) return { error: 'Empresa não encontrada' }
+
+  const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+  if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
+    return { error: 'Sem permissão para criar receitas nesta loja' }
+
+  const nome = (payload.nome ?? '').trim()
+  if (!nome) return { error: 'Dê um nome à receita' }
+  const rendimento = parseDecimalBR(payload.rendimento ?? '')
+  if (!(rendimento > 0)) return { error: 'Rendimento deve ser maior que zero' }
+  if (!(['g', 'kg', 'ml', 'l', 'un'] as const).includes(payload.rendimento_unidade))
+    return { error: 'Unidade de rendimento inválida' }
+
+  const passos = Array.isArray(payload.passos)
+    ? payload.passos.filter((p): p is string => typeof p === 'string').map((p) => p.trim().slice(0, 1000)).filter(Boolean)
+    : []
+  const posInt = (n: number | null) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.round(n) : null)
+  const dif = (['facil', 'media', 'dificil'] as const).includes(payload.dificuldade as 'facil' | 'media' | 'dificil')
+    ? payload.dificuldade
+    : null
+  const obs = typeof payload.observacao === 'string' && payload.observacao.trim() ? payload.observacao.trim().slice(0, 2000) : null
+
+  const { data, error } = await supabase.from('receita').insert({
+    nome,
+    tipo: 'final',
+    rendimento,
+    rendimento_unidade: payload.rendimento_unidade,
+    passos,
+    tempo_preparo_min: posInt(payload.tempo_preparo_min),
+    temperatura_forno: posInt(payload.temperatura_forno),
+    tempo_forno_min: posInt(payload.tempo_forno_min),
+    dificuldade: dif,
+    observacao: obs,
+    empresa_id: empresaId,
+    unidade_id: unidadeId,
+    ativo: true,
+    revisao_pendente: true,
+  }).select('id').single()
+
+  if (error || !data) return { error: 'Erro ao criar receita: ' + (error?.message ?? '') }
+
+  revalidatePath('/dashboard/caderno')
+  revalidatePath('/dashboard/receitas')
+  return { id: data.id as string }
+}
+
+// Natali dá baixa: confere os ingredientes/preço e marca a receita como revisada.
+export async function marcarReceitaRevisada(receitaId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const unidadeId = await unidadeDoRegistro('receita', receitaId)
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
+    return { error: 'Sem permissão para revisar fichas nesta loja' }
+
+  const { error } = await supabase.from('receita').update({ revisao_pendente: false }).eq('id', receitaId)
+  if (error) return { error: 'Erro ao marcar como revisada: ' + error.message }
+
+  revalidatePath('/dashboard/receitas')
+  revalidatePath(`/dashboard/receitas/${receitaId}`)
+  return { success: true }
+}
+
+// Contagem de receitas aguardando revisão (badge do menu Fichas). RLS limita à(s) loja(s).
+export async function contarReceitasPendentes(): Promise<{ total: number }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { total: 0 }
+  const { count } = await supabase
+    .from('receita')
+    .select('id', { count: 'exact', head: true })
+    .eq('ativo', true)
+    .eq('revisao_pendente', true)
+  return { total: count ?? 0 }
 }

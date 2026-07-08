@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Plus, Pencil, Trash2, AlertTriangle, BookOpen, ListOrdered, ChefHat, Camera, Loader2, Clock, Flame, Gauge, Lightbulb } from 'lucide-react'
+import { Plus, Pencil, Trash2, AlertTriangle, BookOpen, ListOrdered, ChefHat, Camera, Loader2, Clock, Flame, Gauge, Lightbulb, BadgeCheck } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { deleteReceita, removeItem, uploadReceitaFoto, removeReceitaFoto } from '../actions'
+import { deleteReceita, removeItem, uploadReceitaFoto, removeReceitaFoto, marcarReceitaRevisada } from '../actions'
 import { formatBRL, formatCustoGrande } from '@/lib/format'
 import { ReceitaModal } from './receita-modal'
 import { ItemModal } from './item-modal'
@@ -34,8 +34,16 @@ export function FichaView({ receita, custo, itens }: Props) {
   const [fotoUrl, setFotoUrl] = useState<string | null>(receita.foto_url)
   const [enviandoFoto, setEnviandoFoto] = useState(false)
   const [fotoErro, setFotoErro] = useState('')
+  const [revisando, setRevisando] = useState(false)
   const keyRef = useRef(0)
   const fotoInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleMarcarRevisada() {
+    setRevisando(true)
+    const res = await marcarReceitaRevisada(receita.id)
+    setRevisando(false)
+    if (!res.error) router.refresh()
+  }
 
   function openEditReceita() { setEditReceitaKey(keyRef.current += 1); setEditReceitaOpen(true) }
   function openAddItem() { setItemModal({ open: true, item: null, key: (keyRef.current += 1) }) }
@@ -209,6 +217,29 @@ export function FichaView({ receita, custo, itens }: Props) {
         </div>
         {deleteError && <p className="text-red-400 text-xs mt-2">{deleteError}</p>}
       </div>
+
+      {/* Aviso de revisão — receita criada/alterada pela produção no Caderno */}
+      {receita.revisao_pendente && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 mb-4">
+          <div className="flex items-start gap-3 flex-1">
+            <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-amber-300 text-sm font-medium">Receita nova da produção — precisa de preço</p>
+              <p className="text-amber-400/70 text-xs mt-0.5">
+                Confira os ingredientes e as quantidades, defina o preço de venda e marque como revisada.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleMarcarRevisada}
+            disabled={revisando}
+            className="btn-primary text-xs px-4 py-2 min-h-[36px] shrink-0 self-start sm:self-auto"
+          >
+            <BadgeCheck size={14} />
+            {revisando ? 'Salvando…' : 'Marcar como revisada'}
+          </button>
+        </div>
+      )}
 
       {/* Alerta pendentes */}
       {pendentes.length > 0 && (

@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { ChefHat, Search, Clock, ListOrdered } from 'lucide-react'
+import { ChefHat, Search, Clock, ListOrdered, Plus } from 'lucide-react'
 import { normalizeSearch } from '@/lib/format'
 import { LogoPlaceholder } from '@/app/components/ui/logo-placeholder'
+import { NovaReceitaModal } from './nova-receita-modal'
 import type { Dificuldade } from '@/app/dashboard/receitas/types'
 
 export interface ReceitaCaderno {
@@ -17,14 +18,17 @@ export interface ReceitaCaderno {
   passos: string[] | null
   tempo_preparo_min: number | null
   dificuldade: Dificuldade | null
+  revisao_pendente: boolean
 }
 
 interface Props {
   receitas: ReceitaCaderno[]
+  podeCriar: boolean
 }
 
-export function CadernoCatalogo({ receitas }: Props) {
+export function CadernoCatalogo({ receitas, podeCriar }: Props) {
   const [busca, setBusca] = useState('')
+  const [novaOpen, setNovaOpen] = useState(false)
 
   const filtered = useMemo(() => {
     const term = normalizeSearch(busca)
@@ -34,16 +38,24 @@ export function CadernoCatalogo({ receitas }: Props) {
 
   return (
     <>
-      {/* Busca */}
-      <div className="relative mb-6 max-w-md">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary/50 pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Buscar receita…"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          className="input-field pl-10"
-        />
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1 max-w-md">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary/50 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar receita…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="input-field pl-10"
+          />
+        </div>
+        {podeCriar && (
+          <button onClick={() => setNovaOpen(true)} className="btn-primary shrink-0">
+            <Plus size={16} />
+            Nova Receita
+          </button>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -56,9 +68,15 @@ export function CadernoCatalogo({ receitas }: Props) {
           </p>
           <p className="text-secondary text-sm max-w-xs">
             {receitas.length === 0
-              ? 'As receitas cadastradas nas Fichas Técnicas aparecem aqui para a produção seguir.'
+              ? 'Crie a primeira receita ou cadastre uma ficha técnica — as duas aparecem aqui para a produção seguir.'
               : 'Tente um termo diferente.'}
           </p>
+          {podeCriar && receitas.length === 0 && (
+            <button onClick={() => setNovaOpen(true)} className="btn-primary mt-6">
+              <Plus size={16} />
+              Criar primeira receita
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -113,6 +131,8 @@ export function CadernoCatalogo({ receitas }: Props) {
             : `${filtered.length} de ${receitas.length} receitas`}
         </p>
       )}
+
+      {novaOpen && <NovaReceitaModal onClose={() => setNovaOpen(false)} />}
     </>
   )
 }

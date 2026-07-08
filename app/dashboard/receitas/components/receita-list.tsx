@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef } from 'react'
-import { Plus, BookOpen, Search, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, BookOpen, Search, ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { normalizeSearch, formatBRL, formatCustoGrande } from '@/lib/format'
 import { LogoPlaceholder } from '@/app/components/ui/logo-placeholder'
@@ -134,6 +134,11 @@ export function ReceitaList({ receitas }: Props) {
                     <span className="text-secondary text-[12px]">
                       {receita.rendimento} {receita.rendimento_unidade}
                     </span>
+                    {receita.revisao_pendente && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide">
+                        <AlertTriangle size={10} /> NOVA · REVISAR
+                      </span>
+                    )}
                   </div>
                 </div>
 

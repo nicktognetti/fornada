@@ -11,16 +11,16 @@ export default async function ReceitasPage() {
   let query = supabase.from('vw_custo_receita').select('*').order('nome')
   if (unidadeId) query = query.eq('unidade_id', unidadeId)
 
-  // A view de custo não traz a foto; buscamos foto_url à parte para a miniatura.
-  const [{ data }, { data: fotos }] = await Promise.all([
+  // A view de custo não traz foto nem o status de revisão; buscamos à parte.
+  const [{ data }, { data: meta }] = await Promise.all([
     query,
-    supabase.from('receita').select('id, foto_url').eq('ativo', true).not('foto_url', 'is', null),
+    supabase.from('receita').select('id, foto_url, revisao_pendente').eq('ativo', true),
   ])
+  const metaRows = (meta as { id: string; foto_url: string | null; revisao_pendente: boolean }[]) ?? []
   const fotoPorId = new Map<string, string>(
-    ((fotos as { id: string; foto_url: string | null }[]) ?? [])
-      .filter((f) => f.foto_url)
-      .map((f) => [f.id, f.foto_url as string])
+    metaRows.filter((f) => f.foto_url).map((f) => [f.id, f.foto_url as string])
   )
+  const pendentePorId = new Map<string, boolean>(metaRows.map((f) => [f.id, !!f.revisao_pendente]))
 
   type ViewRow = {
     id: string; empresa_id: string; unidade_id: string; nome: string; tipo: ReceitaTipo
@@ -46,7 +46,11 @@ export default async function ReceitasPage() {
     tempo_forno_min: null,
     dificuldade: null,
     foto_url: fotoPorId.get(r.id) ?? null,
+    revisao_pendente: pendentePorId.get(r.id) ?? false,
   }))
+
+  // Receitas aguardando revisão (criadas/alteradas pela produção) sobem para o topo.
+  receitas.sort((a, b) => Number(b.revisao_pendente) - Number(a.revisao_pendente))
 
   return (
     <div>

@@ -2,6 +2,20 @@
 
 ## ▶ Ponto de retomada (atualizado 08/07/2026)
 
+**Sessão 08/07 (noite) — Ciclo Caderno ⇄ Fichas + placeholder do logo:**
+- ✅ **Produção cria receita no Caderno** (nome/rendimento/passos/tempos + ingredientes
+  ligados ao insumo via `ItemModal`, sem custo) → cai nas Fichas da Natali para precificar.
+  Migration `20260708120000_receita_revisao` (coluna `revisao_pendente`) **APLICADA**.
+- ✅ **Aviso pra Natali**: badge no menu Fichas (`contarReceitasPendentes`), tag
+  "NOVA · REVISAR" + topo da lista, banner + "Marcar como revisada" (`marcarReceitaRevisada`).
+  Ingredientes editáveis pela produção re-marcam pendência (actions de item aceitam `caderno`).
+  Detalhe do Caderno virou página da receita; checklist foi pra `caderno/[id]/cozinha`.
+- ✅ **Placeholder com o logo Flor do Trigo** (`LogoPlaceholder`) em produtos/receitas sem foto.
+- ✅ Validado E2E (produção só-`caderno` cria; Natali `receitas` recebe aviso, vê custo, dá baixa).
+  ⚠️ Badge do menu atualiza no poll de 60s após "revisada" (não instantâneo) — cosmético.
+- ⚠️ **Nota de UX/dados:** os nomes de insumo são técnicos (ex.: "ACUCAR CRISTAL SANTA ISABEL
+  6X5 FD 30KG") — a produção precisa achar o certo na lista ao montar ingredientes.
+
 **Sessão 08/07 (fim do dia) — Caderno de Receitas (pedido da Natali):**
 - ✅ **A Ficha Técnica virou o caderno de receitas da confeitaria.** Colunas novas em
   `receita` (`passos` JSONB, `tempo_preparo_min`, `temperatura_forno`, `tempo_forno_min`,
