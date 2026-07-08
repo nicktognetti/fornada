@@ -67,3 +67,59 @@ export async function unidadeDoRegistro(
     .maybeSingle()
   return (data?.unidade_id as string | null) ?? null
 }
+
+/**
+ * Setor (categoria) e unidade REAIS de uma receita, via service role.
+ * Mesmo motivo do `unidadeDoRegistro`: precisamos do dado real mesmo sob RLS
+ * para então decidir permissão. Retorna `null` se a receita não existe.
+ */
+export async function receitaSetorUnidade(
+  receitaId: string,
+): Promise<{ unidade_id: string | null; categoria: string | null } | null> {
+  const { data } = await supabaseAdmin
+    .from('receita')
+    .select('unidade_id, categoria')
+    .eq('id', receitaId)
+    .maybeSingle()
+  return (data as { unidade_id: string | null; categoria: string | null } | null) ?? null
+}
+
+/**
+ * Setores (locais) que o usuário pode ver/editar no Caderno de uma unidade.
+ *
+ * Retorna `null` = SEM restrição (vê todos os setores):
+ *  - admin global;
+ *  - quem tem a tela de Fichas Técnicas (`receitas`) aplicável — é gestão;
+ *  - permissão de Caderno sem lista de setores (`locais` null/vazio).
+ * Caso contrário, a união dos setores marcados nas permissões de Caderno aplicáveis.
+ *
+ * "Aplicável" = permissão global (unidade_id null) ou da mesma unidade.
+ * Usar SOMENTE em Server Actions/Server Components.
+ */
+export async function setoresPermitidosCaderno(
+  userId: string,
+  unidadeId: string | null,
+): Promise<string[] | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('permissao')
+    .select('tela, acesso, unidade_id, locais')
+    .eq('usuario_id', userId)
+  const lista = (data ?? []) as {
+    tela: string; acesso: string; unidade_id: string | null; locais: string[] | null
+  }[]
+
+  if (lista.some((p) => p.tela === '*' && p.acesso === 'admin' && p.unidade_id === null)) return null
+
+  const aplica = (p: { unidade_id: string | null }) =>
+    p.unidade_id === null || unidadeId == null || p.unidade_id === unidadeId
+
+  // Gestão (Fichas Técnicas) na unidade → vê todos os setores
+  if (lista.some((p) => p.tela === 'receitas' && aplica(p))) return null
+
+  const cadernoRows = lista.filter((p) => p.tela === 'caderno' && aplica(p))
+  if (cadernoRows.length === 0) return null
+  // Qualquer permissão de Caderno sem setores marcados = todos
+  if (cadernoRows.some((p) => !p.locais || p.locais.length === 0)) return null
+  return [...new Set(cadernoRows.flatMap((p) => p.locais as string[]))]
+}

@@ -7,13 +7,28 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Permissão do Caderno por setor (além da unidade)
+> A produção passa a ver/criar/editar só as receitas dos **setores** (Confeitaria, Produção…)
+> que a Natali liberar — não só da unidade. Migration `20260709100000_permissao_locais`
+> **APLICADA** (coluna `permissao.locais TEXT[]`, null = todos os setores).
+- **Setor virou lista fixa**: o campo deixou de ser texto livre e agora é a lista de
+  **Locais** cadastrável (Cadastros → Locais, a mesma do Produtos) — sem risco de digitação
+  furar a permissão. `SetorField` reescrito como menu; `getSetoresDisponiveis` devolve os
+  locais + os setores que o usuário pode usar (substitui `getCategoriasReceita`).
+- **No painel de Permissões**, ao conceder "Caderno" a alguém, aparece **"Setores do Caderno"**:
+  a Natali marca quais setores liberar naquela unidade (nenhum = todos).
+- **Trava no servidor**: `setoresPermitidosCaderno` (em `authz.ts`) + guard `podeMexerNoSetor`
+  em todas as escritas do Caderno; catálogo filtra, e a receita/Modo Cozinha de um setor não
+  liberado dão 404. Usuário restrito **também vê as receitas sem setor**. Gestão (Fichas) e
+  admin nunca são restritos por setor.
+- Validado E2E com usuário restrito a Confeitaria: catálogo só Confeitaria + sem setor, Padaria
+  por URL = 404, dropdown de criação só com os setores dele; painel hidrata e salva os setores.
+
 ### Setor da receita (Confeitaria, Padaria, Salgados…)
 > "De onde a receita é." A produção acha rápido por setor e a Natali organiza as fichas.
 > Migration `20260709000000_receita_categoria` **APLICADA** (coluna `receita.categoria`).
-- **Texto livre com autocomplete** dos setores já usados (mesmo desenho da categoria de
-  insumo) — a casa cria os próprios setores, sem lista fixa. Componente reusável
-  `SetorField` (`receitas/components/setor-field.tsx`) + action `getCategoriasReceita`
-  (sugestões distintas, escopo por loja via RLS).
+- Campo **Setor** na receita (menu da lista de Locais — ver entrada acima). Componente
+  reusável `SetorField` (`receitas/components/setor-field.tsx`).
 - **Onde preenche**: ficha da Natali (campo ao lado de "Tipo"), "Nova Receita" da produção
   e "Editar modo de fazer" — persistido em `createReceita`/`updateReceita`/
   `createReceitaCaderno`/`updateModoPreparo`.

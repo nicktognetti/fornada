@@ -115,6 +115,8 @@ export interface PermissaoInput {
   tela: string
   acesso: NivelAcesso
   unidade_id: string | null
+  // Só p/ a tela 'caderno': setores liberados. null/omisso = todos.
+  locais?: string[] | null
 }
 
 // userId e unidadeId explícitos: garante o DELETE mesmo quando permissoes=[].
@@ -245,7 +247,7 @@ export async function resetPasswordAction(
 
 export type PermissaoInicialInput =
   | { tipo: 'admin_global' }
-  | { tipo: 'personalizado'; permissoes: { tela: string; acesso: NivelAcesso; unidade_id?: string | null }[] }
+  | { tipo: 'personalizado'; permissoes: { tela: string; acesso: NivelAcesso; unidade_id?: string | null; locais?: string[] | null }[] }
 
 export async function createUserAction(
   email: string,
@@ -295,6 +297,7 @@ export async function createUserAction(
         tela: p.tela,
         acesso: p.acesso,
         unidade_id: p.unidade_id ?? null,
+        locais: p.locais ?? null,
       }))
       if (rows.length > 0) {
         await supabaseAdmin.from('permissao').insert(rows)
@@ -382,7 +385,7 @@ export async function listUsersWithPermissionsAction(): Promise<
   // Permissões de todos eles (via admin para ver além do RLS)
   const { data: permRows } = await supabaseAdmin
     .from('permissao')
-    .select('usuario_id, tela, acesso, unidade_id')
+    .select('usuario_id, tela, acesso, unidade_id, locais')
     .in('usuario_id', userIds)
 
   // Auth users para email + nome + criadoEm
@@ -398,7 +401,7 @@ export async function listUsersWithPermissionsAction(): Promise<
   const permsByUser = new Map<string, Permissao[]>()
   for (const row of (permRows ?? []) as (Permissao & { usuario_id: string })[]) {
     const list = permsByUser.get(row.usuario_id) ?? []
-    list.push({ tela: row.tela, acesso: row.acesso, unidade_id: row.unidade_id })
+    list.push({ tela: row.tela, acesso: row.acesso, unidade_id: row.unidade_id, locais: row.locais ?? null })
     permsByUser.set(row.usuario_id, list)
   }
 

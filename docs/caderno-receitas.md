@@ -88,12 +88,16 @@ criam e seguem receita sem nunca ver custo/preço. Quem tem **"Fichas Técnicas"
 
 ## Detalhes que valem saber
 
-- **Setor:** cada receita pode ter um setor (Confeitaria, Padaria, Salgados…) — "de onde ela
-  é". É **texto livre com autocomplete**: você digita e o sistema sugere os setores que já
-  existem, então a casa cria os próprios setores sem lista fixa. Aparece como etiqueta no card
-  e vira **filtro "Todos os setores"** no catálogo do Caderno e na lista de Fichas (o filtro só
-  surge depois que existe pelo menos um setor). Pode ser preenchido tanto pela Natali (na ficha)
-  quanto pela produção (ao criar ou editar o modo de fazer).
+- **Setor:** cada receita pode ter um setor (Confeitaria, Produção, Padaria…) — "de onde ela
+  é". É um **menu com a lista de Locais** cadastrável (Cadastros → Locais, a mesma do Produtos).
+  Aparece como etiqueta no card e vira **filtro "Todos os setores"** no catálogo do Caderno e na
+  lista de Fichas. Pode ser preenchido tanto pela Natali (na ficha) quanto pela produção (ao
+  criar ou editar o modo de fazer).
+- **Permissão por setor:** a permissão do Caderno pode ser limitada a setores específicos. Em
+  **Configurações → Permissões**, ao dar "Caderno" a alguém, marque em **"Setores do Caderno"**
+  quais setores ele vê/edita naquela unidade (nenhum marcado = todos). Assim a confeiteira só
+  enxerga/mexe nas receitas de Confeitaria — as de Padaria nem aparecem. Quem é restrito **também
+  vê as receitas sem setor**; gestão (Fichas) e admin veem tudo.
 - **Foto:** JPG/PNG/WebP até 5 MB, no bucket público `receita-fotos` (mesmo desenho da foto
   de produto). Sem foto, mostra o logo da Flor do Trigo esmaecido.
 - **Badge do menu Fichas:** atualiza a cada ~60s (não é instantâneo ao "Marcar como revisada" —
@@ -111,13 +115,17 @@ criam e seguem receita sem nunca ver custo/preço. Quem tem **"Fichas Técnicas"
   `revisao_pendente` (migration `20260708120000_receita_revisao`) e `categoria`/setor
   (migration `20260709000000_receita_categoria`). Bucket `receita-fotos`.
 - **RBAC:** tela `caderno` registrada em `app/lib/permissions.ts` (`TELAS`/`TELA_LABEL`),
-  `app/components/sidebar.tsx` (item + badge) e `proxy.ts` (`telaParaRota`).
+  `app/components/sidebar.tsx` (item + badge) e `proxy.ts` (`telaParaRota`). Restrição por
+  **setor** via coluna `permissao.locais TEXT[]` (migration `20260709100000_permissao_locais`,
+  null = todos): `setoresPermitidosCaderno` em `app/lib/authz.ts` calcula os setores liberados;
+  guard `podeMexerNoSetor` nas escritas + `notFound` nas telas; seletor "Setores do Caderno" no
+  `permissoes-tab.tsx`. O Setor é a lista de Locais (`app/lib/locais.ts` + config `locais_producao`).
 - **Rotas:** `app/dashboard/caderno/{page, [id]/page, [id]/cozinha/page}` + `components/`
   (`caderno-catalogo`, `caderno-receita-view`, `nova-receita-modal`, `modo-preparo-modal`).
   O checklist de bancada reusa `receitas/[id]/cozinha/cozinha-view.tsx`.
 - **Actions** (em `app/dashboard/receitas/actions.ts`): `createReceitaCaderno`,
   `updateModoPreparo`, `uploadReceitaFoto`/`removeReceitaFoto`, `marcarReceitaRevisada`,
-  `contarReceitasPendentes`, `getCategoriasReceita` (setores p/ o autocomplete); as actions de
+  `contarReceitasPendentes`, `getSetoresDisponiveis` (Locais + setores liberados p/ o menu); as actions de
   item (`addItem`/`addItensLote`/`updateItem`/`removeItem`) aceitam permissão `caderno` e
   chamam `flagRevisaoSeProducao`. O setor é persistido em `create/updateReceita`,
   `createReceitaCaderno` e `updateModoPreparo` (helper `parseCategoria`).

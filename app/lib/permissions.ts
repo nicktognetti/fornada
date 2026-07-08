@@ -4,6 +4,8 @@ export type Permissao = {
   tela: string
   acesso: NivelAcesso
   unidade_id: string | null
+  // Só relevante para a tela 'caderno': setores (locais) liberados. null/vazio = todos.
+  locais?: string[] | null
 }
 
 export type PermissaoMap = Record<string, Permissao>

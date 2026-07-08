@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { getReceitaComposicao } from '@/app/dashboard/receitas/composicao'
-import { temAcesso } from '@/app/lib/authz'
+import { temAcesso, setoresPermitidosCaderno } from '@/app/lib/authz'
 import { CadernoReceitaView, type ItemCaderno } from '../components/caderno-receita-view'
 import type { Receita } from '@/app/dashboard/receitas/types'
 
@@ -22,6 +22,15 @@ export default async function CadernoReceitaPage({ params }: Props) {
   if (receitaRes.error || !receitaRes.data) notFound()
 
   const receita = receitaRes.data as Receita
+
+  // Restrição por setor: se a receita tem um setor fora dos liberados, esconde.
+  if (user) {
+    const permitidos = await setoresPermitidosCaderno(user.id, receita.unidade_id)
+    if (permitidos !== null && receita.categoria?.trim() && !permitidos.includes(receita.categoria.trim())) {
+      notFound()
+    }
+  }
+
   // Cost-free: nunca mandamos custo pro cliente do Caderno.
   const itens: ItemCaderno[] = composicao.itens.map((i) => ({
     id: i.id,

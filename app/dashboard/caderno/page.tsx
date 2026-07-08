@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ChefHat } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { getUnidadePreferida } from '@/app/actions/unidade'
-import { temAcesso } from '@/app/lib/authz'
+import { temAcesso, setoresPermitidosCaderno } from '@/app/lib/authz'
 import { CadernoCatalogo, type ReceitaCaderno } from './components/caderno-catalogo'
 
 // Caderno de Receitas — a "capa" do caderno para a produção/confeitaria.
@@ -18,6 +18,18 @@ export default async function CadernoPage() {
   ])
 
   const receitas = (data as ReceitaCaderno[]) ?? []
+
+  // Restrição por setor: produção só vê os setores liberados (+ as sem setor).
+  // Gestão/admin → permitidos = null (vê tudo).
+  let visiveis = receitas
+  if (user) {
+    const permitidos = await setoresPermitidosCaderno(user.id, unidadeId)
+    if (permitidos !== null) {
+      const set = new Set(permitidos)
+      visiveis = receitas.filter((r) => !r.categoria?.trim() || set.has(r.categoria.trim()))
+    }
+  }
+
   const podeCriar = user
     ? await temAcesso(user.id, ['receitas', 'caderno'], { nivel: 'escrita' })
     : false
@@ -25,7 +37,7 @@ export default async function CadernoPage() {
   return (
     <div>
       <PageTitle icon={ChefHat}>Caderno de Receitas</PageTitle>
-      <CadernoCatalogo receitas={receitas} podeCriar={podeCriar} />
+      <CadernoCatalogo receitas={visiveis} podeCriar={podeCriar} />
     </div>
   )
 }

@@ -21,6 +21,7 @@ import type { NivelAcesso } from '@/app/lib/permissions'
 interface Props {
   usuarios: UsuarioComPermissoes[]
   unidades: { id: string; nome: string }[]
+  locaisDisponiveis: string[]
   currentUserId: string
 }
 
@@ -29,6 +30,55 @@ const ACESSO_OPTS: { value: NivelAcesso; label: string }[] = [
   { value: 'escrita', label: 'Escrita' },
   { value: 'admin',   label: 'Admin'   },
 ]
+
+// ── Subcomponente: setores liberados no Caderno ───────────────────────────────
+// null/[] = todos os setores. Só aparece quando a tela "Caderno" está concedida.
+function SetorScopePicker({
+  locais, valor, onChange,
+}: {
+  locais: string[]
+  valor: string[] | null
+  onChange: (v: string[] | null) => void
+}) {
+  const todos = valor === null || valor.length === 0
+  function toggle(l: string) {
+    const base = todos ? [] : [...valor!]
+    const next = base.includes(l) ? base.filter((x) => x !== l) : [...base, l]
+    onChange(next.length ? next : null)
+  }
+  return (
+    <div className="rounded-xl border border-subtle p-4 space-y-2.5 bg-input/30">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-secondary">Setores do Caderno</p>
+        <p className="text-[11px] text-faint mt-0.5">
+          Restringe quais setores (Confeitaria, Produção…) este usuário vê e edita no Caderno. Sem marcar nenhum = todos.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${todos ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/25' : 'text-secondary border-subtle hover:bg-input/50'}`}
+        >
+          Todos
+        </button>
+        {locais.map((l) => {
+          const on = !todos && valor!.includes(l)
+          return (
+            <button
+              key={l}
+              type="button"
+              onClick={() => toggle(l)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${on ? 'bg-success/15 text-success border-success/30' : 'text-secondary border-subtle hover:bg-input/50'}`}
+            >
+              {l}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 // ── Subcomponente: grade de permissões ───────────────────────────────────────
 function PermissaoGrade({
@@ -97,7 +147,7 @@ function PermissaoGrade({
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
-export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUserId }: Props) {
+export function PermissoesTab({ usuarios: usuariosIniciais, unidades, locaisDisponiveis, currentUserId }: Props) {
   const { unidadeAtual } = useUnidade()
   const [usuarios, setUsuarios] = useState(usuariosIniciais)
 
@@ -108,6 +158,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
 
   // Edição de permissões
   const [pendente, setPendente] = useState<Record<string, NivelAcesso | 'none'>>({})
+  const [pendenteLocais, setPendenteLocais] = useState<string[] | null>(null) // setores do Caderno (null = todos)
   const [escopoEditar, setEscopoEditar] = useState<string | null>(null) // null = todas as unidades
   const [isPending, startTransition] = useTransition()
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -119,6 +170,8 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
   const [novoTipoAcesso, setNovoTipoAcesso] = useState<'admin_global' | 'personalizado'>('admin_global')
   // Map: '__global__' | unidade_id → permissoes do escopo
   const [novoPermsMap, setNovoPermsMap] = useState<Record<string, Record<string, NivelAcesso | 'none'>>>({})
+  // Map: '__global__' | unidade_id → setores liberados do Caderno (null = todos)
+  const [novoLocaisMap, setNovoLocaisMap] = useState<Record<string, string[] | null>>({})
   const [novoEscopoAtivo, setNovoEscopoAtivo] = useState<string | null>(null)
   const [criando, setCriando] = useState(false)
   const [erroModal, setErroModal] = useState('')
@@ -143,9 +196,11 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     for (const p of u.permissoes) {
       if (p.unidade_id === null) mapa[p.tela] = p.acesso
     }
+    const caderno = u.permissoes.find((p) => p.tela === 'caderno' && p.unidade_id === null)
     setTargetUser(u)
     setEscopoEditar(null)
     setPendente(mapa)
+    setPendenteLocais(caderno?.locais ?? null)
     setFeedback(null)
     setVista('editar')
   }
@@ -158,7 +213,9 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     for (const p of targetUser.permissoes) {
       if (p.unidade_id === novo) mapa[p.tela] = p.acesso
     }
+    const caderno = targetUser.permissoes.find((p) => p.tela === 'caderno' && p.unidade_id === novo)
     setPendente(mapa)
+    setPendenteLocais(caderno?.locais ?? null)
     setFeedback(null)
   }
 
@@ -178,6 +235,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     setNovaSenha('')
     setNovoTipoAcesso('admin_global')
     setNovoPermsMap({})
+    setNovoLocaisMap({})
     // Padrão: primeira unidade (não global), para não virar admin das duas lojas por acidente
     setNovoEscopoAtivo(unidadeAtual?.id ?? unidades[0]?.id ?? null)
     setErroModal('')
@@ -193,9 +251,13 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     setFeedback(null)
     startTransition(async () => {
       const toUpsert: PermissaoInput[] = []
+      const locaisCaderno = pendenteLocais && pendenteLocais.length > 0 ? pendenteLocais : null
 
       for (const [tela, acesso] of Object.entries(pendente)) {
-        if (acesso !== 'none') toUpsert.push({ usuario_id: tu.id, tela, acesso, unidade_id: escopo })
+        if (acesso === 'none') continue
+        const row: PermissaoInput = { usuario_id: tu.id, tela, acesso, unidade_id: escopo }
+        if (tela === 'caderno') row.locais = locaisCaderno
+        toUpsert.push(row)
       }
 
       // Sempre chama savePermissionsAction — mesmo com toUpsert vazio,
@@ -206,7 +268,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
       // Atualiza estado local trocando apenas as permissões do escopo (unidade) atual
       const novasPerms = [
         ...tu.permissoes.filter((p) => p.unidade_id !== escopo),
-        ...toUpsert.map((up) => ({ tela: up.tela, acesso: up.acesso, unidade_id: escopo })),
+        ...toUpsert.map((up) => ({ tela: up.tela, acesso: up.acesso, unidade_id: escopo, locais: up.locais ?? null })),
       ]
       const isAdminGlobal = novasPerms.some((p) => p.tela === '*' && p.acesso === 'admin' && p.unidade_id === null)
       const tuAtualizado = { ...tu, permissoes: novasPerms, isAdminGlobal }
@@ -234,9 +296,13 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
     // Achata o map de permissões por escopo em array plano para a action
     const permissoesPersonalizadas = Object.entries(novoPermsMap).flatMap(([scopeKey, perms]) => {
       const unidade_id = scopeKey === '__global__' ? null : scopeKey
+      const locaisScope = novoLocaisMap[scopeKey] && novoLocaisMap[scopeKey]!.length > 0 ? novoLocaisMap[scopeKey]! : null
       return Object.entries(perms)
         .filter(([, v]) => v !== 'none')
-        .map(([tela, acesso]) => ({ tela, acesso: acesso as NivelAcesso, unidade_id }))
+        .map(([tela, acesso]) => ({
+          tela, acesso: acesso as NivelAcesso, unidade_id,
+          locais: tela === 'caderno' ? locaisScope : null,
+        }))
     })
 
     const permissaoInicial: PermissaoInicialInput =
@@ -253,7 +319,7 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
       const permsNovo =
         novoTipoAcesso === 'admin_global'
           ? [{ tela: '*', acesso: 'admin' as NivelAcesso, unidade_id: null }]
-          : permissoesPersonalizadas.map((p) => ({ tela: p.tela, acesso: p.acesso, unidade_id: p.unidade_id ?? null }))
+          : permissoesPersonalizadas.map((p) => ({ tela: p.tela, acesso: p.acesso, unidade_id: p.unidade_id ?? null, locais: p.locais ?? null }))
 
       const novo: UsuarioComPermissoes = {
         id: result.data.id,
@@ -467,6 +533,10 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
           onChange={(tela, valor) => { setPendente((p) => ({ ...p, [tela]: valor })); setFeedback(null) }}
         />
 
+        {pendente['caderno'] && pendente['caderno'] !== 'none' && !(escopoEditar === null && pendente['*'] === 'admin') && (
+          <SetorScopePicker locais={locaisDisponiveis} valor={pendenteLocais} onChange={(v) => { setPendenteLocais(v); setFeedback(null) }} />
+        )}
+
         <div className="flex items-center gap-3">
           <button
             onClick={voltar}
@@ -575,6 +645,19 @@ export function PermissoesTab({ usuarios: usuariosIniciais, unidades, currentUse
                   setNovoPermsMap((prev) => ({ ...prev, [key]: { ...(prev[key] ?? {}), [tela]: valor } }))
                 }}
               />
+              {(() => {
+                const key = novoEscopoAtivo === null ? '__global__' : novoEscopoAtivo
+                const perms = novoPermsMap[key] ?? {}
+                const mostra = perms['caderno'] && perms['caderno'] !== 'none' && !(novoEscopoAtivo === null && perms['*'] === 'admin')
+                if (!mostra) return null
+                return (
+                  <SetorScopePicker
+                    locais={locaisDisponiveis}
+                    valor={novoLocaisMap[key] ?? null}
+                    onChange={(v) => setNovoLocaisMap((prev) => ({ ...prev, [key]: v }))}
+                  />
+                )
+              })()}
             </>
           )}
         </div>

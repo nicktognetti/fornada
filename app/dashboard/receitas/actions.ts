@@ -6,7 +6,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
 import { getUnidadeAutorizada } from '@/app/actions/unidade'
-import { temAcesso, unidadeDoRegistro } from '@/app/lib/authz'
+import { temAcesso, unidadeDoRegistro, setoresPermitidosCaderno, receitaSetorUnidade } from '@/app/lib/authz'
+import { LOCAIS_CONFIG_KEY, LOCAIS_PADRAO } from '@/app/lib/locais'
 import type { ActionResult } from './types'
 
 function isPositiveNum(val: unknown) {
@@ -49,6 +50,27 @@ function parseDificuldade(val: FormDataEntryValue | null): 'facil' | 'media' | '
 // Setor/categoria: texto livre, vazio → null, comprimento limitado.
 function parseCategoria(val: unknown): string | null {
   return typeof val === 'string' && val.trim() ? val.trim().slice(0, 80) : null
+}
+
+// Sentinela: "o setor não está sendo alterado" (distinto de mudar para null).
+const SETOR_INALTERADO = Symbol('setor-inalterado')
+
+// Confere se o usuário pode mexer numa receita considerando o SETOR dela (além
+// da unidade, checada à parte). Gestão/admin não têm restrição de setor. Receita
+// SEM setor é acessível a todos (decisão do cliente). Se `novoSetor` for passado,
+// também valida o setor de destino (impede mover a receita p/ um setor sem acesso).
+async function podeMexerNoSetor(
+  userId: string,
+  receitaId: string,
+  novoSetor: string | null | typeof SETOR_INALTERADO = SETOR_INALTERADO,
+): Promise<boolean> {
+  const rec = await receitaSetorUnidade(receitaId)
+  if (!rec) return false
+  const permitidos = await setoresPermitidosCaderno(userId, rec.unidade_id)
+  const ok = (setor: string | null) => permitidos === null || setor == null || permitidos.includes(setor)
+  if (!ok(rec.categoria)) return false
+  if (novoSetor !== SETOR_INALTERADO && !ok(novoSetor)) return false
+  return true
 }
 
 const BUCKET_FOTOS = 'receita-fotos'
@@ -282,6 +304,8 @@ export async function addItem(
   const unidadeId = await unidadeDoRegistro('receita', base.data.receita_id)
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
     return { error: 'Sem permissão para editar esta receita nesta unidade' }
+  if (!(await podeMexerNoSetor(user.id, base.data.receita_id)))
+    return { error: 'Sem permissão para o setor desta receita' }
 
   const insumo_id = (formData.get('insumo_id') as string) || null
   const sub_receita_id = (formData.get('sub_receita_id') as string) || null
@@ -336,6 +360,8 @@ export async function addItensLote(
   const unidadeId = await unidadeDoRegistro('receita', receitaId)
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
     return { error: 'Sem permissão para editar esta receita nesta unidade' }
+  if (!(await podeMexerNoSetor(user.id, receitaId)))
+    return { error: 'Sem permissão para o setor desta receita' }
 
   for (const it of itens) {
     if (!it.insumo_id && !it.sub_receita_id) return { error: 'Um dos itens está sem insumo ou sub-receita' }
@@ -381,6 +407,8 @@ export async function updateItem(
   const unidadeId = await unidadeDoRegistro('receita', receita_id)
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
     return { error: 'Sem permissão para editar esta receita nesta unidade' }
+  if (!(await podeMexerNoSetor(user.id, receita_id)))
+    return { error: 'Sem permissão para o setor desta receita' }
 
   const quantidade = formData.get('quantidade') as string
   if (!isPositiveNum(quantidade)) return { error: 'Quantidade deve ser maior que zero' }
@@ -425,6 +453,8 @@ export async function removeItem(id: string, receitaId: string): Promise<ActionR
   const unidadeId = await unidadeDoRegistro('receita', receitaId)
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
     return { error: 'Sem permissão para editar esta receita nesta unidade' }
+  if (!(await podeMexerNoSetor(user.id, receitaId)))
+    return { error: 'Sem permissão para o setor desta receita' }
 
   const { error } = await supabase.from('receita_item').delete().eq('id', id)
   if (error) return { error: 'Erro ao remover item: ' + error.message }
@@ -499,6 +529,8 @@ export async function uploadReceitaFoto(
   if (!rec) return { error: 'Receita não encontrada' }
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId: rec.unidade_id })))
     return { error: 'Sem permissão para alterar esta receita nesta loja' }
+  if (!(await podeMexerNoSetor(user.id, receitaId)))
+    return { error: 'Sem permissão para o setor desta receita' }
 
   // Timestamp no nome: evita cache velho no navegador ao trocar a foto.
   const path = `${rec.empresa_id}/${receitaId}-${Date.now()}.${ext}`
@@ -529,6 +561,8 @@ export async function removeReceitaFoto(receitaId: string): Promise<ActionResult
   if (!rec) return { error: 'Receita não encontrada' }
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId: rec.unidade_id })))
     return { error: 'Sem permissão para alterar esta receita nesta loja' }
+  if (!(await podeMexerNoSetor(user.id, receitaId)))
+    return { error: 'Sem permissão para o setor desta receita' }
 
   const { error } = await supabase.from('receita').update({ foto_url: null }).eq('id', receitaId)
   if (error) return { error: error.message }
@@ -570,6 +604,9 @@ export async function updateModoPreparo(
   const unidadeId = await unidadeDoRegistro('receita', receitaId)
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
     return { error: 'Sem permissão para editar receitas nesta loja' }
+  const novaCategoria = parseCategoria(payload.categoria)
+  if (!(await podeMexerNoSetor(user.id, receitaId, novaCategoria)))
+    return { error: 'Sem permissão para o setor desta receita' }
 
   const passos = Array.isArray(payload.passos)
     ? payload.passos.filter((p): p is string => typeof p === 'string').map((p) => p.trim().slice(0, 1000)).filter(Boolean)
@@ -581,7 +618,7 @@ export async function updateModoPreparo(
   const obs = typeof payload.observacao === 'string' && payload.observacao.trim() ? payload.observacao.trim().slice(0, 2000) : null
 
   const { error } = await supabase.from('receita').update({
-    categoria: parseCategoria(payload.categoria),
+    categoria: novaCategoria,
     passos,
     tempo_preparo_min: posInt(payload.tempo_preparo_min),
     temperatura_forno: posInt(payload.temperatura_forno),
@@ -635,6 +672,11 @@ export async function createReceitaCaderno(payload: {
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
     return { error: 'Sem permissão para criar receitas nesta loja' }
 
+  const categoria = parseCategoria(payload.categoria)
+  const permitidos = await setoresPermitidosCaderno(user.id, unidadeId)
+  if (permitidos !== null && categoria !== null && !permitidos.includes(categoria))
+    return { error: 'Você não tem permissão para criar receitas neste setor' }
+
   const nome = (payload.nome ?? '').trim()
   if (!nome) return { error: 'Dê um nome à receita' }
   const rendimento = parseDecimalBR(payload.rendimento ?? '')
@@ -654,7 +696,7 @@ export async function createReceitaCaderno(payload: {
   const { data, error } = await supabase.from('receita').insert({
     nome,
     tipo: 'final',
-    categoria: parseCategoria(payload.categoria),
+    categoria,
     rendimento,
     rendimento_unidade: payload.rendimento_unidade,
     passos,
@@ -694,22 +736,30 @@ export async function marcarReceitaRevisada(receitaId: string): Promise<ActionRe
   return { success: true }
 }
 
-// Setores já usados nas receitas — alimenta o autocomplete do campo "Setor".
-// RLS limita à(s) loja(s) do usuário; devolve a lista distinta e ordenada.
-export async function getCategoriasReceita(): Promise<string[]> {
+// Alimenta o campo "Setor": a lista de setores/locais cadastrável (Cadastros →
+// Locais, ou o padrão) e quais deles o usuário atual pode usar no Caderno
+// (`permitidos` null = todos). Assim a produção só escolhe setores que enxerga.
+export async function getSetoresDisponiveis(): Promise<{ locais: string[]; permitidos: string[] | null }> {
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('receita')
-    .select('categoria')
-    .eq('ativo', true)
-    .not('categoria', 'is', null)
-    .order('categoria')
-  const set = new Set<string>()
-  for (const r of data ?? []) {
-    const c = (r as { categoria: string | null }).categoria
-    if (c && c.trim()) set.add(c.trim())
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { locais: [], permitidos: [] }
+
+  const empresaId = await getEmpresaId(user.id)
+  let locais: string[] = [...LOCAIS_PADRAO]
+  if (empresaId) {
+    const { data } = await supabase
+      .from('config_geral')
+      .select('valor')
+      .eq('empresa_id', empresaId)
+      .eq('chave', LOCAIS_CONFIG_KEY)
+      .maybeSingle()
+    const val = data?.valor
+    if (Array.isArray(val) && val.length > 0) locais = val as string[]
   }
-  return [...set]
+
+  const unidadeId = await getUnidadeAutorizada()
+  const permitidos = await setoresPermitidosCaderno(user.id, unidadeId)
+  return { locais, permitidos }
 }
 
 // Contagem de receitas aguardando revisão (badge do menu Fichas). RLS limita à(s) loja(s).
