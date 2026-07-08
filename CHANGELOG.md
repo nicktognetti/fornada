@@ -26,6 +26,14 @@ Formato: `tipo: descrição — detalhes`
   removido o `erroRef`, cor derivada só do texto. `encomenda-view` deixou de chamar `Date.now()`
   no render (agora congelado no mount). Limpezas de lint (`const`, import não usado) e supressões
   justificadas de `set-state-in-effect` em inits browser-only/loaders/sync prop→state.
+- **`produto-list` sem effect de sync** (follow-up): o espelho `props→state`
+  (`localMap`/`atendimentoMap`) virou estado **derivado** — só as edições otimistas da tela
+  são estado (`overrides`), o mapa efetivo sai de `useMemo`. Some com os 2 `useEffect` de sync
+  **e corrige staleness latente**: o merge antigo (`{...propsNovos, ...prev}`) fazia o estado
+  anterior vencer até em itens não editados, então revalidações do server não atualizavam
+  produtos intocados. Das 8 supressões de `set-state-in-effect`, restam 6 — padrões corretos
+  (init browser-only, guard de hidratação, fetch on-demand em drawers/modais), mantidas com
+  justificativa; removê-las quebraria hidratação ou as animações de saída dos drawers.
 
 ### Permissão do Caderno por setor (além da unidade)
 > A produção passa a ver/criar/editar só as receitas dos **setores** (Confeitaria, Produção…)
