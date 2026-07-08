@@ -7,6 +7,24 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Caderno de Receitas — o "modo de fazer" na Ficha Técnica
+> Pedido da Natali: o caderno de receitas da confeitaria dentro do sistema. A Ficha
+> Técnica (custo) ganhou o lado humano — como fazer, tempos, foto — e uma tela de
+> bancada. Migration `20260708000000_receita_caderno` **APLICADA**.
+- **Campos novos na receita** (colunas aditivas em `receita`): `passos` (modo de preparo
+  numerado, JSONB), `tempo_preparo_min`, `temperatura_forno`, `tempo_forno_min`,
+  `dificuldade` (fácil/média/difícil) e `foto_url`. Bucket público `receita-fotos`
+  (mesmo desenho do `produto-fotos`: leitura pública, escrita via service role).
+- **Editor no modal da ficha**: passos numerados com adicionar/remover/reordenar, tempos,
+  dificuldade e "dica/segredo da casa". A ficha mostra foto (upload por clique), chips de
+  tempo/forno e a seção Modo de preparo. Impressão estendida com os passos e tempos.
+- **⭐ Modo Cozinha** (`/dashboard/receitas/[id]/cozinha`): tela grande para o tablet na
+  bancada — ingredientes e passos que se **riscam** ao tocar, foto e tempos em destaque,
+  **zero valor de custo** (feita para a confeitaria; o custo segue gated pelo RBAC).
+- **Miniatura da foto** na listagem de receitas (placeholder com ícone quando sem foto).
+- Validado E2E no preview: cadastro de passos+tempos+dica salvo e persistido, chips na
+  ficha, Modo Cozinha com checklist, upload de foto no bucket e impressão.
+
 ### Produtos — valores (custo/preço/margem) só para quem pode ver
 > A pessoa da operação (tem/acabou, foto, canais do robô) trabalha na tela de Produtos
 > **sem ver números** — mesmo padrão do podeVerValores das Encomendas.

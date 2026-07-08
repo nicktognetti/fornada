@@ -2,6 +2,20 @@
 
 ## ▶ Ponto de retomada (atualizado 08/07/2026)
 
+**Sessão 08/07 (fim do dia) — Caderno de Receitas (pedido da Natali):**
+- ✅ **A Ficha Técnica virou o caderno de receitas da confeitaria.** Colunas novas em
+  `receita` (`passos` JSONB, `tempo_preparo_min`, `temperatura_forno`, `tempo_forno_min`,
+  `dificuldade`, `foto_url`) + bucket `receita-fotos`. Migration
+  `20260708000000_receita_caderno` **APLICADA** (SQL Editor). Só aditiva, fichas antigas
+  intactas.
+- ✅ **Editor de passos** no modal (numerados, reordenar/remover) + tempos + dica; ficha com
+  foto, chips e seção Modo de preparo; impressão estendida. **Modo Cozinha** novo
+  (`receitas/[id]/cozinha`) — tela de bancada, checklist de ingredientes/passos, **sem custo**.
+  Miniatura da foto na listagem. Upload espelha `produto-atendimento.ts`.
+- ✅ Validado E2E no preview (tsc/lint limpos; salvar/persistir/cozinha/foto/impressão OK).
+- 🔲 **Não commitado ainda / não deployado** — falta `git push` (que auto-deploya; o banco de
+  produção já tem as colunas). Sugestão de próximo passo: mostrar pra Natali no ar.
+
 **Sessão 08/07 — token permanente confirmado + demo de apresentação do robô:**
 - ✅ **Susto do token resolvido:** o arquivo `informações agente Whatspp.txt` (raiz)
   é anotação ANTIGA (03/07) com token temporário JÁ EXPIRADO. Cheguei a sobrescrever

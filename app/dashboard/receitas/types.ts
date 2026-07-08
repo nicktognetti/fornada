@@ -1,5 +1,7 @@
 export type ReceitaTipo = 'final' | 'base'
 
+export type Dificuldade = 'facil' | 'media' | 'dificil'
+
 export interface Receita {
   id: string
   empresa_id: string
@@ -10,6 +12,13 @@ export interface Receita {
   rendimento_unidade: string
   ativo: boolean
   observacao: string | null
+  // Caderno de receitas (modo de fazer)
+  passos: string[]
+  tempo_preparo_min: number | null
+  temperatura_forno: number | null
+  tempo_forno_min: number | null
+  dificuldade: Dificuldade | null
+  foto_url: string | null
 }
 
 export interface ReceitaComCusto extends Receita {

@@ -105,6 +105,15 @@ export function ReceitaList({ receitas }: Props) {
               href={`/dashboard/receitas/${receita.id}`}
               className="card-surface flex items-center gap-4 px-5 py-4 group hover:shadow-md hover:bg-input transition-all duration-150 block cursor-pointer"
             >
+              {receita.foto_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={receita.foto_url} alt={receita.nome}
+                  className="w-14 h-14 rounded-xl object-cover border border-subtle shrink-0" />
+              ) : (
+                <div className="w-14 h-14 rounded-xl bg-input flex items-center justify-center shrink-0">
+                  <BookOpen size={20} className="text-secondary/40" />
+                </div>
+              )}
               <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-5">
                 <div className="min-w-0 flex-1">
                   <p className="font-playfair text-primary text-[18px] font-semibold leading-tight truncate">

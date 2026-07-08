@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
 import { getUnidadeAutorizada } from '@/app/actions/unidade'
@@ -12,6 +13,45 @@ function isPositiveNum(val: unknown) {
   if (typeof val !== 'string') return false
   const n = parseDecimalBR(val)
   return !isNaN(n) && n > 0
+}
+
+// Inteiro positivo opcional (tempos/temperatura) a partir do FormData.
+// Vazio → null; inválido/≤0 → null (o CHECK do banco também protege).
+function optInt(val: FormDataEntryValue | null): number | null {
+  if (typeof val !== 'string' || val.trim() === '') return null
+  const n = parseInt(val.replace(/\D/g, ''), 10)
+  return !isNaN(n) && n > 0 ? n : null
+}
+
+// Passos vêm do modal como JSON. Aceita array de strings, descarta vazios,
+// limita tamanho por passo. Qualquer coisa fora do formato vira lista vazia.
+function parsePassos(val: FormDataEntryValue | null): string[] {
+  if (typeof val !== 'string' || val.trim() === '') return []
+  try {
+    const arr = JSON.parse(val)
+    if (!Array.isArray(arr)) return []
+    return arr
+      .filter((p): p is string => typeof p === 'string')
+      .map((p) => p.trim().slice(0, 1000))
+      .filter((p) => p.length > 0)
+  } catch {
+    return []
+  }
+}
+
+const DIFICULDADES = ['facil', 'media', 'dificil'] as const
+function parseDificuldade(val: FormDataEntryValue | null): 'facil' | 'media' | 'dificil' | null {
+  return typeof val === 'string' && (DIFICULDADES as readonly string[]).includes(val)
+    ? (val as 'facil' | 'media' | 'dificil')
+    : null
+}
+
+const BUCKET_FOTOS = 'receita-fotos'
+const FOTO_MAX_BYTES = 5 * 1024 * 1024
+const FOTO_TIPOS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
 }
 
 async function getEmpresaId(userId: string): Promise<string | null> {
@@ -90,6 +130,11 @@ export async function createReceita(
     rendimento: parseDecimalBR(result.data.rendimento),
     rendimento_unidade: result.data.rendimento_unidade,
     observacao: result.data.observacao ?? null,
+    passos: parsePassos(formData.get('passos')),
+    tempo_preparo_min: optInt(formData.get('tempo_preparo_min')),
+    temperatura_forno: optInt(formData.get('temperatura_forno')),
+    tempo_forno_min: optInt(formData.get('tempo_forno_min')),
+    dificuldade: parseDificuldade(formData.get('dificuldade')),
     empresa_id: empresaId,
     unidade_id: unidadeId,
     ativo: true,
@@ -135,6 +180,11 @@ export async function updateReceita(
     rendimento: parseDecimalBR(result.data.rendimento),
     rendimento_unidade: result.data.rendimento_unidade,
     observacao: result.data.observacao ?? null,
+    passos: parsePassos(formData.get('passos')),
+    tempo_preparo_min: optInt(formData.get('tempo_preparo_min')),
+    temperatura_forno: optInt(formData.get('temperatura_forno')),
+    tempo_forno_min: optInt(formData.get('tempo_forno_min')),
+    dificuldade: parseDificuldade(formData.get('dificuldade')),
   }).eq('id', id)
 
   if (error) return { error: 'Erro ao salvar: ' + error.message }
@@ -394,4 +444,85 @@ export async function getReceitasParaSubReceita(excluirId: string) {
     .neq('id', excluirId)
     .order('nome')
   return data ?? []
+}
+
+// ─── Foto da receita (Storage) ────────────────────────────────────────────────
+// Mesmo desenho da foto de produto: bucket público, escrita via service role.
+
+// Loja/empresa reais da receita via service role (RLS esconderia o registro e a
+// checagem de permissão liberaria por engano) + foto atual para limpeza.
+async function getReceitaReal(receitaId: string) {
+  const { data } = await supabaseAdmin
+    .from('receita')
+    .select('id, empresa_id, unidade_id, foto_url')
+    .eq('id', receitaId)
+    .maybeSingle()
+  return data as { id: string; empresa_id: string; unidade_id: string | null; foto_url: string | null } | null
+}
+
+// Caminho do objeto no bucket a partir da URL pública salva em foto_url.
+function pathDaFotoUrl(fotoUrl: string | null): string | null {
+  if (!fotoUrl) return null
+  const marca = `/${BUCKET_FOTOS}/`
+  const i = fotoUrl.indexOf(marca)
+  return i === -1 ? null : decodeURIComponent(fotoUrl.slice(i + marca.length))
+}
+
+export async function uploadReceitaFoto(
+  receitaId: string,
+  formData: FormData,
+): Promise<{ error?: string; data?: { foto_url: string } }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const file = formData.get('foto')
+  if (!(file instanceof File) || file.size === 0) return { error: 'Selecione uma imagem' }
+  const ext = FOTO_TIPOS[file.type]
+  if (!ext) return { error: 'Formato não suportado — use JPG, PNG ou WebP' }
+  if (file.size > FOTO_MAX_BYTES) return { error: 'Imagem muito grande (máx. 5 MB)' }
+
+  const rec = await getReceitaReal(receitaId)
+  if (!rec) return { error: 'Receita não encontrada' }
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId: rec.unidade_id })))
+    return { error: 'Sem permissão para alterar fichas nesta loja' }
+
+  // Timestamp no nome: evita cache velho no navegador ao trocar a foto.
+  const path = `${rec.empresa_id}/${receitaId}-${Date.now()}.${ext}`
+  const { error: upErr } = await supabaseAdmin.storage
+    .from(BUCKET_FOTOS)
+    .upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: true })
+  if (upErr) return { error: `Falha no upload: ${upErr.message}` }
+
+  const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET_FOTOS).getPublicUrl(path)
+
+  const { error } = await supabase.from('receita').update({ foto_url: publicUrl }).eq('id', receitaId)
+  if (error) return { error: error.message }
+
+  // Remove a foto anterior (falha aqui não é fatal).
+  const antiga = pathDaFotoUrl(rec.foto_url)
+  if (antiga && antiga !== path) await supabaseAdmin.storage.from(BUCKET_FOTOS).remove([antiga])
+
+  revalidatePath(`/dashboard/receitas/${receitaId}`)
+  return { data: { foto_url: publicUrl } }
+}
+
+export async function removeReceitaFoto(receitaId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const rec = await getReceitaReal(receitaId)
+  if (!rec) return { error: 'Receita não encontrada' }
+  if (!(await temAcesso(user.id, ['receitas'], { unidadeId: rec.unidade_id })))
+    return { error: 'Sem permissão para alterar fichas nesta loja' }
+
+  const { error } = await supabase.from('receita').update({ foto_url: null }).eq('id', receitaId)
+  if (error) return { error: error.message }
+
+  const path = pathDaFotoUrl(rec.foto_url)
+  if (path) await supabaseAdmin.storage.from(BUCKET_FOTOS).remove([path])
+
+  revalidatePath(`/dashboard/receitas/${receitaId}`)
+  return { success: true }
 }

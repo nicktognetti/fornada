@@ -11,7 +11,16 @@ export default async function ReceitasPage() {
   let query = supabase.from('vw_custo_receita').select('*').order('nome')
   if (unidadeId) query = query.eq('unidade_id', unidadeId)
 
-  const { data } = await query
+  // A view de custo não traz a foto; buscamos foto_url à parte para a miniatura.
+  const [{ data }, { data: fotos }] = await Promise.all([
+    query,
+    supabase.from('receita').select('id, foto_url').eq('ativo', true).not('foto_url', 'is', null),
+  ])
+  const fotoPorId = new Map<string, string>(
+    ((fotos as { id: string; foto_url: string | null }[]) ?? [])
+      .filter((f) => f.foto_url)
+      .map((f) => [f.id, f.foto_url as string])
+  )
 
   type ViewRow = {
     id: string; empresa_id: string; unidade_id: string; nome: string; tipo: ReceitaTipo
@@ -30,6 +39,13 @@ export default async function ReceitasPage() {
     custo_unitario: r.custo_unitario,
     ativo: true,
     observacao: null,
+    // Demais campos do "caderno" não são exibidos na listagem (a ficha carrega os reais).
+    passos: [],
+    tempo_preparo_min: null,
+    temperatura_forno: null,
+    tempo_forno_min: null,
+    dificuldade: null,
+    foto_url: fotoPorId.get(r.id) ?? null,
   }))
 
   return (
