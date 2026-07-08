@@ -48,11 +48,14 @@ export function ProdutoDetalheDrawer({ produtoId, onClose }: Props) {
   useEffect(() => {
     if (!produtoId) return
     let ativo = true
+    // Reset síncrono ao trocar de produto antes do fetch (estado de carregamento).
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLoading(true)
     setErro(null)
     setDetalhe(null)
     setAtd(null)
     setErroAtd(null)
+    /* eslint-enable react-hooks/set-state-in-effect */
     getProdutoDetalhe(produtoId).then((res) => {
       if (!ativo) return
       if (res.error || !res.data) setErro(res.error ?? 'Erro ao carregar')

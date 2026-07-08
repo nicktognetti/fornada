@@ -45,9 +45,11 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
   // Após criar/editar produto, o server revalida e envia um novo localMap. Puxa
   // os locais de produtos novos sem descartar as edições otimistas já feitas.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocaisMap((prev) => ({ ...localMap, ...prev }))
   }, [localMap])
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAtdMap((prev) => ({ ...atendimentoMap, ...prev }))
   }, [atendimentoMap])
 

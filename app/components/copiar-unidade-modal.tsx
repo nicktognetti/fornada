@@ -36,8 +36,11 @@ export function CopiarUnidadeModal() {
   useEffect(() => {
     if (!open || !modoSelecao || !paraUnidadeId || !unidadeAtual) return
     let ativo = true
+    // Reset síncrono ao mudar tipo/destino antes do fetch (estado de carregamento).
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLoadingItens(true)
     setFiltroGrupo('')
+    /* eslint-enable react-hooks/set-state-in-effect */
     getItensParaCopiar(unidadeAtual.id, paraUnidadeId, tipo as 'insumos' | 'fichas').then((res) => {
       if (!ativo) return
       const lista = res.itens ?? []

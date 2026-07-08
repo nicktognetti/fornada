@@ -49,6 +49,8 @@ export function PedidosView({ onVerConversa }: { onVerConversa: (conversaId: str
   const idsVistos = useRef<Set<string> | null>(null)
 
   useEffect(() => {
+    // localStorage só existe no cliente — init no mount evita mismatch de hidratação.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAutoPrint(localStorage.getItem(AUTOPRINT_KEY) === '1')
   }, [])
 

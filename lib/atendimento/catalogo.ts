@@ -45,12 +45,14 @@ export async function buscarProdutos(
     const termoLimpo = termo.replace(/[%*(),]/g, ' ').trim()
     if (!termoLimpo) return []
 
-    let { data: linhas, error } = await supabaseAdmin
+    const primeira = await supabaseAdmin
       .from('vw_produto_financeiro')
       .select('produto_id, produto_nome, categoria, preco_venda')
       .eq('unidade_id', unidadeId)
       .ilike('produto_nome', `%${termoLimpo}%`)
       .limit(8)
+    let linhas = primeira.data
+    const error = primeira.error
     if (error) {
       console.error('Atendimento: falha na consulta ao catálogo:', error.message)
       return null

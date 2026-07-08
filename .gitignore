@@ -35,7 +35,9 @@ yarn-error.log*
 !.env.example
 
 # database backups / dumps (migrations em supabase/migrations NÃO são ignoradas)
-backup_*.sql
+# .sql soltos na raiz (backup_*, fornada_backup_*, dumps) — migrations ficam em subpasta
+/*.sql
+*backup*.sql
 *.dump
 *.sql.gz
 

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, X, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
-import { formatBRL, parseDecimalBR, formatCustoGrande, valorPorGrande, fatorGrande, unidadeGrande } from '@/lib/format'
+import { formatBRL, parseDecimalBR, formatCustoGrande, fatorGrande, unidadeGrande } from '@/lib/format'
 import { savePrecoVenda, savePrecoVendaLote } from '@/app/actions/painel'
 import { usePermission } from '@/app/context/permissions-context'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'

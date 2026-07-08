@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Tag, Search, ChevronDown, Check, Loader2 } from 'lucide-react'
 import { normalizeSearch, parseDecimalBR, formatCustoGrande } from '@/lib/format'
@@ -35,7 +35,6 @@ export function PrecificarLoteGrid({ insumos, categorias }: { insumos: InsumoPar
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('sem_preco')
   const [saving, setSaving] = useState(false)
   const [resultado, setResultado] = useState<string | null>(null)
-  const erroRef = useRef<string | null>(null)
 
   function set(id: string, campo: keyof Linha, v: string) {
     setResultado(null)
@@ -75,7 +74,7 @@ export function PrecificarLoteGrid({ insumos, categorias }: { insumos: InsumoPar
     }))
     const res = await addPrecosLote(items)
     setSaving(false)
-    if (res.error && !res.salvos) { erroRef.current = res.error; setResultado(`Erro: ${res.error}`); return }
+    if (res.error && !res.salvos) { setResultado(`Erro: ${res.error}`); return }
     const { salvos = 0, erros = 0 } = res
     setResultado(`${salvos} preço${salvos !== 1 ? 's' : ''} salvo${salvos !== 1 ? 's' : ''}${erros > 0 ? ` · ${erros} ignorado(s)` : ''}.`)
     setValores({})
@@ -178,7 +177,7 @@ export function PrecificarLoteGrid({ insumos, categorias }: { insumos: InsumoPar
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
           <div className="text-sm">
             {resultado ? (
-              <span className={erroRef.current && resultado.startsWith('Erro') ? 'text-danger' : 'text-success'}>
+              <span className={resultado.startsWith('Erro') ? 'text-danger' : 'text-success'}>
                 <Check size={13} className="inline mr-1" />{resultado}
               </span>
             ) : (

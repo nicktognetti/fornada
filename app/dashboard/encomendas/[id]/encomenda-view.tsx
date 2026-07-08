@@ -39,7 +39,8 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
   const horaTxt = fmtHora(e.hora_entrega)
 
   // Linha do tempo: duração de cada etapa (última = até agora, se não finalizada).
-  const agora = Date.now()
+  // "Agora" congelado no mount — render puro; um refresh do router traz novo valor.
+  const [agora] = useState(() => Date.now())
   const finalizada = e.status === 'entregue' || e.status === 'cancelada'
   const timeline = e.historico.map((ev, i) => {
     const inicio = new Date(ev.changed_at).getTime()

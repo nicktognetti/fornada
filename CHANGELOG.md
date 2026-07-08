@@ -7,6 +7,26 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Auditoria geral — blindagem do RBAC de admin + higiene
+> Passada de auditoria no projeto todo. Build, typecheck e 105 testes seguem verdes;
+> lint zerado. Foco em fechar brechas de escalonamento/inquilino nas ações de admin.
+- **Escopo por empresa nas ações de admin** (`app/actions/permissoes.ts`): `savePermissions`,
+  `deletePermission`, `disableUser`, `deleteUser`, `resetPassword` e `createUser` agora exigem
+  que o **usuário-alvo compartilhe empresa** com o admin (`podeGerenciarUsuario`). Antes só
+  checavam `assertAdmin` — um admin de uma empresa poderia mexer em usuário de outra pelo UUID.
+  Órfão (sem empresa) segue gerenciável para limpeza.
+- **Trava de auto-promoção**: só **admin global** (`tela='*'`) concede/cria admin global
+  (`isAdminGlobal`). Um admin "só de Configurações" não vira mais admin geral sozinho.
+- **Lojas de outra empresa**: permissões escopadas a `unidade_id` são validadas contra as
+  unidades das empresas do admin (`unidadesDasEmpresas`) em `savePermissions`/`createUser`.
+- **`.gitignore`**: regra de backup corrigida (`/*.sql` + `*backup*.sql`) — o prefixo
+  `fornada_backup_*` escapava do antigo `backup_*.sql`. `fornada_backup_25062026.sql` (vazio)
+  removido do tracking.
+- **Bug de UI**: `precificar-lote-grid` lia um `ref` no render (cor de status podia ficar stale);
+  removido o `erroRef`, cor derivada só do texto. `encomenda-view` deixou de chamar `Date.now()`
+  no render (agora congelado no mount). Limpezas de lint (`const`, import não usado) e supressões
+  justificadas de `set-state-in-effect` em inits browser-only/loaders/sync prop→state.
+
 ### Permissão do Caderno por setor (além da unidade)
 > A produção passa a ver/criar/editar só as receitas dos **setores** (Confeitaria, Produção…)
 > que a Natali liberar — não só da unidade. Migration `20260709100000_permissao_locais`

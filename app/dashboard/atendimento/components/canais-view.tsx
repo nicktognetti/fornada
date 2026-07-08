@@ -25,8 +25,11 @@ export function CanaisView() {
   const [push, setPush] = useState(false)
 
   useEffect(() => {
+    // localStorage só existe no cliente — init no mount evita mismatch de hidratação.
+    /* eslint-disable react-hooks/set-state-in-effect */
     setSom(localStorage.getItem(SOM_KEY) === '1')
     setPush(localStorage.getItem(PUSH_KEY) === '1')
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
   function toggleSom() {
     const novo = !som
@@ -59,6 +62,8 @@ export function CanaisView() {
     setCarregando(false)
   }, [])
 
+  // Carga inicial dos dados no mount (sem data layer do framework aqui).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { carregar() }, [carregar])
 
   if (carregando) {

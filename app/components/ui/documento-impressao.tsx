@@ -54,6 +54,8 @@ export function DocumentoImpressao({ titulo, subtitulo, unidade, unidadeDoc, num
   const [mounted, setMounted] = useState(false)
   const [rodape, setRodape] = useState<RodapeConfig | null>(null)
   useEffect(() => {
+    // Guarda de hidratação: só renderiza o rodapé (config client-side) após montar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
     getConfigAction<RodapeConfig>(RODAPE_CONFIG_KEY).then((r) => { if (r.data) setRodape(r.data) })
   }, [])
