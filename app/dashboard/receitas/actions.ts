@@ -46,6 +46,11 @@ function parseDificuldade(val: FormDataEntryValue | null): 'facil' | 'media' | '
     : null
 }
 
+// Setor/categoria: texto livre, vazio → null, comprimento limitado.
+function parseCategoria(val: unknown): string | null {
+  return typeof val === 'string' && val.trim() ? val.trim().slice(0, 80) : null
+}
+
 const BUCKET_FOTOS = 'receita-fotos'
 const FOTO_MAX_BYTES = 5 * 1024 * 1024
 const FOTO_TIPOS: Record<string, string> = {
@@ -127,6 +132,7 @@ export async function createReceita(
   const { error } = await supabase.from('receita').insert({
     nome: result.data.nome,
     tipo: result.data.tipo,
+    categoria: parseCategoria(formData.get('categoria')),
     rendimento: parseDecimalBR(result.data.rendimento),
     rendimento_unidade: result.data.rendimento_unidade,
     observacao: result.data.observacao ?? null,
@@ -177,6 +183,7 @@ export async function updateReceita(
   const { error } = await supabase.from('receita').update({
     nome: result.data.nome,
     tipo: result.data.tipo,
+    categoria: parseCategoria(formData.get('categoria')),
     rendimento: parseDecimalBR(result.data.rendimento),
     rendimento_unidade: result.data.rendimento_unidade,
     observacao: result.data.observacao ?? null,
@@ -546,6 +553,7 @@ function revalidarReceita(receitaId: string) {
 export async function updateModoPreparo(
   receitaId: string,
   payload: {
+    categoria: string | null
     passos: string[]
     tempo_preparo_min: number | null
     temperatura_forno: number | null
@@ -573,6 +581,7 @@ export async function updateModoPreparo(
   const obs = typeof payload.observacao === 'string' && payload.observacao.trim() ? payload.observacao.trim().slice(0, 2000) : null
 
   const { error } = await supabase.from('receita').update({
+    categoria: parseCategoria(payload.categoria),
     passos,
     tempo_preparo_min: posInt(payload.tempo_preparo_min),
     temperatura_forno: posInt(payload.temperatura_forno),
@@ -605,6 +614,7 @@ async function flagRevisaoSeProducao(userId: string, receitaId: string) {
 // adicionados na sequência, na própria tela do Caderno.
 export async function createReceitaCaderno(payload: {
   nome: string
+  categoria: string | null
   rendimento: string
   rendimento_unidade: 'g' | 'kg' | 'ml' | 'l' | 'un'
   passos: string[]
@@ -644,6 +654,7 @@ export async function createReceitaCaderno(payload: {
   const { data, error } = await supabase.from('receita').insert({
     nome,
     tipo: 'final',
+    categoria: parseCategoria(payload.categoria),
     rendimento,
     rendimento_unidade: payload.rendimento_unidade,
     passos,
@@ -681,6 +692,24 @@ export async function marcarReceitaRevisada(receitaId: string): Promise<ActionRe
   revalidatePath('/dashboard/receitas')
   revalidatePath(`/dashboard/receitas/${receitaId}`)
   return { success: true }
+}
+
+// Setores já usados nas receitas — alimenta o autocomplete do campo "Setor".
+// RLS limita à(s) loja(s) do usuário; devolve a lista distinta e ordenada.
+export async function getCategoriasReceita(): Promise<string[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('receita')
+    .select('categoria')
+    .eq('ativo', true)
+    .not('categoria', 'is', null)
+    .order('categoria')
+  const set = new Set<string>()
+  for (const r of data ?? []) {
+    const c = (r as { categoria: string | null }).categoria
+    if (c && c.trim()) set.add(c.trim())
+  }
+  return [...set]
 }
 
 // Contagem de receitas aguardando revisão (badge do menu Fichas). RLS limita à(s) loja(s).

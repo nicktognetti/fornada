@@ -6,6 +6,7 @@ import { createReceita, updateReceita } from '../actions'
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { UnidadeMedidaSelector } from '@/app/components/ui/unidade-medida-selector'
 import { PassosEditor } from './passos-editor'
+import { SetorField } from './setor-field'
 import type { ActionResult, Receita } from '../types'
 
 interface Props {
@@ -49,6 +50,7 @@ export function ReceitaModal({ receita, onClose }: Props) {
 
   // Passos do modo de preparo — editados como lista e enviados como JSON.
   const [passos, setPassos] = useState<string[]>(receita?.passos?.length ? receita.passos : [''])
+  const [categoria, setCategoria] = useState(receita?.categoria ?? '')
 
   const passosJson = JSON.stringify(passos.map((s) => s.trim()).filter(Boolean))
 
@@ -93,13 +95,19 @@ export function ReceitaModal({ receita, onClose }: Props) {
                 />
               </div>
 
-              <div>
-                <label className="field-label">Tipo</label>
-                <div className="relative">
-                  <select name="tipo" defaultValue={receita?.tipo ?? 'final'} className="input-field appearance-none pr-10">
-                    {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                  <ChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-secondary/50 pointer-events-none" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">Tipo</label>
+                  <div className="relative">
+                    <select name="tipo" defaultValue={receita?.tipo ?? 'final'} className="input-field appearance-none pr-10">
+                      {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                    <ChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-secondary/50 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="field-label">Setor <span className="normal-case font-normal text-secondary/70">(opcional)</span></label>
+                  <SetorField name="categoria" value={categoria} onChange={setCategoria} />
                 </div>
               </div>
 

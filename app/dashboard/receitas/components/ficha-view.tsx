@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Plus, Pencil, Trash2, AlertTriangle, BookOpen, ListOrdered, ChefHat, Camera, Loader2, Clock, Flame, Gauge, Lightbulb, BadgeCheck } from 'lucide-react'
+import { Plus, Pencil, Trash2, AlertTriangle, BookOpen, ListOrdered, ChefHat, Camera, Loader2, Clock, Flame, Gauge, Lightbulb, BadgeCheck, Tag } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { deleteReceita, removeItem, uploadReceitaFoto, removeReceitaFoto, marcarReceitaRevisada } from '../actions'
@@ -100,6 +100,11 @@ export function FichaView({ receita, custo, itens }: Props) {
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-primary/15 text-accent-primary border border-accent-primary/20">
                 {TIPO_LABEL[receita.tipo] ?? receita.tipo}
               </span>
+              {receita.categoria?.trim() && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-input text-secondary border border-subtle">
+                  <Tag size={10} /> {receita.categoria.trim()}
+                </span>
+              )}
               <span className="text-secondary text-xs">
                 Rende {receita.rendimento} {receita.rendimento_unidade}
               </span>
@@ -459,7 +464,7 @@ export function FichaView({ receita, custo, itens }: Props) {
       {/* Documento de impressão (oculto na tela) */}
       <DocumentoImpressao
         titulo={`Ficha Técnica — ${receita.nome}`}
-        subtitulo={`Rende ${receita.rendimento} ${receita.rendimento_unidade} · ${TIPO_LABEL[receita.tipo] ?? receita.tipo}`}
+        subtitulo={`Rende ${receita.rendimento} ${receita.rendimento_unidade} · ${TIPO_LABEL[receita.tipo] ?? receita.tipo}${receita.categoria?.trim() ? ` · ${receita.categoria.trim()}` : ''}`}
       >
         {(receita.tempo_preparo_min != null || temForno || receita.dificuldade) && (
           <p style={{ marginBottom: '10px', fontSize: '11px', color: '#333' }}>

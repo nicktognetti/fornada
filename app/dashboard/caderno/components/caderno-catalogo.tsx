@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { ChefHat, Search, Clock, ListOrdered, Plus } from 'lucide-react'
+import { ChefHat, Search, Clock, ListOrdered, Plus, Tag, ChevronDown } from 'lucide-react'
 import { normalizeSearch } from '@/lib/format'
 import { LogoPlaceholder } from '@/app/components/ui/logo-placeholder'
 import { NovaReceitaModal } from './nova-receita-modal'
@@ -12,6 +12,7 @@ export interface ReceitaCaderno {
   id: string
   nome: string
   tipo: string
+  categoria: string | null
   rendimento: number
   rendimento_unidade: string
   foto_url: string | null
@@ -28,13 +29,24 @@ interface Props {
 
 export function CadernoCatalogo({ receitas, podeCriar }: Props) {
   const [busca, setBusca] = useState('')
+  const [setor, setSetor] = useState('')
   const [novaOpen, setNovaOpen] = useState(false)
+
+  // Setores existentes (para o filtro), em ordem alfabética.
+  const setores = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of receitas) if (r.categoria?.trim()) set.add(r.categoria.trim())
+    return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [receitas])
 
   const filtered = useMemo(() => {
     const term = normalizeSearch(busca)
-    if (!term) return receitas
-    return receitas.filter((r) => normalizeSearch(r.nome).includes(term))
-  }, [receitas, busca])
+    return receitas.filter((r) => {
+      const matchBusca = !term || normalizeSearch(r.nome).includes(term)
+      const matchSetor = !setor || (r.categoria?.trim() ?? '') === setor
+      return matchBusca && matchSetor
+    })
+  }, [receitas, busca, setor])
 
   return (
     <>
@@ -50,6 +62,20 @@ export function CadernoCatalogo({ receitas, podeCriar }: Props) {
             className="input-field pl-10"
           />
         </div>
+        {setores.length > 0 && (
+          <div className="relative sm:w-52">
+            <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary/50 pointer-events-none" />
+            <select
+              value={setor}
+              onChange={(e) => setSetor(e.target.value)}
+              className="input-field appearance-none pl-9 pr-9"
+            >
+              <option value="">Todos os setores</option>
+              {setores.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary/60 pointer-events-none" />
+          </div>
+        )}
         {podeCriar && (
           <button onClick={() => setNovaOpen(true)} className="btn-primary shrink-0">
             <Plus size={16} />
@@ -100,6 +126,11 @@ export function CadernoCatalogo({ receitas, podeCriar }: Props) {
 
                 {/* Info */}
                 <div className="p-3.5 flex-1 flex flex-col">
+                  {r.categoria?.trim() && (
+                    <span className="inline-flex items-center gap-1 self-start rounded-full bg-accent-primary/12 text-accent-primary border border-accent-primary/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide mb-1.5">
+                      <Tag size={9} /> {r.categoria.trim()}
+                    </span>
+                  )}
                   <p className="font-playfair text-primary text-[16px] font-semibold leading-tight line-clamp-2">
                     {r.nome}
                   </p>

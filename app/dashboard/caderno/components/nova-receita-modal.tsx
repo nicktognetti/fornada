@@ -6,6 +6,7 @@ import { X, ChevronDown, Pencil, Clock, ListOrdered, Lightbulb } from 'lucide-re
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { UnidadeMedidaSelector } from '@/app/components/ui/unidade-medida-selector'
 import { PassosEditor } from '@/app/dashboard/receitas/components/passos-editor'
+import { SetorField } from '@/app/dashboard/receitas/components/setor-field'
 import { createReceitaCaderno } from '@/app/dashboard/receitas/actions'
 
 interface Props {
@@ -35,6 +36,7 @@ function toInt(v: string): number | null {
 export function NovaReceitaModal({ onClose }: Props) {
   const router = useRouter()
   const [nome, setNome] = useState('')
+  const [categoria, setCategoria] = useState('')
   const [rendimento, setRendimento] = useState('')
   const [unidade, setUnidade] = useState<'g' | 'kg' | 'ml' | 'l' | 'un'>('un')
   const [passos, setPassos] = useState<string[]>([''])
@@ -51,6 +53,7 @@ export function NovaReceitaModal({ onClose }: Props) {
     setSalvando(true)
     const res = await createReceitaCaderno({
       nome: nome.trim(),
+      categoria: categoria.trim() || null,
       rendimento,
       rendimento_unidade: unidade,
       passos: passos.map((p) => p.trim()).filter(Boolean),
@@ -86,6 +89,10 @@ export function NovaReceitaModal({ onClose }: Props) {
             <div>
               <label className="field-label">Nome</label>
               <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Bolo de cenoura, Brigadeiro…" className="input-field" />
+            </div>
+            <div>
+              <label className="field-label">Setor <span className="normal-case font-normal text-secondary/70">(opcional)</span></label>
+              <SetorField value={categoria} onChange={setCategoria} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

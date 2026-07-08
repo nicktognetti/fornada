@@ -88,6 +88,12 @@ criam e seguem receita sem nunca ver custo/preço. Quem tem **"Fichas Técnicas"
 
 ## Detalhes que valem saber
 
+- **Setor:** cada receita pode ter um setor (Confeitaria, Padaria, Salgados…) — "de onde ela
+  é". É **texto livre com autocomplete**: você digita e o sistema sugere os setores que já
+  existem, então a casa cria os próprios setores sem lista fixa. Aparece como etiqueta no card
+  e vira **filtro "Todos os setores"** no catálogo do Caderno e na lista de Fichas (o filtro só
+  surge depois que existe pelo menos um setor). Pode ser preenchido tanto pela Natali (na ficha)
+  quanto pela produção (ao criar ou editar o modo de fazer).
 - **Foto:** JPG/PNG/WebP até 5 MB, no bucket público `receita-fotos` (mesmo desenho da foto
   de produto). Sem foto, mostra o logo da Flor do Trigo esmaecido.
 - **Badge do menu Fichas:** atualiza a cada ~60s (não é instantâneo ao "Marcar como revisada" —
@@ -101,8 +107,9 @@ criam e seguem receita sem nunca ver custo/preço. Quem tem **"Fichas Técnicas"
 ## Referência técnica (para o dev)
 
 - **Banco:** colunas em `receita` — `passos` (JSONB), `tempo_preparo_min`, `temperatura_forno`,
-  `tempo_forno_min`, `dificuldade`, `foto_url` (migration `20260708000000_receita_caderno`) e
-  `revisao_pendente` (migration `20260708120000_receita_revisao`). Bucket `receita-fotos`.
+  `tempo_forno_min`, `dificuldade`, `foto_url` (migration `20260708000000_receita_caderno`),
+  `revisao_pendente` (migration `20260708120000_receita_revisao`) e `categoria`/setor
+  (migration `20260709000000_receita_categoria`). Bucket `receita-fotos`.
 - **RBAC:** tela `caderno` registrada em `app/lib/permissions.ts` (`TELAS`/`TELA_LABEL`),
   `app/components/sidebar.tsx` (item + badge) e `proxy.ts` (`telaParaRota`).
 - **Rotas:** `app/dashboard/caderno/{page, [id]/page, [id]/cozinha/page}` + `components/`
@@ -110,7 +117,9 @@ criam e seguem receita sem nunca ver custo/preço. Quem tem **"Fichas Técnicas"
   O checklist de bancada reusa `receitas/[id]/cozinha/cozinha-view.tsx`.
 - **Actions** (em `app/dashboard/receitas/actions.ts`): `createReceitaCaderno`,
   `updateModoPreparo`, `uploadReceitaFoto`/`removeReceitaFoto`, `marcarReceitaRevisada`,
-  `contarReceitasPendentes`; as actions de item (`addItem`/`addItensLote`/`updateItem`/
-  `removeItem`) aceitam permissão `caderno` e chamam `flagRevisaoSeProducao`.
+  `contarReceitasPendentes`, `getCategoriasReceita` (setores p/ o autocomplete); as actions de
+  item (`addItem`/`addItensLote`/`updateItem`/`removeItem`) aceitam permissão `caderno` e
+  chamam `flagRevisaoSeProducao`. O setor é persistido em `create/updateReceita`,
+  `createReceitaCaderno` e `updateModoPreparo` (helper `parseCategoria`).
 - **Reuso:** `PassosEditor` (editor de passos), `ItemModal` (seletor de insumos, sem custo),
-  `LogoPlaceholder` (placeholder com o logo).
+  `LogoPlaceholder` (placeholder com o logo), `SetorField` (campo de setor com autocomplete).

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef } from 'react'
-import { Plus, BookOpen, Search, ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react'
+import { Plus, BookOpen, Search, ChevronRight, ChevronDown, AlertTriangle, Tag } from 'lucide-react'
 import Link from 'next/link'
 import { normalizeSearch, formatBRL, formatCustoGrande } from '@/lib/format'
 import { LogoPlaceholder } from '@/app/components/ui/logo-placeholder'
@@ -22,18 +22,26 @@ type TipoFiltro = '' | 'final' | 'base'
 export function ReceitaList({ receitas }: Props) {
   const [busca, setBusca] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('')
+  const [setorFiltro, setSetorFiltro] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [modalKey, setModalKey] = useState(0)
   const keyRef = useRef(0)
+
+  const setores = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of receitas) if (r.categoria?.trim()) set.add(r.categoria.trim())
+    return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [receitas])
 
   const filtered = useMemo(() => {
     const term = normalizeSearch(busca)
     return receitas.filter(r => {
       const matchBusca = !term || normalizeSearch(r.nome).includes(term)
       const matchTipo = !tipoFiltro || r.tipo === tipoFiltro
-      return matchBusca && matchTipo
+      const matchSetor = !setorFiltro || (r.categoria?.trim() ?? '') === setorFiltro
+      return matchBusca && matchTipo && matchSetor
     })
-  }, [receitas, busca, tipoFiltro])
+  }, [receitas, busca, tipoFiltro, setorFiltro])
 
   function openCreate() {
     setModalKey(keyRef.current += 1)
@@ -67,6 +75,21 @@ export function ReceitaList({ receitas }: Props) {
           </select>
           <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary/60 pointer-events-none" />
         </div>
+
+        {setores.length > 0 && (
+          <div className="relative sm:w-48">
+            <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary/50 pointer-events-none" />
+            <select
+              value={setorFiltro}
+              onChange={(e) => setSetorFiltro(e.target.value)}
+              className="input-field appearance-none pl-9 pr-9"
+            >
+              <option value="">Todos os setores</option>
+              {setores.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary/60 pointer-events-none" />
+          </div>
+        )}
 
         <button onClick={openCreate} className="btn-primary shrink-0">
           <Plus size={16} />
@@ -131,6 +154,11 @@ export function ReceitaList({ receitas }: Props) {
                         </span>
                       )
                     })()}
+                    {receita.categoria?.trim() && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-input text-secondary border border-subtle">
+                        <Tag size={9} /> {receita.categoria.trim()}
+                      </span>
+                    )}
                     <span className="text-secondary text-[12px]">
                       {receita.rendimento} {receita.rendimento_unidade}
                     </span>

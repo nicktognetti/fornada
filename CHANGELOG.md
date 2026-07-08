@@ -7,6 +7,22 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Setor da receita (Confeitaria, Padaria, Salgados…)
+> "De onde a receita é." A produção acha rápido por setor e a Natali organiza as fichas.
+> Migration `20260709000000_receita_categoria` **APLICADA** (coluna `receita.categoria`).
+- **Texto livre com autocomplete** dos setores já usados (mesmo desenho da categoria de
+  insumo) — a casa cria os próprios setores, sem lista fixa. Componente reusável
+  `SetorField` (`receitas/components/setor-field.tsx`) + action `getCategoriasReceita`
+  (sugestões distintas, escopo por loja via RLS).
+- **Onde preenche**: ficha da Natali (campo ao lado de "Tipo"), "Nova Receita" da produção
+  e "Editar modo de fazer" — persistido em `createReceita`/`updateReceita`/
+  `createReceitaCaderno`/`updateModoPreparo`.
+- **Onde aparece / filtra**: pill do setor + filtro "Todos os setores" (só surge quando há
+  ≥1 setor) no catálogo do Caderno e na lista de Fichas; pill também na página da receita
+  (Caderno), na Ficha Técnica (+ subtítulo da impressão) e no Modo Cozinha.
+- Validado E2E com dois papéis: criar/editar setor, autocomplete puxando setor existente
+  entre produção e gestão, filtro, pills — sem vazar custo pro Caderno.
+
 ### Caderno ⇄ Fichas — produção cria receita, Natali precifica (com aviso)
 > Fecha o ciclo dos dois lados: a produção cria a receita no Caderno (com
 > ingredientes ligados ao insumo, sem ver custo) e ela cai automática nas Fichas

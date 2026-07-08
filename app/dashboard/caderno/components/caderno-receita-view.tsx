@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, ChefHat, Pencil, Plus, Trash2, ListChecks, ListOrdered,
-  Clock, Flame, Gauge, Lightbulb, Camera, Loader2, AlertTriangle,
+  Clock, Flame, Gauge, Lightbulb, Camera, Loader2, AlertTriangle, Tag,
 } from 'lucide-react'
 import { ItemModal } from '@/app/dashboard/receitas/components/item-modal'
 import { ModoPreparoModal } from './modo-preparo-modal'
@@ -124,11 +124,18 @@ export function CadernoReceitaView({ receita, itens, podeEditar }: Props) {
           </div>
 
           <div className="min-w-0 flex-1">
-            {receita.revisao_pendente && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 px-2.5 py-0.5 text-[11px] font-medium mb-2">
-                <AlertTriangle size={12} /> Aguardando a Natali precificar
-              </span>
-            )}
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              {receita.categoria?.trim() && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-primary/12 text-accent-primary border border-accent-primary/20 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
+                  <Tag size={11} /> {receita.categoria.trim()}
+                </span>
+              )}
+              {receita.revisao_pendente && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 px-2.5 py-0.5 text-[11px] font-medium">
+                  <AlertTriangle size={12} /> Aguardando a Natali precificar
+                </span>
+              )}
+            </div>
             <h1 className="font-playfair text-primary text-[28px] sm:text-[34px] font-bold leading-tight">{receita.nome}</h1>
             <p className="text-secondary text-sm mt-1">Rende {receita.rendimento} {receita.rendimento_unidade}</p>
 

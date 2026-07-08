@@ -8,6 +8,8 @@ export interface Receita {
   unidade_id: string
   nome: string
   tipo: ReceitaTipo
+  // Setor a que a receita pertence (Confeitaria, Padaria, Salgados…). Texto livre.
+  categoria: string | null
   rendimento: number
   rendimento_unidade: string
   ativo: boolean

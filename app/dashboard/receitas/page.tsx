@@ -14,13 +14,14 @@ export default async function ReceitasPage() {
   // A view de custo não traz foto nem o status de revisão; buscamos à parte.
   const [{ data }, { data: meta }] = await Promise.all([
     query,
-    supabase.from('receita').select('id, foto_url, revisao_pendente').eq('ativo', true),
+    supabase.from('receita').select('id, foto_url, revisao_pendente, categoria').eq('ativo', true),
   ])
-  const metaRows = (meta as { id: string; foto_url: string | null; revisao_pendente: boolean }[]) ?? []
+  const metaRows = (meta as { id: string; foto_url: string | null; revisao_pendente: boolean; categoria: string | null }[]) ?? []
   const fotoPorId = new Map<string, string>(
     metaRows.filter((f) => f.foto_url).map((f) => [f.id, f.foto_url as string])
   )
   const pendentePorId = new Map<string, boolean>(metaRows.map((f) => [f.id, !!f.revisao_pendente]))
+  const categoriaPorId = new Map<string, string | null>(metaRows.map((f) => [f.id, f.categoria]))
 
   type ViewRow = {
     id: string; empresa_id: string; unidade_id: string; nome: string; tipo: ReceitaTipo
@@ -33,6 +34,7 @@ export default async function ReceitasPage() {
     unidade_id: r.unidade_id,
     nome: r.nome,
     tipo: r.tipo,
+    categoria: categoriaPorId.get(r.id) ?? null,
     rendimento: r.rendimento,
     rendimento_unidade: r.rendimento_unidade,
     custo_total: r.custo_total,

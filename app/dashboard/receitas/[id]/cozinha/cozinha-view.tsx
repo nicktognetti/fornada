@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Flame, Gauge, Check, RotateCcw, ListChecks } from 'lucide-react'
+import { ArrowLeft, Clock, Flame, Gauge, Check, RotateCcw, ListChecks, Tag } from 'lucide-react'
 import type { Receita, Dificuldade } from '../../types'
 
 interface Ingrediente {
@@ -79,6 +79,11 @@ export function CozinhaView({ receita, ingredientes, voltarHref, voltarLabel, ac
             className="w-full sm:w-40 h-44 sm:h-40 rounded-2xl object-cover border border-subtle shrink-0" />
         )}
         <div className="min-w-0">
+          {receita.categoria?.trim() && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-primary/12 text-accent-primary border border-accent-primary/20 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide mb-2">
+              <Tag size={11} /> {receita.categoria.trim()}
+            </span>
+          )}
           <h1 className="font-playfair text-primary text-[32px] sm:text-[42px] font-bold leading-tight">
             {receita.nome}
           </h1>

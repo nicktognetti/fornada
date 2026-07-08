@@ -5,6 +5,7 @@ import { X, ChevronDown, Clock, ListOrdered, Lightbulb, Camera, Loader2, Trash2 
 import { useRouter } from 'next/navigation'
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { PassosEditor } from '@/app/dashboard/receitas/components/passos-editor'
+import { SetorField } from '@/app/dashboard/receitas/components/setor-field'
 import { updateModoPreparo, uploadReceitaFoto, removeReceitaFoto } from '@/app/dashboard/receitas/actions'
 import type { Receita } from '@/app/dashboard/receitas/types'
 
@@ -28,6 +29,7 @@ function toInt(v: string): number | null {
 export function ModoPreparoModal({ receita, onClose }: Props) {
   const router = useRouter()
   const [passos, setPassos] = useState<string[]>(receita.passos?.length ? receita.passos : [''])
+  const [categoria, setCategoria] = useState(receita.categoria ?? '')
   const [prep, setPrep] = useState(receita.tempo_preparo_min?.toString() ?? '')
   const [tempC, setTempC] = useState(receita.temperatura_forno?.toString() ?? '')
   const [tempMin, setTempMin] = useState(receita.tempo_forno_min?.toString() ?? '')
@@ -65,6 +67,7 @@ export function ModoPreparoModal({ receita, onClose }: Props) {
     setErro('')
     setSalvando(true)
     const res = await updateModoPreparo(receita.id, {
+      categoria: categoria.trim() || null,
       passos: passos.map((p) => p.trim()).filter(Boolean),
       tempo_preparo_min: toInt(prep),
       temperatura_forno: toInt(tempC),
@@ -119,6 +122,12 @@ export function ModoPreparoModal({ receita, onClose }: Props) {
               )}
             </div>
             <input ref={fotoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onFotoChange} className="hidden" />
+          </div>
+
+          {/* Setor */}
+          <div>
+            <label className="field-label">Setor <span className="normal-case font-normal text-secondary/70">(opcional)</span></label>
+            <SetorField value={categoria} onChange={setCategoria} />
           </div>
 
           {/* Tempos e forno */}
