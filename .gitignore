@@ -46,6 +46,9 @@ _tmp_*
 # planilhas de dados da cliente (repo público — não versionar dados)
 *.xlsx
 
+# anotações com credenciais (token Meta etc.) — NUNCA versionar
+informações agente Whatspp.txt
+
 # vercel
 .vercel
 

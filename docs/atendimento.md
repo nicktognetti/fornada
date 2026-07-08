@@ -128,6 +128,26 @@ específicos). Disponibilidade não informada = o robô diz que "confirma com a 
    das lojas, formas de pagamento, taxa/área de entrega.
 5. 🔲 Dar a permissão `atendimento` pra quem vai operar (Configurações → Permissões).
 
+## Demonstração sem o WhatsApp ligado (para apresentar à cliente)
+
+Enquanto o número real da Meta não está liberado, dá para **semear conversas e
+pedidos fictícios** direto no banco e mostrar o painel funcionando como se o robô
+já estivesse atendendo. Scripts na raiz (gitignored, padrão `_demo_*`):
+
+```
+node _demo_atendimento_seed.mjs      # cria 5 conversas + 4 pedidos + 4 clientes (Morada do Sol)
+node _demo_atendimento_cleanup.mjs   # remove TUDO da demo (rastreado por ID em _demo_atendimento_ids.json)
+```
+
+O roteiro cobre os dois canais e os recursos-chave: delivery com endereço, cliente
+que volta (cumprimentado pelo nome), atendente humano que assumiu a conversa,
+encomenda para retirada com data/horário, pedido multi-itens e preço real do
+catálogo. Os horários são **relativos a agora** (a última mensagem fica ~15 min
+atrás e todos os pedidos caem no "hoje" da aba Pedidos) — rode o seed pouco antes
+de apresentar. ⚠️ Escreve no banco de **produção**: rode a limpeza depois. A
+conversa marcada como "Humano" volta a ser "Robô" ~2h após o seed (comportamento
+real do `pausada_ate`) — rode o seed de novo se a apresentação demorar.
+
 ## Roadmap sugerido (não feito)
 
 - Estruturar endereço (CEP/bairro separados) quando entrar cálculo de taxa por região.

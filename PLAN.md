@@ -1,5 +1,28 @@
 # ERP Fornada — Plano de Desenvolvimento
 
+## ▶ Ponto de retomada (atualizado 08/07/2026)
+
+**Sessão 08/07 — token permanente confirmado + demo de apresentação do robô:**
+- ✅ **Susto do token resolvido:** o arquivo `informações agente Whatspp.txt` (raiz)
+  é anotação ANTIGA (03/07) com token temporário JÁ EXPIRADO. Cheguei a sobrescrever
+  o token bom com ele e **revertí**. Confirmado via `debug_token` da Meta: o
+  `WHATSAPP_TOKEN` em uso é **permanente** (System User, `expires_at: 0`, válido).
+  O txt foi para o `.gitignore` (tem credencial, repo é público). Na dúvida sobre
+  qualquer token: `GET graph.facebook.com/v20.0/debug_token?input_token=X&access_token=X`.
+- ✅ **Demo de apresentação do Atendimento** (sem o WhatsApp real ligado): scripts
+  `_demo_atendimento_seed.mjs` / `_demo_atendimento_cleanup.mjs` (gitignored, `_demo_*`,
+  IDs em `_demo_atendimento_ids.json`). Semeiam 5 conversas + 4 pedidos + 4 clientes na
+  Morada do Sol cobrindo delivery/encomendas, cliente que volta (nome), humano assumindo,
+  multi-itens, endereço e preço real do catálogo. Horários **relativos a agora** (caem no
+  "hoje" da aba Pedidos). Validado no painel pela Natali (aprovado). Guia: seção
+  "Demonstração sem o WhatsApp ligado" em `docs/atendimento.md`. ⚠️ Escreve em PRODUÇÃO —
+  rodar cleanup após apresentar.
+- 🔲 **Go-live segue pendente** (itens abaixo, sessão 06/07): trocar webhook na Meta,
+  `META_APP_SECRET`/`ALERTA_WHATSAPP` na Vercel, número BR real + 2º número (Delivery),
+  dados oficiais no prompt/aba Robô, permissão `atendimento` pra equipe.
+
+---
+
 ## ▶ Ponto de retomada (atualizado 06/07/2026)
 
 **Sessão 06/07 — Módulo Atendimento COMPLETO (Fases 2 e 3 + canais Encomendas × Delivery):**
