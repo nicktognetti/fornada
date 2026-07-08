@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { ChefHat, Search, Clock, ListOrdered, ImageOff } from 'lucide-react'
+import { ChefHat, Search, Clock, ListOrdered } from 'lucide-react'
 import { normalizeSearch } from '@/lib/format'
+import { LogoPlaceholder } from '@/app/components/ui/logo-placeholder'
 import type { Dificuldade } from '@/app/dashboard/receitas/types'
 
 export interface ReceitaCaderno {
@@ -70,12 +71,12 @@ export function CadernoCatalogo({ receitas }: Props) {
                 className="card-surface group overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 flex flex-col"
               >
                 {/* Foto */}
-                <div className="aspect-[4/3] bg-input flex items-center justify-center overflow-hidden">
+                <div className="aspect-[4/3] overflow-hidden">
                   {r.foto_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={r.foto_url} alt={r.nome} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-200" />
                   ) : (
-                    <ImageOff size={26} className="text-secondary/30" />
+                    <LogoPlaceholder className="w-full h-full" />
                   )}
                 </div>
 

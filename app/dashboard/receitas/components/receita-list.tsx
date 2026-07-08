@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react'
 import { Plus, BookOpen, Search, ChevronRight, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { normalizeSearch, formatBRL, formatCustoGrande } from '@/lib/format'
+import { LogoPlaceholder } from '@/app/components/ui/logo-placeholder'
 import type { ReceitaComCusto } from '../types'
 import { ReceitaModal } from './receita-modal'
 
@@ -110,9 +111,7 @@ export function ReceitaList({ receitas }: Props) {
                 <img src={receita.foto_url} alt={receita.nome}
                   className="w-14 h-14 rounded-xl object-cover border border-subtle shrink-0" />
               ) : (
-                <div className="w-14 h-14 rounded-xl bg-input flex items-center justify-center shrink-0">
-                  <BookOpen size={20} className="text-secondary/40" />
-                </div>
+                <LogoPlaceholder className="w-14 h-14 rounded-xl shrink-0" />
               )}
               <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-5">
                 <div className="min-w-0 flex-1">

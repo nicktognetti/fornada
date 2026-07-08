@@ -7,6 +7,14 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Placeholder de imagem com a marca Flor do Trigo
+> Produtos e receitas **sem foto** passam a mostrar o logo da Flor do Trigo esmaecido,
+> no lugar de um ícone genérico — fica com cara de casa.
+- Componente `LogoPlaceholder` (`app/components/ui/logo-placeholder.tsx`): logo claro
+  sobre `bg-input`, opacidade 0.35 (lê como "sem foto ainda", não como se fosse a foto).
+- Aplicado no catálogo do Caderno, lista de Fichas Técnicas, lista de Produtos e no
+  drawer de produto. Validado no preview (logo renderiza nos três lugares).
+
 ### Caderno de Receitas — o "modo de fazer" na Ficha Técnica
 > Pedido da Natali: o caderno de receitas da confeitaria dentro do sistema. A Ficha
 > Técnica (custo) ganhou o lado humano — como fazer, tempos, foto — e uma tela de

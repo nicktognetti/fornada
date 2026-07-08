@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Package, ShoppingBag, BookOpen, ArrowRight, Loader2, Star, Camera, Trash2 } from 'lucide-react'
 import { DetailDrawer } from './ui/detail-drawer'
+import { LogoPlaceholder } from './ui/logo-placeholder'
 import { formatBRL, formatCustoGrande, valorPorGrande, unidadeGrande } from '@/lib/format'
 import { getProdutoDetalhe, type ProdutoDetalhe } from '@/app/actions/painel'
 import {
@@ -245,9 +246,7 @@ export function ProdutoDetalheDrawer({ produtoId, onClose }: Props) {
                     <img src={atd.foto_url} alt={detalhe.nome}
                       className="w-16 h-16 rounded-xl object-cover border border-subtle shrink-0" />
                   ) : (
-                    <div className="w-16 h-16 rounded-xl bg-input flex items-center justify-center shrink-0">
-                      <Camera size={20} className="text-secondary/50" />
-                    </div>
+                    <LogoPlaceholder className="w-16 h-16 rounded-xl shrink-0" />
                   )}
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

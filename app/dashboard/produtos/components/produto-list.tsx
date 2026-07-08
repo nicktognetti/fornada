@@ -8,6 +8,7 @@ import { setProdutoAtendimento, setProdutoCanaisLote, type ProdutoAtendimento } 
 import { NovoProdutoModal, type FichaOpcao } from './novo-produto-modal'
 import { ProdutoDetalheDrawer } from '@/app/components/produto-detalhe-drawer'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
+import { LogoPlaceholder } from '@/app/components/ui/logo-placeholder'
 
 interface Props {
   produtos: ProdutoFinanceiro[]
@@ -241,7 +242,6 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
         <div className="space-y-2">
           {filtered.map((p) => {
             const tipoConf = TIPO_CONFIG[p.produto_tipo] ?? TIPO_CONFIG.produzido
-            const Icon = tipoConf.icon
             const comPreco = p.preco_venda > 0
             const margem = comPreco ? p.margem_percentual : null
             const atd = atdMap[p.produto_id]
@@ -270,10 +270,7 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
                   <img src={atd.foto_url} alt={p.produto_nome}
                     className="w-9 h-9 rounded-xl object-cover shrink-0 border border-subtle" />
                 ) : (
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: 'var(--color-input)' }}>
-                    <Icon size={16} className="text-secondary" />
-                  </div>
+                  <LogoPlaceholder className="w-9 h-9 rounded-xl shrink-0" />
                 )}
 
                 <div className="flex-1 min-w-0">
