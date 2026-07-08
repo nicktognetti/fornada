@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Pencil, Package, ShoppingBag, Search, Plus, Star, ListChecks, Check, Loader2 } from 'lucide-react'
 import { formatBRL, formatCustoGrande, valorPorGrande, unidadeGrande } from '@/lib/format'
 import { setProdutoLocal, type ProdutoFinanceiro } from '@/app/actions/painel'
@@ -33,8 +33,13 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'produzido' | 'revenda'>('todos')
   const [modalOpen, setModalOpen] = useState(false)
   const [detalheId, setDetalheId] = useState<string | null>(null)
-  const [locaisMap, setLocaisMap] = useState<Record<string, string | null>>(localMap)
-  const [atdMap, setAtdMap] = useState<Record<string, ProdutoAtendimento>>(atendimentoMap)
+  // Edições otimistas locais: só o que o usuário mexeu AQUI. O resto segue sempre
+  // os props frescos do server (revalidação). O mapa efetivo é derivado no render —
+  // sem effect de sync (e itens não editados deixam de ficar stale).
+  const [localOverrides, setLocalOverrides] = useState<Record<string, string | null>>({})
+  const [atdOverrides, setAtdOverrides] = useState<Record<string, ProdutoAtendimento>>({})
+  const locaisMap = useMemo(() => ({ ...localMap, ...localOverrides }), [localMap, localOverrides])
+  const atdMap = useMemo(() => ({ ...atendimentoMap, ...atdOverrides }), [atendimentoMap, atdOverrides])
   // Modo "canais em lote": seleciona vários produtos e marca/desmarca
   // Delivery/Encomendas de uma vez (pedido da Natali)
   const [loteMode, setLoteMode] = useState(false)
@@ -42,19 +47,8 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
   const [loteMsg, setLoteMsg] = useState<string | null>(null)
   const [aplicandoLote, setAplicandoLote] = useState(false)
 
-  // Após criar/editar produto, o server revalida e envia um novo localMap. Puxa
-  // os locais de produtos novos sem descartar as edições otimistas já feitas.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLocaisMap((prev) => ({ ...localMap, ...prev }))
-  }, [localMap])
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAtdMap((prev) => ({ ...atendimentoMap, ...prev }))
-  }, [atendimentoMap])
-
   async function mudarLocal(produtoId: string, local: string) {
-    setLocaisMap((m) => ({ ...m, [produtoId]: local || null }))
+    setLocalOverrides((m) => ({ ...m, [produtoId]: local || null }))
     await setProdutoLocal(produtoId, local || null)
   }
 
@@ -63,7 +57,7 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
     const atual = atdMap[produtoId]
     if (!atual || atual.sempre_disponivel) return
     const proximo = atual.disponivel_hoje !== true
-    setAtdMap((m) => ({ ...m, [produtoId]: { ...atual, disponivel_hoje: proximo } }))
+    setAtdOverrides((m) => ({ ...m, [produtoId]: { ...atual, disponivel_hoje: proximo } }))
     await setProdutoAtendimento(produtoId, { disponivel_hoje: proximo })
   }
 
@@ -71,7 +65,7 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
     const atual = atdMap[produtoId]
     if (!atual) return
     const proximo = !atual.sugestao_do_dia
-    setAtdMap((m) => ({ ...m, [produtoId]: { ...atual, sugestao_do_dia: proximo } }))
+    setAtdOverrides((m) => ({ ...m, [produtoId]: { ...atual, sugestao_do_dia: proximo } }))
     await setProdutoAtendimento(produtoId, { sugestao_do_dia: proximo })
   }
 
@@ -80,7 +74,7 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
     const atual = atdMap[produtoId]
     if (!atual) return
     const proximo = !atual[campo]
-    setAtdMap((m) => ({ ...m, [produtoId]: { ...atual, [campo]: proximo } }))
+    setAtdOverrides((m) => ({ ...m, [produtoId]: { ...atual, [campo]: proximo } }))
     await setProdutoAtendimento(produtoId, { [campo]: proximo })
   }
 
@@ -98,9 +92,9 @@ export function ProdutoList({ produtos, unidades, unidadeAtual, receitas, locais
     setAplicandoLote(true)
     setLoteMsg(null)
     const ids = [...selIds]
-    setAtdMap((m) => {
-      const novo = { ...m }
-      for (const id of ids) if (novo[id]) novo[id] = { ...novo[id], ...patch }
+    setAtdOverrides((o) => {
+      const novo = { ...o }
+      for (const id of ids) if (atdMap[id]) novo[id] = { ...atdMap[id], ...patch }
       return novo
     })
     const res = await setProdutoCanaisLote(ids, patch)
