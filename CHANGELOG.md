@@ -25,6 +25,21 @@ Formato: `tipo: descrição — detalhes`
 - Validado E2E no preview: cadastro de passos+tempos+dica salvo e persistido, chips na
   ficha, Modo Cozinha com checklist, upload de foto no bucket e impressão.
 
+### Caderno de Receitas — tela separada da produção (RBAC próprio)
+> Público diferente, porta diferente: **Fichas Técnicas** é da Natali/gestão (custo,
+> margem); **Caderno** é da produção/confeitaria (só o modo de fazer). Mesma receita
+> nos dois — fonte única, sem duplicar dado.
+- **Tela nova `caderno`** (`/dashboard/caderno`) com **permissão própria**: catálogo com
+  fotos + busca. Registrada em `permissions.TELAS`/`TELA_LABEL`, `sidebar` e
+  `proxy.telaParaRota` (guard de rota). Quem tem só `caderno` vê o Caderno e **não** as
+  Fichas (validado: menu só com "Caderno", URL direta a `/receitas` redireciona).
+- **Abrir uma receita** no Caderno → Modo Cozinha (seguir/riscar) + **"Editar modo de
+  fazer"** (passos, tempos, dificuldade, dica e foto — **nunca** nome/ingredientes/custo).
+  Nova action `updateModoPreparo` (permissão `receitas` OU `caderno`); ingredientes
+  seguem da ficha técnica. Editor de passos extraído em `PassosEditor` (reuso ficha+caderno).
+- Validado E2E como usuário de produção (permissão só `caderno`): catálogo, Modo Cozinha,
+  editar modo de fazer salvo e persistido, zero custo em toda a jornada.
+
 ### Produtos — valores (custo/preço/margem) só para quem pode ver
 > A pessoa da operação (tem/acabou, foto, canais do robô) trabalha na tela de Produtos
 > **sem ver números** — mesmo padrão do podeVerValores das Encomendas.

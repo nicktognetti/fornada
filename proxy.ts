@@ -14,6 +14,7 @@ function telaParaRota(pathname: string): string | null {
     resumo: 'resumo',
     insumos: 'insumos',
     receitas: 'receitas',
+    caderno: 'caderno',
     precos: 'precos',
     produtos: 'produtos',
     painel: 'painel',

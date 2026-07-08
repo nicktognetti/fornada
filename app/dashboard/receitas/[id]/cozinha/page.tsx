@@ -29,5 +29,12 @@ export default async function CozinhaPage({ params }: Props) {
     unidade: i.unidade,
   }))
 
-  return <CozinhaView receita={receita} ingredientes={ingredientes} />
+  return (
+    <CozinhaView
+      receita={receita}
+      ingredientes={ingredientes}
+      voltarHref={`/dashboard/receitas/${id}`}
+      voltarLabel="Voltar à ficha"
+    />
+  )
 }

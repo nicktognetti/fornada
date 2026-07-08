@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import {
   X, Menu, LayoutDashboard, Package, BookOpen, Tag,
-  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box, FileText, ClipboardList, Users, HelpCircle, MessageCircle,
+  BarChart3, Calculator, ArrowLeftRight, PackageCheck, LayoutGrid, Shield, Box, FileText, ClipboardList, Users, HelpCircle, MessageCircle, ChefHat,
 } from 'lucide-react'
 import { NavLink } from './nav-link'
 import { logout } from '@/app/login/actions'
@@ -48,6 +48,7 @@ const NAV_GROUPS: { href: string; icon: typeof LayoutDashboard; label: string; t
   ],
   [
     { href: '/dashboard/receitas',                icon: BookOpen,        label: 'Fichas',         tela: 'receitas'       },
+    { href: '/dashboard/caderno',                 icon: ChefHat,         label: 'Caderno',        tela: 'caderno'        },
     { href: '/dashboard/insumos',                 icon: Package,         label: 'Insumos',        tela: 'insumos'        },
     { href: '/dashboard/produtos',                icon: Box,             label: 'Produtos',       tela: 'produtos'       },
     { href: '/dashboard/precos',                  icon: Tag,             label: 'Preços',         tela: 'precos'         },

@@ -1,10 +1,11 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { X, ChevronDown, Pencil, Clock, ListOrdered, Plus, Trash2, ChevronUp, Lightbulb } from 'lucide-react'
+import { X, ChevronDown, Pencil, Clock, ListOrdered, Lightbulb } from 'lucide-react'
 import { createReceita, updateReceita } from '../actions'
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { UnidadeMedidaSelector } from '@/app/components/ui/unidade-medida-selector'
+import { PassosEditor } from './passos-editor'
 import type { ActionResult, Receita } from '../types'
 
 interface Props {
@@ -48,25 +49,6 @@ export function ReceitaModal({ receita, onClose }: Props) {
 
   // Passos do modo de preparo — editados como lista e enviados como JSON.
   const [passos, setPassos] = useState<string[]>(receita?.passos?.length ? receita.passos : [''])
-
-  function setPasso(i: number, v: string) {
-    setPassos((p) => p.map((s, idx) => (idx === i ? v : s)))
-  }
-  function addPasso() {
-    setPassos((p) => [...p, ''])
-  }
-  function removePasso(i: number) {
-    setPassos((p) => (p.length === 1 ? [''] : p.filter((_, idx) => idx !== i)))
-  }
-  function moverPasso(i: number, dir: -1 | 1) {
-    setPassos((p) => {
-      const j = i + dir
-      if (j < 0 || j >= p.length) return p
-      const next = [...p]
-      ;[next[i], next[j]] = [next[j], next[i]]
-      return next
-    })
-  }
 
   const passosJson = JSON.stringify(passos.map((s) => s.trim()).filter(Boolean))
 
@@ -186,38 +168,7 @@ export function ReceitaModal({ receita, onClose }: Props) {
             {/* ── Modo de preparo (passos) ── */}
             <div className="space-y-3 pt-1">
               <SectionLabel icon={ListOrdered}>Modo de preparo</SectionLabel>
-
-              <div className="space-y-2">
-                {passos.map((passo, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <div className="shrink-0 w-7 h-7 mt-1 rounded-full bg-accent-primary/15 text-accent-primary flex items-center justify-center text-sm font-semibold tabular-nums">
-                      {i + 1}
-                    </div>
-                    <textarea
-                      value={passo}
-                      onChange={(e) => setPasso(i, e.target.value)}
-                      placeholder={`Passo ${i + 1} — o que fazer…`}
-                      rows={2}
-                      className="input-field resize-none flex-1"
-                    />
-                    <div className="flex flex-col gap-1 shrink-0 mt-0.5">
-                      <button type="button" onClick={() => moverPasso(i, -1)} disabled={i === 0}
-                        className="w-7 h-6 rounded-md flex items-center justify-center text-secondary hover:text-accent-primary hover:bg-accent-primary/10 disabled:opacity-30 disabled:hover:bg-transparent transition-all" aria-label="Subir passo">
-                        <ChevronUp size={14} />
-                      </button>
-                      <button type="button" onClick={() => removePasso(i)}
-                        className="w-7 h-6 rounded-md flex items-center justify-center text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all" aria-label="Remover passo">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button type="button" onClick={addPasso} className="btn-ghost text-xs px-3 py-2 min-h-[36px]">
-                <Plus size={13} />
-                Adicionar passo
-              </button>
+              <PassosEditor passos={passos} onChange={setPassos} />
             </div>
 
             {/* ── Dica / segredo ── */}

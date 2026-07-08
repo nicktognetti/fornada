@@ -191,6 +191,8 @@ export async function updateReceita(
 
   revalidatePath('/dashboard/receitas')
   revalidatePath(`/dashboard/receitas/${id}`)
+  revalidatePath('/dashboard/caderno')
+  revalidatePath(`/dashboard/caderno/${id}`)
   return { success: true }
 }
 
@@ -484,8 +486,8 @@ export async function uploadReceitaFoto(
 
   const rec = await getReceitaReal(receitaId)
   if (!rec) return { error: 'Receita não encontrada' }
-  if (!(await temAcesso(user.id, ['receitas'], { unidadeId: rec.unidade_id })))
-    return { error: 'Sem permissão para alterar fichas nesta loja' }
+  if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId: rec.unidade_id })))
+    return { error: 'Sem permissão para alterar esta receita nesta loja' }
 
   // Timestamp no nome: evita cache velho no navegador ao trocar a foto.
   const path = `${rec.empresa_id}/${receitaId}-${Date.now()}.${ext}`
@@ -503,7 +505,7 @@ export async function uploadReceitaFoto(
   const antiga = pathDaFotoUrl(rec.foto_url)
   if (antiga && antiga !== path) await supabaseAdmin.storage.from(BUCKET_FOTOS).remove([antiga])
 
-  revalidatePath(`/dashboard/receitas/${receitaId}`)
+  revalidarReceita(receitaId)
   return { data: { foto_url: publicUrl } }
 }
 
@@ -514,8 +516,8 @@ export async function removeReceitaFoto(receitaId: string): Promise<ActionResult
 
   const rec = await getReceitaReal(receitaId)
   if (!rec) return { error: 'Receita não encontrada' }
-  if (!(await temAcesso(user.id, ['receitas'], { unidadeId: rec.unidade_id })))
-    return { error: 'Sem permissão para alterar fichas nesta loja' }
+  if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId: rec.unidade_id })))
+    return { error: 'Sem permissão para alterar esta receita nesta loja' }
 
   const { error } = await supabase.from('receita').update({ foto_url: null }).eq('id', receitaId)
   if (error) return { error: error.message }
@@ -523,6 +525,60 @@ export async function removeReceitaFoto(receitaId: string): Promise<ActionResult
   const path = pathDaFotoUrl(rec.foto_url)
   if (path) await supabaseAdmin.storage.from(BUCKET_FOTOS).remove([path])
 
+  revalidarReceita(receitaId)
+  return { success: true }
+}
+
+// Revalida todas as telas que mostram uma receita: ficha (Natali) + caderno (produção).
+function revalidarReceita(receitaId: string) {
   revalidatePath(`/dashboard/receitas/${receitaId}`)
+  revalidatePath('/dashboard/caderno')
+  revalidatePath(`/dashboard/caderno/${receitaId}`)
+}
+
+// ─── Editar SÓ o modo de fazer (Caderno de Receitas) ──────────────────────────
+// Produção/confeitaria edita passos, tempos, dificuldade, dica e (via foto action)
+// a foto — NUNCA nome/tipo/rendimento/ingredientes/custo (isso é da Ficha Técnica).
+export async function updateModoPreparo(
+  receitaId: string,
+  payload: {
+    passos: string[]
+    tempo_preparo_min: number | null
+    temperatura_forno: number | null
+    tempo_forno_min: number | null
+    dificuldade: 'facil' | 'media' | 'dificil' | null
+    observacao: string | null
+  },
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!receitaId) return { error: 'Receita não informada' }
+
+  const unidadeId = await unidadeDoRegistro('receita', receitaId)
+  if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
+    return { error: 'Sem permissão para editar receitas nesta loja' }
+
+  const passos = Array.isArray(payload.passos)
+    ? payload.passos.filter((p): p is string => typeof p === 'string').map((p) => p.trim().slice(0, 1000)).filter(Boolean)
+    : []
+  const posInt = (n: number | null) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.round(n) : null)
+  const dif = (['facil', 'media', 'dificil'] as const).includes(payload.dificuldade as 'facil' | 'media' | 'dificil')
+    ? payload.dificuldade
+    : null
+  const obs = typeof payload.observacao === 'string' && payload.observacao.trim() ? payload.observacao.trim().slice(0, 2000) : null
+
+  const { error } = await supabase.from('receita').update({
+    passos,
+    tempo_preparo_min: posInt(payload.tempo_preparo_min),
+    temperatura_forno: posInt(payload.temperatura_forno),
+    tempo_forno_min: posInt(payload.tempo_forno_min),
+    dificuldade: dif,
+    observacao: obs,
+  }).eq('id', receitaId)
+
+  if (error) return { error: 'Erro ao salvar: ' + error.message }
+
+  revalidarReceita(receitaId)
   return { success: true }
 }

@@ -15,11 +15,14 @@ interface Ingrediente {
 interface Props {
   receita: Receita
   ingredientes: Ingrediente[]
+  voltarHref: string
+  voltarLabel: string
+  acaoExtra?: React.ReactNode
 }
 
 const DIFICULDADE_LABEL: Record<Dificuldade, string> = { facil: 'Fácil', media: 'Média', dificil: 'Difícil' }
 
-export function CozinhaView({ receita, ingredientes }: Props) {
+export function CozinhaView({ receita, ingredientes, voltarHref, voltarLabel, acaoExtra }: Props) {
   const passos = receita.passos ?? []
   const [ingMarcados, setIngMarcados] = useState<Set<string>>(new Set())
   const [passosFeitos, setPassosFeitos] = useState<Set<number>>(new Set())
@@ -53,16 +56,19 @@ export function CozinhaView({ receita, ingredientes }: Props) {
       {/* Barra superior */}
       <div className="flex items-center justify-between gap-3 mb-5">
         <Link
-          href={`/dashboard/receitas/${receita.id}`}
+          href={voltarHref}
           className="inline-flex items-center gap-1.5 text-secondary hover:text-accent-primary text-sm transition-all hover:-translate-x-0.5"
         >
           <ArrowLeft size={16} />
-          Voltar à ficha
+          {voltarLabel}
         </Link>
-        <button onClick={limpar} className="btn-ghost text-xs px-3 py-2 min-h-[36px]">
-          <RotateCcw size={13} />
-          Recomeçar
-        </button>
+        <div className="flex items-center gap-2">
+          {acaoExtra}
+          <button onClick={limpar} className="btn-ghost text-xs px-3 py-2 min-h-[36px]">
+            <RotateCcw size={13} />
+            Recomeçar
+          </button>
+        </div>
       </div>
 
       {/* Cabeçalho da receita */}

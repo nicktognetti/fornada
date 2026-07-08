@@ -13,8 +13,17 @@
   (`receitas/[id]/cozinha`) — tela de bancada, checklist de ingredientes/passos, **sem custo**.
   Miniatura da foto na listagem. Upload espelha `produto-atendimento.ts`.
 - ✅ Validado E2E no preview (tsc/lint limpos; salvar/persistir/cozinha/foto/impressão OK).
-- 🔲 **Não commitado ainda / não deployado** — falta `git push` (que auto-deploya; o banco de
-  produção já tem as colunas). Sugestão de próximo passo: mostrar pra Natali no ar.
+- ✅ **Separação Fichas × Caderno (pedido do Nicholas):** tela nova `caderno` com **RBAC
+  próprio** — Fichas Técnicas = Natali/gestão (custo); Caderno = produção/confeitaria (só
+  modo de fazer, zero custo). Catálogo com fotos + busca (`/dashboard/caderno`), detalhe
+  abre Modo Cozinha + "Editar modo de fazer" (`updateModoPreparo`, permissão `receitas` OU
+  `caderno`; ingredientes seguem da ficha). Mesma receita, fonte única. Registrado em
+  `permissions.TELAS`/`sidebar`/`proxy`. Validado E2E com usuário só-`caderno` (menu isolado,
+  guard barra `/receitas`, editar persiste). **Sem migration** (permissão é dado — Natali
+  concede a nova tela em Configurações).
+- 🔲 **Não deployado ainda** — commits locais no `master`, falta `git push` (auto-deploya; o
+  banco de produção já tem as colunas). Ao pôr no ar: **Natali concede a tela "Caderno de
+  Receitas"** aos usuários da produção/confeitaria em Configurações → Permissões.
 
 **Sessão 08/07 — token permanente confirmado + demo de apresentação do robô:**
 - ✅ **Susto do token resolvido:** o arquivo `informações agente Whatspp.txt` (raiz)
