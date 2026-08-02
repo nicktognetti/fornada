@@ -31,6 +31,8 @@ export type EncomendaEdicao = {
   data_entrega: string
   hora_entrega: string | null
   rastrear_status: boolean
+  /** false = encomenda anotada pelo robô, ainda sem preço definido. */
+  com_valor: boolean
   observacao: string | null
   itens: { produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; observacao: string | null; local: string | null }[]
 }
@@ -103,22 +105,34 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produ
     [linhas],
   )
 
+  // Encomenda nova sempre nasce com valor. Na edição, mantém o estado atual —
+  // a que veio do robô fica "valor em aberto" e só vira COM valor quando a
+  // equipe preenche o preço de todos os itens.
+  const comValor = useMemo(() => {
+    if (!edicao || edicao.com_valor) return true
+    return linhas.length > 0 && linhas.every((l) => parseDecimalBR(l.preco) > 0)
+  }, [edicao, linhas])
+
   async function salvar() {
     if (!cliente.trim()) { setErro('Informe o cliente'); return }
     if (!data) { setErro('Informe a data de entrega'); return }
     if (!hora) { setErro('Informe a hora de entrega'); return }
     if (linhas.length === 0) { setErro('Adicione ao menos um item'); return }
-    // Cada item precisa de descrição (avulso), quantidade e valor > 0.
+    // Cada item precisa de descrição (avulso) e quantidade. O valor só é
+    // exigido em encomenda COM valor: a que veio do robô fica "em aberto" até
+    // a equipe precificar — exigir preço aqui travava até uma troca de horário.
     for (const l of linhas) {
       const nomeItem = (l.produto_id === null ? l.descricao : l.descricao).trim()
       if (l.produto_id === null && !nomeItem) { setErro('Descreva o item avulso antes de salvar'); return }
       const q = parseDecimalBR(l.quantidade)
       if (!q || q <= 0) { setErro(`Informe a quantidade de "${nomeItem || 'item'}"`); return }
-      const p = parseDecimalBR(l.preco)
-      if (!p || p <= 0) { setErro(`Informe o valor de "${nomeItem || 'item avulso'}" (não pode ficar em R$ 0,00)`); return }
+      if (comValor) {
+        const p = parseDecimalBR(l.preco)
+        if (!p || p <= 0) { setErro(`Informe o valor de "${nomeItem || 'item avulso'}" (não pode ficar em R$ 0,00)`); return }
+      }
     }
     setSaving(true); setErro(null)
-    const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: true, rastrear_status: rastrear, observacao: obs }
+    const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: comValor, rastrear_status: rastrear, observacao: obs }
     const itens = linhas.map((l) => ({
       produto_id: l.produto_id, descricao: l.descricao,
       quantidade: parseDecimalBR(l.quantidade), preco_unitario: parseDecimalBR(l.preco) || 0, observacao: l.obs, local: l.local,

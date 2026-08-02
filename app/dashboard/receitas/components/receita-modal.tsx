@@ -14,13 +14,14 @@ interface Props {
   onClose: () => void
 }
 
+// Só existem dois tipos de verdade: é o que o banco aceita
+// (CHECK tipo IN ('final','base')) e o que o cálculo de custo entende.
+// O select também oferecia massa/recheio/cobertura/calda — escolher qualquer
+// um deles tornava IMPOSSÍVEL salvar a ficha (erro cru de enum). Para
+// classificar (Massa, Recheio…), o campo certo é a categoria/setor.
 const TIPOS = [
   { value: 'final', label: 'Final — produto de venda' },
-  { value: 'base', label: 'Base — sub-receita / preparação' },
-  { value: 'massa', label: 'Massa' },
-  { value: 'recheio', label: 'Recheio' },
-  { value: 'cobertura', label: 'Cobertura' },
-  { value: 'calda', label: 'Calda' },
+  { value: 'base', label: 'Base — sub-receita (massa, recheio, cobertura, calda…)' },
 ]
 
 const UNIDADES_RECEITA = [

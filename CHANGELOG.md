@@ -7,6 +7,44 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Hardening Lote 3 — consistência dos pedidos (APLICADO em produção 02/08)
+> Ref: `AUDITORIA_FORNADA_v3.md` §3 (P1-6), §4 (P2-1/2/8/9/11/12) e §8 (Lote 3).
+> Migration `20260802020000_edicao_pedido_transacional.sql`.
+> Verificado: 4/4 probes no banco vivo (incluindo teste de rollback real),
+> 113 testes (7 novos), lint e build limpos.
+- **Edição de pedido virou transação** (`atualizar_orcamento_com_itens` /
+  `atualizar_encomenda_com_itens`): eram 3 chamadas soltas (UPDATE do cabeçalho →
+  DELETE dos itens → INSERT dos novos). Falha no INSERT deixava o pedido **com total e
+  ZERO itens** — e a comanda saía vazia para a produção. As funções são `SECURITY INVOKER`,
+  então a RLS por loja do usuário continua valendo (não há checagem duplicada de posse).
+  Probe confirmou o rollback: erro nos itens preserva cabeçalho e itens antigos.
+- **Escopo por LOJA nas mutações** (orçamento: editar/status/excluir; encomenda:
+  editar/status/excluir; cliente: editar/excluir; `setProdutoLocal`): `temAcesso` era
+  chamado **sem `unidadeId`**, então quem tinha a tela na loja A e vínculo na loja B
+  editava/excluía registros da B. Agora a unidade vem do próprio registro.
+- **`linkProdutoReceita` tinha ZERO checagem** além de estar logado: qualquer usuário
+  vinculado à loja reapontava produto→ficha, mudando tipo, custo e preço no painel.
+  Agora exige `painel`/`precos`/`produtos` na loja do produto + ficha da mesma empresa.
+- **Itens inválidos não somem mais em silêncio**: linha com quantidade vazia (NaN) era
+  **filtrada** e o pedido salvava sem ela, com total menor e sem aviso — só se descobria
+  quando o cliente reclamava. Agora cada linha inválida devolve erro dizendo qual é.
+- **Encomenda do robô voltou a ser editável**: `atualizarEncomenda` forçava
+  `com_valor: true`, e o formulário exigia preço > 0 em todos os itens — não dava para
+  corrigir a hora de entrega sem precificar tudo. Agora o estado é preservado e a
+  encomenda "em aberto" só vira COM valor quando a equipe preenche todos os preços.
+- **Transição de status com guarda otimista**: dois cliques quase simultâneos gravavam
+  histórico fora de ordem (timeline com duração negativa). O UPDATE agora exige o status
+  lido, e falha de gravação do histórico deixa de ser engolida.
+- **Datas no fuso da padaria** (`FUSO_PADARIA`, `diaBR`, `hojeBR`, `formatData` em
+  `lib/format.ts`): o servidor roda em UTC, então "hoje" virava 3h antes da meia-noite
+  daqui — orçamento vencendo hoje aparecia **expirado a partir das 21h**, orçamento criado
+  às 22h contava validade do dia seguinte, e o filtro "De/Até" deslocava um dia. Cópias
+  locais de `formatData` no módulo de orçamentos foram substituídas pela central.
+- **Tipos de ficha impossíveis removidos**: o modal oferecia "Massa/Recheio/Cobertura/Calda",
+  mas o Zod e o CHECK do banco só aceitam `final`/`base` — escolher qualquer um deles
+  tornava **impossível salvar** a ficha (erro cru de enum). Para classificar, o campo é a
+  categoria/setor.
+
 ### Hardening Lote 2 — atendimento WhatsApp robusto (APLICADO em produção 02/08)
 > Ref: `AUDITORIA_FORNADA_v3.md` §3 (P1-7), §4 (P2-15/16) e §8 (Lote 2).
 > Migration `20260802010000_atendimento_dedup_webhook.sql` + mudanças no fluxo do robô.

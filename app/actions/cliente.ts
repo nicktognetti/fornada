@@ -114,7 +114,13 @@ export async function atualizarCliente(id: string, dados: ClienteInput): Promise
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   if (!dados.nome.trim()) return { error: 'Informe o nome do cliente' }
-  if (!(await temAcesso(user.id, ['clientes']))) return { error: 'Sem permissão' }
+
+  // Escopo por LOJA: sem a unidade do registro, quem tem a tela na loja A
+  // conseguia editar cliente da loja B (a RLS enxerga as duas).
+  const { data: atual } = await supabase.from('cliente').select('unidade_id').eq('id', id).maybeSingle()
+  if (!atual) return { error: 'Cliente não encontrado' }
+  if (!(await temAcesso(user.id, ['clientes'], { unidadeId: atual.unidade_id as string })))
+    return { error: 'Sem permissão para editar clientes desta loja' }
 
   const { error } = await supabase.from('cliente').update(limpar(dados)).eq('id', id)
   if (error) {
@@ -130,7 +136,12 @@ export async function excluirCliente(id: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['clientes']))) return { error: 'Sem permissão' }
+
+  const { data: atual } = await supabase.from('cliente').select('unidade_id').eq('id', id).maybeSingle()
+  if (!atual) return { error: 'Cliente não encontrado' }
+  if (!(await temAcesso(user.id, ['clientes'], { unidadeId: atual.unidade_id as string })))
+    return { error: 'Sem permissão para excluir clientes desta loja' }
+
   const { error } = await supabase.from('cliente').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/clientes')

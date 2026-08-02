@@ -4,15 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Trash2, CheckCircle2, XCircle, Clock, Loader2, Pencil } from 'lucide-react'
-import { formatBRL } from '@/lib/format'
+import { formatBRL, formatData } from '@/lib/format'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 import { excluirOrcamento, atualizarStatusOrcamento, type OrcamentoDetalhe, type OrcamentoStatus } from '@/app/actions/orcamento'
 import { StatusBadgeOrcamento } from '../components/status-badge-orcamento'
 import { statusExibicao } from '@/lib/orcamento-status'
-
-function formatData(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
 
 export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe }) {
   const router = useRouter()

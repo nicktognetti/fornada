@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseDecimalBR, formatBRL, formatCustoUso, unidadeGrande, fatorGrande, valorPorGrande, formatCustoGrande } from './format'
+import { parseDecimalBR, formatBRL, formatCustoUso, unidadeGrande, fatorGrande, valorPorGrande, formatCustoGrande, diaBR, formatData } from './format'
 
 describe('parseDecimalBR', () => {
   describe('casos exigidos', () => {
@@ -160,5 +160,35 @@ describe('unidade grande (por kg/L)', () => {
 
   it('formatCustoGrande é seguro com NaN', () => {
     expect(formatCustoGrande(NaN, 'g')).toBe('R$ 0,00/kg')
+  })
+})
+
+describe('datas no fuso da padaria', () => {
+  it('22h de Brasília ainda é o MESMO dia (em UTC já seria o seguinte)', () => {
+    // 2026-07-01 22:00 BRT = 2026-07-02 01:00 UTC
+    expect(diaBR('2026-07-02T01:00:00Z')).toBe('2026-07-01')
+  })
+
+  it('madrugada de Brasília é o dia corrente', () => {
+    // 2026-07-02 00:30 BRT = 2026-07-02 03:30 UTC
+    expect(diaBR('2026-07-02T03:30:00Z')).toBe('2026-07-02')
+  })
+
+  it('data inválida devolve string vazia', () => {
+    expect(diaBR('nao-e-data')).toBe('')
+  })
+
+  it('formatData: YYYY-MM-DD puro não recua um dia', () => {
+    // Data de calendário (entrega) não passa por fuso nenhum.
+    expect(formatData('2026-07-01')).toBe('01/07/2026')
+  })
+
+  it('formatData: timestamp usa o dia local', () => {
+    expect(formatData('2026-07-02T01:00:00Z')).toBe('01/07/2026')
+  })
+
+  it('formatData: vazio vira travessão', () => {
+    expect(formatData(null)).toBe('—')
+    expect(formatData('')).toBe('—')
   })
 })

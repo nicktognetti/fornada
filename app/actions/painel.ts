@@ -535,7 +535,11 @@ export async function setProdutoLocal(produtoId: string, local: string | null): 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['produtos']))) return { error: 'Sem permissão' }
+
+  const { data: prod } = await supabase.from('produto').select('unidade_id').eq('id', produtoId).maybeSingle()
+  if (!prod) return { error: 'Produto não encontrado' }
+  if (!(await temAcesso(user.id, ['produtos'], { unidadeId: prod.unidade_id as string })))
+    return { error: 'Sem permissão para alterar produtos desta loja' }
 
   const { error } = await supabase.from('produto').update({ local: local?.trim() || null }).eq('id', produtoId)
   if (error) return { error: error.message }
@@ -552,6 +556,21 @@ export async function linkProdutoReceita(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+
+  // Só checava autenticação: qualquer usuário vinculado à loja (mesmo sem
+  // acesso a produtos) reapontava produto→ficha, mudando tipo, custo e preço
+  // exibidos no painel. Mesma regra do createProdutoFabricado.
+  const { data: prod } = await supabase
+    .from('produto').select('unidade_id, empresa_id').eq('id', produtoId).maybeSingle()
+  if (!prod) return { error: 'Produto não encontrado' }
+  if (!(await temAcesso(user.id, ['painel', 'precos', 'produtos'], { unidadeId: prod.unidade_id as string })))
+    return { error: 'Sem permissão para alterar produtos desta loja' }
+
+  // A ficha precisa ser da mesma empresa do produto.
+  const { data: receita } = await supabase
+    .from('receita').select('empresa_id').eq('id', receitaId).maybeSingle()
+  if (!receita || receita.empresa_id !== prod.empresa_id)
+    return { error: 'Ficha técnica não encontrada' }
 
   const { error } = await supabase
     .from('produto')

@@ -128,3 +128,40 @@ export function normalizeSearch(text: string): string {
     .toLowerCase()
     .trim()
 }
+
+// ── Datas no fuso da padaria ────────────────────────────────────────────────
+// O servidor roda em UTC. Usar `toISOString()` para descobrir "que dia é hoje"
+// vira o dia 3h antes da meia-noite daqui: um pedido feito às 22h de 01/07
+// contava como 02/07, e um orçamento vencendo hoje aparecia como expirado a
+// partir das 21h. Todo cálculo de DIA passa por aqui.
+
+export const FUSO_PADARIA = 'America/Sao_Paulo'
+
+/** Dia (YYYY-MM-DD) de um instante, no fuso da padaria. */
+export function diaBR(data: Date | string): string {
+  const d = typeof data === 'string' ? new Date(data) : data
+  if (isNaN(d.getTime())) return ''
+  // 'sv' (sueco) formata como YYYY-MM-DD, que é o formato que o banco usa.
+  return d.toLocaleDateString('sv', { timeZone: FUSO_PADARIA })
+}
+
+/** Hoje (YYYY-MM-DD) no fuso da padaria. */
+export function hojeBR(): string {
+  return diaBR(new Date())
+}
+
+/** Data para exibição: 'YYYY-MM-DD' ou ISO → 'DD/MM/AAAA'. */
+export function formatData(data: string | null | undefined): string {
+  if (!data) return '—'
+  // 'YYYY-MM-DD' puro é data de calendário (sem hora): formata direto, sem
+  // passar por Date — senão o parse como UTC recua um dia no nosso fuso.
+  const soData = /^\d{4}-\d{2}-\d{2}$/.exec(data)
+  if (soData) {
+    const [ano, mes, dia] = data.split('-')
+    return `${dia}/${mes}/${ano}`
+  }
+  const dia = diaBR(data)
+  if (!dia) return '—'
+  const [ano, mes, d] = dia.split('-')
+  return `${d}/${mes}/${ano}`
+}

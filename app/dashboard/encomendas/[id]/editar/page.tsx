@@ -26,6 +26,9 @@ export default async function EditarEncomendaPage({ params }: { params: Promise<
     data_entrega: e.data_entrega,
     hora_entrega: e.hora_entrega,
     rastrear_status: e.rastrear_status,
+    // Encomenda do robô nasce sem valor: o builder não exige preço nos itens
+    // (senão não dava para corrigir a hora de entrega sem precificar tudo).
+    com_valor: e.com_valor,
     observacao: e.observacao,
     itens: e.itens.map((it) => ({
       produto_id: it.produto_id,

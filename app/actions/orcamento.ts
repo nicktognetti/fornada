@@ -65,6 +65,29 @@ async function getUnidadeEscrita(supabase: Awaited<ReturnType<typeof createClien
   return data?.id ?? null
 }
 
+type ItemCalculado = OrcamentoItemInput & { subtotal: number }
+
+/**
+ * Valida os itens do pedido. Antes as linhas inválidas eram simplesmente
+ * FILTRADAS: apagar a quantidade de uma linha (campo vazio → NaN) salvava o
+ * orçamento sem aquele item, com total menor e sem aviso nenhum — só se
+ * descobria quando o cliente reclamava. Agora linha inválida é erro.
+ */
+function validarItens(itens: OrcamentoItemInput[]): { itens: ItemCalculado[] } | { error: string } {
+  for (const [i, item] of itens.entries()) {
+    const linha = `Item ${i + 1}${item.descricao?.trim() ? ` (${item.descricao.trim()})` : ''}`
+    if (!item.descricao?.trim()) return { error: `${linha}: informe a descrição` }
+    if (!Number.isFinite(item.quantidade) || item.quantidade <= 0)
+      return { error: `${linha}: informe uma quantidade maior que zero` }
+    if (!Number.isFinite(item.preco_unitario) || item.preco_unitario < 0)
+      return { error: `${linha}: preço inválido` }
+  }
+  if (itens.length === 0) return { error: 'Adicione ao menos um item' }
+  return {
+    itens: itens.map((i) => ({ ...i, subtotal: subtotalItem(i.quantidade, i.preco_unitario) })),
+  }
+}
+
 // ── Produtos para montar o orçamento (com preço de venda como base) ─────────────
 export async function getProdutosParaOrcamento(): Promise<ProdutoOrcamento[]> {
   const unidadeId = await getUnidadePreferida()
@@ -106,10 +129,9 @@ export async function criarOrcamento(
   if (!(await temAcesso(user.id, ['orcamento'], { unidadeId })))
     return { error: 'Sem permissão para criar orçamentos nesta unidade' }
 
-  const itensCalc = itens
-    .filter((i) => i.quantidade > 0 && i.preco_unitario >= 0 && i.descricao.trim())
-    .map((i) => ({ ...i, subtotal: subtotalItem(i.quantidade, i.preco_unitario) }))
-  if (itensCalc.length === 0) return { error: 'Nenhum item válido' }
+  const validados = validarItens(itens)
+  if ('error' in validados) return { error: validados.error }
+  const itensCalc = validados.itens
   const total = totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
 
   const { data: orc, error: e1 } = await supabase
@@ -151,36 +173,39 @@ export async function atualizarOrcamento(
   if (!user) return { error: 'Não autenticado' }
   if (!dados.cliente_nome.trim()) return { error: 'Informe o nome do cliente' }
   if (itens.length === 0) return { error: 'Adicione ao menos um item' }
-  if (!(await temAcesso(user.id, ['orcamento']))) return { error: 'Sem permissão' }
 
   const { data: atual } = await supabase.from('orcamento').select('empresa_id, unidade_id').eq('id', id).maybeSingle()
   if (!atual) return { error: 'Orçamento não encontrado' }
 
-  const itensCalc = itens
-    .filter((i) => i.quantidade > 0 && i.preco_unitario >= 0 && i.descricao.trim())
-    .map((i) => ({ ...i, subtotal: subtotalItem(i.quantidade, i.preco_unitario) }))
-  if (itensCalc.length === 0) return { error: 'Nenhum item válido' }
-  const total = totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
+  // Escopo por LOJA: sem a unidade do registro, quem tem a tela na loja A
+  // conseguia editar orçamento da loja B (a RLS enxerga as duas).
+  if (!(await temAcesso(user.id, ['orcamento'], { unidadeId: atual.unidade_id as string })))
+    return { error: 'Sem permissão para editar orçamentos desta loja' }
 
-  const { error: e1 } = await supabase.from('orcamento').update({
-    cliente_nome: dados.cliente_nome.trim(),
-    cliente_contato: dados.cliente_contato?.trim() || null,
-    validade_dias: dados.validade_dias,
-    observacao: dados.observacao?.trim() || null,
-    total,
-  }).eq('id', id)
-  if (e1) return { error: 'Erro ao salvar: ' + e1.message }
+  const itensCalc = validarItens(itens)
+  if ('error' in itensCalc) return { error: itensCalc.error }
+  const total = totalPedido(itensCalc.itens.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
 
-  const { error: eDel } = await supabase.from('orcamento_item').delete().eq('orcamento_id', id)
-  if (eDel) return { error: 'Erro ao atualizar itens: ' + eDel.message }
-  const { error: e2 } = await supabase.from('orcamento_item').insert(
-    itensCalc.map((i) => ({
-      orcamento_id: id, produto_id: i.produto_id,
-      descricao: i.descricao.trim(), quantidade: i.quantidade,
-      preco_unitario: i.preco_unitario, subtotal: i.subtotal,
-    }))
-  )
-  if (e2) return { error: 'Erro ao gravar itens: ' + e2.message }
+  // Uma transação só: cabeçalho + troca de itens. Antes eram 3 chamadas e a
+  // falha na última deixava o orçamento com total e SEM itens.
+  const { data: res, error: eRpc } = await supabase.rpc('atualizar_orcamento_com_itens', {
+    p_id: id,
+    p_cliente_nome: dados.cliente_nome.trim(),
+    p_cliente_contato: dados.cliente_contato?.trim() || null,
+    p_validade_dias: dados.validade_dias,
+    p_observacao: dados.observacao?.trim() || null,
+    p_total: total,
+    p_itens: itensCalc.itens.map((i) => ({
+      produto_id: i.produto_id,
+      descricao: i.descricao.trim(),
+      quantidade: i.quantidade,
+      preco_unitario: i.preco_unitario,
+      subtotal: i.subtotal,
+    })),
+  })
+  if (eRpc) return { error: 'Erro ao salvar: ' + eRpc.message }
+  const rpc = res as { error?: string } | null
+  if (rpc?.error) return { error: rpc.error }
 
   await upsertCliente(supabase, atual.empresa_id as string, atual.unidade_id as string, dados.cliente_nome, dados.cliente_contato)
 
@@ -257,7 +282,11 @@ export async function atualizarStatusOrcamento(id: string, status: OrcamentoStat
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   if (!ORCAMENTO_STATUS.includes(status)) return { error: 'Status inválido' }
-  if (!(await temAcesso(user.id, ['orcamento']))) return { error: 'Sem permissão' }
+
+  const { data: atual } = await supabase.from('orcamento').select('unidade_id').eq('id', id).maybeSingle()
+  if (!atual) return { error: 'Orçamento não encontrado' }
+  if (!(await temAcesso(user.id, ['orcamento'], { unidadeId: atual.unidade_id as string })))
+    return { error: 'Sem permissão para alterar orçamentos desta loja' }
 
   const { error } = await supabase.from('orcamento').update({ status }).eq('id', id)
   if (error) return { error: error.message }
@@ -271,7 +300,12 @@ export async function excluirOrcamento(id: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['orcamento']))) return { error: 'Sem permissão' }
+
+  const { data: atual } = await supabase.from('orcamento').select('unidade_id').eq('id', id).maybeSingle()
+  if (!atual) return { error: 'Orçamento não encontrado' }
+  if (!(await temAcesso(user.id, ['orcamento'], { unidadeId: atual.unidade_id as string })))
+    return { error: 'Sem permissão para excluir orçamentos desta loja' }
+
   const { error } = await supabase.from('orcamento').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/orcamentos')

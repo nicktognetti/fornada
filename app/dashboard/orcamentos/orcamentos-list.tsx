@@ -4,14 +4,10 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { FileText, Plus, Search } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
-import { formatBRL, normalizeSearch } from '@/lib/format'
+import { formatBRL, normalizeSearch, formatData, diaBR } from '@/lib/format'
 import { StatusBadgeOrcamento } from './components/status-badge-orcamento'
 import { statusExibicao, type OrcamentoStatusDisplay } from '@/lib/orcamento-status'
 import type { OrcamentoListItem } from '@/app/actions/orcamento'
-
-function formatData(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
 
 const TABS: { value: OrcamentoStatusDisplay | 'todos'; label: string }[] = [
   { value: 'todos', label: 'Todos' },
@@ -30,7 +26,10 @@ export function OrcamentosList({ inicial }: { inicial: OrcamentoListItem[] }) {
   const filtrados = useMemo(() => {
     const t = normalizeSearch(busca)
     return inicial.filter((o) => {
-      const dia = o.created_at.slice(0, 10)
+      // Dia no fuso da padaria: o corte por UTC (`slice(0,10)`) jogava um
+      // orçamento criado às 21h30 para o dia seguinte, e ele sumia do filtro
+      // "De/Até" mesmo com a data que a tela exibia dentro do intervalo.
+      const dia = diaBR(o.created_at)
       const disp = statusExibicao(o.status, o.created_at, o.validade_dias)
       const mBusca = !t || normalizeSearch(o.cliente_nome).includes(t)
       const mTab = tab === 'todos' || disp === tab
