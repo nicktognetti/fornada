@@ -679,6 +679,19 @@ export async function virarPedido(
   if (!anotada) return { error: 'Encomenda anotada não encontrada' }
   if (anotada.status === 'virou_pedido') return { error: 'Esta anotação já virou pedido' }
 
+  // Trava a anotação ANTES de criar a encomenda: o UPDATE só pega a linha se
+  // ela ainda estiver 'anotada'. Sem isso, duplo clique (ou dois atendentes)
+  // passavam os dois pela checagem acima e criavam DUAS encomendas oficiais.
+  const { data: travada } = await supabase
+    .from('atendimento_encomenda')
+    .update({ status: 'virou_pedido' })
+    .eq('id', atendimentoEncomendaId)
+    .eq('status', 'anotada')
+    .select('id')
+  if (!travada || travada.length === 0) {
+    return { error: 'Esta anotação já virou pedido' }
+  }
+
   const conversa = Array.isArray(anotada.conversa) ? anotada.conversa[0] : anotada.conversa
   const clienteNome = anotada.nome?.trim() || conversa?.nome?.trim() || conversa?.numero || 'Cliente WhatsApp'
 
@@ -722,11 +735,18 @@ export async function virarPedido(
     },
     itensEncomenda,
   )
-  if (res.error || !res.data) return { error: res.error ?? 'Erro ao criar a encomenda' }
+  if (res.error || !res.data) {
+    // Falhou ao criar: devolve a anotação para a fila (destrava).
+    await supabase
+      .from('atendimento_encomenda')
+      .update({ status: 'anotada' })
+      .eq('id', atendimentoEncomendaId)
+    return { error: res.error ?? 'Erro ao criar a encomenda' }
+  }
 
   await supabase
     .from('atendimento_encomenda')
-    .update({ status: 'virou_pedido', encomenda_id: res.data.id })
+    .update({ encomenda_id: res.data.id })
     .eq('id', atendimentoEncomendaId)
 
   revalidatePath('/dashboard/atendimento')

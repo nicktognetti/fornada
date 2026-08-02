@@ -13,6 +13,13 @@ import type { CanalCtx } from './canal'
 const RESPOSTA_DE_EMERGENCIA =
   'Desculpe, estou com uma instabilidade no momento. 🙏 Pode tentar de novo em instantes?'
 
+// Robustez da chamada ao Groq: teto de tempo por tentativa e reenvio com
+// espera crescente para instabilidade (429/5xx/rede).
+const TIMEOUT_GROQ_MS = 25_000
+const MAX_RETRIES_GROQ = 2
+const ESPERA_BASE_MS = 500
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 const FERRAMENTAS = [
   {
     type: 'function',
@@ -55,7 +62,10 @@ export async function gerarResposta(
     { role: 'user', content: mensagemDoCliente },
   ]
 
-  const chamarGroq = (usarFerramentas: boolean) =>
+  // Uma chamada ao Groq, com teto de tempo. Sem o timeout, uma conexão
+  // pendurada segurava o after() até o runtime matar a função (cliente sem
+  // resposta e nada salvo).
+  const chamarGroqUmaVez = (usarFerramentas: boolean) =>
     fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -69,7 +79,34 @@ export async function gerarResposta(
         max_tokens: 500,
         ...(usarFerramentas ? { tools: FERRAMENTAS, tool_choice: 'auto' } : {}),
       }),
+      signal: AbortSignal.timeout(TIMEOUT_GROQ_MS),
     })
+
+  /**
+   * Chama o Groq tolerando instabilidade: 429 (cota) e 5xx são reenviados
+   * com espera crescente. Antes, qualquer soluço de 2 minutos no Groq virava
+   * "estou com instabilidade" direto para o cliente.
+   * Erros 4xx de verdade (payload ruim) não são retentados.
+   */
+  const chamarGroq = async (usarFerramentas: boolean): Promise<Response | null> => {
+    for (let tentativa = 0; tentativa <= MAX_RETRIES_GROQ; tentativa++) {
+      try {
+        const resposta = await chamarGroqUmaVez(usarFerramentas)
+        const valeRetentar = resposta.status === 429 || resposta.status >= 500
+        if (!valeRetentar || tentativa === MAX_RETRIES_GROQ) return resposta
+        console.warn(`Groq HTTP ${resposta.status} — retentando (${tentativa + 1}/${MAX_RETRIES_GROQ}).`)
+      } catch (erro) {
+        // timeout ou falha de rede
+        if (tentativa === MAX_RETRIES_GROQ) {
+          console.error('Groq inacessível após retentativas:', erro instanceof Error ? erro.message : erro)
+          return null
+        }
+        console.warn(`Groq inacessível — retentando (${tentativa + 1}/${MAX_RETRIES_GROQ}).`)
+      }
+      await esperar(ESPERA_BASE_MS * 2 ** tentativa)
+    }
+    return null
+  }
 
   // Laço da conversa: normalmente 1 volta; se a IA usar a ferramenta,
   // executamos a consulta e voltamos com o resultado.
@@ -77,6 +114,11 @@ export async function gerarResposta(
   let retriesDeFerramenta = 0
   for (let volta = 0; volta < 5; volta++) {
     const resposta = await chamarGroq(usarFerramentas)
+
+    if (!resposta) {
+      await alertarAdmin('IA (Groq)', 'Groq inacessível (timeout/rede) após retentativas.', ctx.phoneNumberId)
+      return RESPOSTA_DE_EMERGENCIA
+    }
 
     if (!resposta.ok) {
       const corpo = await resposta.text()

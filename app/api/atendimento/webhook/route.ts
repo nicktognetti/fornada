@@ -20,6 +20,7 @@ import {
   salvarMensagens,
   salvarEncomendaAnotada,
   contarMensagensRecentes,
+  registrarEventoWebhook,
 } from '@/lib/atendimento/memoria'
 import { validarAssinatura } from '@/lib/atendimento/assinatura'
 import { alertarAdmin } from '@/lib/atendimento/alerta'
@@ -54,6 +55,16 @@ export async function GET(request: NextRequest) {
 const LIMITE_POR_MINUTO = 6
 const LIMITE_POR_HORA = 40
 
+// O trabalho pesado (IA + envio) roda no after(), DEPOIS do 200. Sem isso,
+// o runtime pode encerrar a função no meio: resposta não enviada e nada salvo.
+export const maxDuration = 60
+
+/** Telefone em log: só os 4 últimos dígitos (o número inteiro fica no banco). */
+function mascarar(numero: string | undefined): string {
+  if (!numero) return '???'
+  return '***' + numero.slice(-4)
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Corpo CRU primeiro: a assinatura da Meta é o HMAC destes bytes.
@@ -68,46 +79,77 @@ export async function POST(request: NextRequest) {
       return new NextResponse('Assinatura inválida', { status: 401 })
     }
     if (assinatura === 'sem-secret') {
-      console.warn('META_APP_SECRET não configurado — webhook aceito SEM validar assinatura (configure para fechar essa porta).')
+      // Em produção falha FECHADO: sem o secret não há como saber se o POST
+      // veio mesmo da Meta, e aceitar significa deixar qualquer um disparar
+      // a IA e gravar conversas. Em dev, segue com aviso.
+      if (process.env.NODE_ENV === 'production') {
+        console.error('META_APP_SECRET ausente em produção — webhook REJEITADO.')
+        after(
+          alertarAdmin(
+            'Webhook (configuração)',
+            'META_APP_SECRET não está configurado — o robô está recusando mensagens. Cadastre o secret na Vercel.',
+          )
+        )
+        return new NextResponse('Webhook não configurado', { status: 401 })
+      }
+      console.warn('META_APP_SECRET não configurado — aceito apenas fora de produção.')
     }
 
     const payload = JSON.parse(corpoCru)
-    const value = payload?.entry?.[0]?.changes?.[0]?.value
 
-    // Confirmações de entrega/leitura das NOSSAS mensagens: só log.
-    if (value?.statuses) {
-      const status = value.statuses[0]
-      console.log(
-        `Status da mensagem para ${status?.recipient_id}: ${status?.status}` +
-          (status?.errors ? ` | ERROS: ${JSON.stringify(status.errors)}` : '')
-      )
-      return new NextResponse('OK', { status: 200 })
-    }
+    // entry[], changes[] e messages[] são ARRAYS na Meta e podem vir com
+    // vários itens (cliente manda 3 mensagens em rajada, redelivery em lote).
+    // Pegar só o [0] descartava mensagens de cliente em silêncio.
+    for (const entry of payload?.entry ?? []) {
+      for (const change of entry?.changes ?? []) {
+        const value = change?.value
 
-    const mensagem = value?.messages?.[0]
-    if (!mensagem) return new NextResponse('OK', { status: 200 })
+        // Confirmações de entrega/leitura das NOSSAS mensagens: só log.
+        if (value?.statuses) {
+          for (const status of value.statuses) {
+            console.log(
+              `Status da mensagem para ${mascarar(status?.recipient_id)}: ${status?.status}` +
+                (status?.errors ? ` | ERROS: ${JSON.stringify(status.errors)}` : '')
+            )
+          }
+          continue
+        }
 
-    // De QUAL número da padaria veio? (define loja + canal)
-    const ctx = await resolverCanal(value?.metadata?.phone_number_id)
-    if (!ctx) return new NextResponse('OK', { status: 200 })
+        const mensagens = value?.messages ?? []
+        if (mensagens.length === 0) continue
 
-    const nomePerfil: string | null = value?.contacts?.[0]?.profile?.name ?? null
+        // De QUAL número da padaria veio? (define loja + canal)
+        const ctx = await resolverCanal(value?.metadata?.phone_number_id)
+        if (!ctx) continue
 
-    if (mensagem.type === 'text') {
-      console.log(`[${ctx.canal}/${ctx.unidadeNome}] Mensagem de ${mensagem.from}: ${mensagem.text.body}`)
-      after(responderComIA(ctx, mensagem.from, nomePerfil, mensagem.text.body))
-    } else if (mensagem.type === 'audio') {
-      console.log(`[${ctx.canal}/${ctx.unidadeNome}] Áudio de ${mensagem.from} (id ${mensagem.audio?.id})`)
-      after(responderAudio(ctx, mensagem.from, nomePerfil, mensagem.audio?.id))
-    } else {
-      console.log(`Mensagem de tipo "${mensagem.type}" não suportada.`)
-      after(
-        enviarMensagemTexto(
-          ctx.phoneNumberId,
-          mensagem.from,
-          'Por enquanto eu só consigo entender mensagens de texto e áudio. 😊 Pode me escrever ou mandar um áudio?'
-        )
-      )
+        const nomePerfil: string | null = value?.contacts?.[0]?.profile?.name ?? null
+
+        for (const mensagem of mensagens) {
+          // Idempotência: a Meta reenvia webhooks. Sem isto, a reentrega
+          // gerava resposta e pedido duplicados.
+          if (!(await registrarEventoWebhook(mensagem?.id, ctx))) {
+            console.log(`Mensagem ${mensagem?.id} já processada (reentrega da Meta) — ignorada.`)
+            continue
+          }
+
+          if (mensagem.type === 'text') {
+            console.log(`[${ctx.canal}/${ctx.unidadeNome}] Mensagem de ${mascarar(mensagem.from)} (${mensagem.text.body.length} chars)`)
+            after(responderComIA(ctx, mensagem.from, nomePerfil, mensagem.text.body))
+          } else if (mensagem.type === 'audio') {
+            console.log(`[${ctx.canal}/${ctx.unidadeNome}] Áudio de ${mascarar(mensagem.from)}`)
+            after(responderAudio(ctx, mensagem.from, nomePerfil, mensagem.audio?.id))
+          } else {
+            console.log(`Mensagem de tipo "${mensagem.type}" não suportada.`)
+            after(
+              enviarMensagemTexto(
+                ctx.phoneNumberId,
+                mensagem.from,
+                'Por enquanto eu só consigo entender mensagens de texto e áudio. 😊 Pode me escrever ou mandar um áudio?'
+              )
+            )
+          }
+        }
+      }
     }
 
     return new NextResponse('OK', { status: 200 })
@@ -129,22 +171,28 @@ async function responderComIA(
     const conversa = await obterOuCriarConversa(ctx, numeroRemetente, nomePerfil)
     if (!conversa) return
 
-    // Atendente humano assumiu? IA fica MUDA — só guarda a mensagem
-    // do cliente para aparecer no painel.
+    // A mensagem do cliente é gravada ANTES de chamar a IA. Antes ela só era
+    // salva no fim do fluxo feliz: se a IA ou o envio falhassem, o que o
+    // cliente escreveu não aparecia no painel nem no histórico — a equipe nem
+    // sabia que ele tinha perguntado. Também torna o anti-abuso confiável,
+    // porque o contador enxerga a mensagem atual.
+    await salvarMensagens(ctx, conversa.id, [{ role: 'user', content: textoRecebido }])
+
+    // Atendente humano assumiu? IA fica MUDA — a mensagem já está salva
+    // e aparece no painel.
     if (conversa.pausada) {
-      await salvarMensagens(ctx, conversa.id, [{ role: 'user', content: textoRecebido }])
       console.log(`Conversa ${conversa.id} pausada (humano no controle) — IA não respondeu.`)
       return
     }
 
     // Anti-abuso: número metralhando mensagens não gasta IA nem envio.
+    // Os contadores já incluem a mensagem atual (salva acima), por isso `>`.
     const [porMinuto, porHora] = await Promise.all([
       contarMensagensRecentes(conversa.id, 60),
       contarMensagensRecentes(conversa.id, 3600),
     ])
-    if (porMinuto >= LIMITE_POR_MINUTO || porHora >= LIMITE_POR_HORA) {
-      await salvarMensagens(ctx, conversa.id, [{ role: 'user', content: textoRecebido }])
-      console.warn(`Anti-abuso: ${numeroRemetente} excedeu o limite (${porMinuto}/min, ${porHora}/h) — IA não respondeu.`)
+    if (porMinuto > LIMITE_POR_MINUTO || porHora > LIMITE_POR_HORA) {
+      console.warn(`Anti-abuso: ${mascarar(numeroRemetente)} excedeu o limite (${porMinuto}/min, ${porHora}/h) — IA não respondeu.`)
       return
     }
 
@@ -155,7 +203,7 @@ async function responderComIA(
       buscarFichaCliente(ctx, numeroRemetente),
       buscarInfoLoja(ctx.unidadeId),
     ])
-    if (fichaCliente) console.log(`👤 Cliente conhecido (${numeroRemetente}) — ficha aplicada ao prompt.`)
+    if (fichaCliente) console.log(`👤 Cliente conhecido (${mascarar(numeroRemetente)}) — ficha aplicada ao prompt.`)
     const respostaDaIA = await gerarResposta(ctx, textoRecebido, historico, fichaCliente, infoLoja)
 
     // Marcações internas (encomenda/foto): captura os dados e limpa o texto
@@ -163,7 +211,7 @@ async function responderComIA(
     const { textoLimpo, produtoDaFoto } = extrairFoto(extracao.textoLimpo)
 
     if (extracao.encomenda) {
-      console.log(`📝 [${ctx.canal}] Pedido anotado de ${numeroRemetente}: ${JSON.stringify(extracao.encomenda)}`)
+      console.log(`📝 [${ctx.canal}] Pedido anotado de ${mascarar(numeroRemetente)}: "${extracao.encomenda.produto}"`)
       // null = duplicata (cliente confirmou 2×) → não avisa nem cria de novo
       const anotadaId = await salvarEncomendaAnotada(ctx, conversa.id, extracao.encomenda)
       if (anotadaId) {
@@ -195,14 +243,31 @@ async function responderComIA(
     }
 
     // Sem foto (ou foto falhou): texto normal. Cliente NUNCA fica sem resposta.
+    let entregue = enviadoComFoto
     if (!enviadoComFoto) {
-      await enviarMensagemTexto(ctx.phoneNumberId, numeroRemetente, textoLimpo)
+      entregue = await enviarMensagemTexto(ctx.phoneNumberId, numeroRemetente, textoLimpo)
     }
 
+    // A mensagem do cliente já foi salva no início; aqui entra só a resposta.
+    // Se o envio falhou (janela de 24h expirada, número bloqueado, erro da
+    // Graph API), marcamos no histórico e alertamos: sem isso o painel mostrava
+    // a conversa como "respondida" e o cliente tinha ficado no vácuo.
     await salvarMensagens(ctx, conversa.id, [
-      { role: 'user', content: textoRecebido },
-      { role: 'assistant', content: enviadoComFoto ? `📷 ${textoLimpo}` : textoLimpo },
+      {
+        role: 'assistant',
+        content: entregue
+          ? (enviadoComFoto ? `📷 ${textoLimpo}` : textoLimpo)
+          : `⚠️ NÃO ENTREGUE ao cliente: ${textoLimpo}`,
+      },
     ])
+    if (!entregue) {
+      console.error(`Resposta NÃO entregue a ${mascarar(numeroRemetente)} (conversa ${conversa.id}).`)
+      await alertarAdmin(
+        'Envio ao cliente',
+        `Falha ao entregar a resposta para ${mascarar(numeroRemetente)} (${ctx.canal}/${ctx.unidadeNome}). A conversa está no painel.`,
+        ctx.phoneNumberId,
+      )
+    }
   } catch (erro) {
     console.error('Erro ao gerar/enviar resposta da IA:', erro)
     await alertarAdmin('Webhook (responder cliente)', erro instanceof Error ? erro.message : String(erro), ctx.phoneNumberId)
@@ -236,7 +301,7 @@ async function responderAudio(
       return
     }
 
-    console.log(`Transcrição do áudio de ${numeroRemetente}: ${transcricao}`)
+    console.log(`Áudio de ${mascarar(numeroRemetente)} transcrito (${transcricao.length} chars).`)
     await responderComIA(ctx, numeroRemetente, nomePerfil, transcricao)
   } catch (erro) {
     console.error('Erro ao tratar áudio:', erro)

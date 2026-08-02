@@ -27,21 +27,54 @@ export type ConversaAtiva = {
 }
 
 /**
+ * Idempotência do webhook: registra o `wamid` da mensagem da Meta.
+ * Retorna `true` se é a PRIMEIRA vez que vemos esta mensagem (pode
+ * processar) e `false` se já foi processada (reentrega da Meta) ou se
+ * o wamid não veio.
+ *
+ * Em erro de banco (fora o conflito) devolve `true`: melhor arriscar
+ * uma resposta duplicada do que deixar o cliente sem resposta.
+ */
+export async function registrarEventoWebhook(
+  wamid: string | undefined | null,
+  ctx: CanalCtx,
+): Promise<boolean> {
+  if (!wamid) return true
+  const { error } = await supabaseAdmin
+    .from('atendimento_webhook_evento')
+    .insert({ wamid, unidade_id: ctx.unidadeId, canal: ctx.canal })
+
+  if (!error) return true
+  if (error.code === '23505') return false // já processada
+  console.error('Dedup do webhook indisponível (seguindo mesmo assim):', error.message)
+  return true
+}
+
+/**
  * Busca (ou cria) a conversa deste número neste (unidade, canal).
  * Atualiza `atualizado_em` e o nome do perfil (se veio no webhook).
+ *
+ * O INSERT trata conflito de unicidade: duas mensagens quase simultâneas
+ * de um número novo entram aqui ao mesmo tempo, ambas não acham a conversa
+ * e ambas inserem — uma viola `uk_atendimento_conversa_unidade_canal_numero`.
+ * Nesse caso relemos a linha que a outra execução criou, em vez de perder
+ * a mensagem do cliente.
  */
 export async function obterOuCriarConversa(
   ctx: CanalCtx,
   numero: string,
   nomePerfil?: string | null,
 ): Promise<ConversaAtiva | null> {
-  const { data: existente } = await supabaseAdmin
-    .from('atendimento_conversa')
-    .select('id, pausada_ate, nome')
-    .eq('unidade_id', ctx.unidadeId)
-    .eq('canal', ctx.canal)
-    .eq('numero', numero)
-    .maybeSingle()
+  const buscar = () =>
+    supabaseAdmin
+      .from('atendimento_conversa')
+      .select('id, pausada_ate, nome')
+      .eq('unidade_id', ctx.unidadeId)
+      .eq('canal', ctx.canal)
+      .eq('numero', numero)
+      .maybeSingle()
+
+  const { data: existente } = await buscar()
 
   if (existente) {
     await supabaseAdmin
@@ -69,11 +102,22 @@ export async function obterOuCriarConversa(
     .select('id')
     .single()
 
-  if (error || !nova) {
-    console.error('Erro ao criar conversa:', error?.message)
-    return null
+  if (nova) return { id: nova.id, pausada: false }
+
+  // Corrida: outra execução criou a conversa entre o SELECT e o INSERT.
+  if (error?.code === '23505') {
+    const { data: criadaPorOutro } = await buscar()
+    if (criadaPorOutro) {
+      return {
+        id: criadaPorOutro.id,
+        pausada:
+          !!criadaPorOutro.pausada_ate && new Date(criadaPorOutro.pausada_ate) > new Date(),
+      }
+    }
   }
-  return { id: nova.id, pausada: false }
+
+  console.error('Erro ao criar conversa:', error?.message)
+  return null
 }
 
 /**
