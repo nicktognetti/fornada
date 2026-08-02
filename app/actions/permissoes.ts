@@ -206,9 +206,12 @@ export async function savePermissionsAction(
   const { error: delErr } = await deleteQ
   if (delErr) return { error: delErr.message }
 
-  // INSERT apenas as permissões ativas (pode ser vazio = limpar o escopo)
+  // INSERT apenas as permissões ativas (pode ser vazio = limpar o escopo).
+  // usuario_id é FORÇADO ao alvo validado — o payload nunca decide o dono
+  // (impede conceder permissão a usuário de outra empresa via payload forjado).
   if (permissoes.length > 0) {
-    const { error } = await supabaseAdmin.from('permissao').insert(permissoes)
+    const rows = permissoes.map((p) => ({ ...p, usuario_id: targetUserId }))
+    const { error } = await supabaseAdmin.from('permissao').insert(rows)
     if (error) return { error: error.message }
   }
 

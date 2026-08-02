@@ -7,6 +7,39 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Auditoria v3 + Hardening Lote 1 — camada de banco (APLICADO em produção 02/08)
+> Auditoria completa em `AUDITORIA_FORNADA_v3.md` (5 varreduras paralelas; score 7,5).
+> Padrão dos achados críticos: a Server Action validava, mas o objeto de banco por baixo
+> (RPC/view/policy com `GRANT authenticated`) era alcançável direto via PostgREST.
+> Este lote fecha os P1 de banco — migration `20260802000000_hardening_lote1.sql`,
+> aplicada via `supabase db push` e verificada com 7 probes no banco vivo (7/7 ✅).
+- **`confirmar_recebimento` valida ownership internamente**: exige `auth.uid()`, vínculo
+  com a empresa da transferência e RBAC (`*` global ou `receber`/`transferencias`
+  escrita/admin na unidade destino). `p_usuario_id` é ignorado — `responsavel_destino_id`
+  agora é sempre `auth.uid()`. Fecha o P1(b) da auditoria v2 que seguia aberto no banco.
+- **`usuario_unidade` sem self-insert/self-delete**: qualquer autenticado conseguia se
+  vincular a qualquer loja via PostgREST, anulando todo o RLS por loja. Agora só
+  service role escreve (as actions já usavam `supabaseAdmin`).
+- **`fn_listar_usuarios` removida**: SECURITY DEFINER lendo `auth.users` (PII de todos)
+  sem checagem, sem nenhum uso no app — porta dormente dropada.
+- **Views respeitam RLS**: `vw_insumo_custo_atual` com `security_invoker = true`
+  (anon/outra empresa não lê mais custos via REST); `vw_painel_financeiro` (morta) dropada.
+- **Policies DELETE em `transferencia`/`transferencia_item`**: excluir retornava
+  `success` com 0 linhas (RLS default-deny silencioso). Agora espelha a action:
+  mesma empresa + status `PENDENTE`/`CANCELADA`.
+- **`permissao` global sem duplicatas**: dedup das linhas `unidade_id IS NULL`
+  (NULLs não conflitam no UNIQUE — seeders duplicaram) + índice único parcial
+  `uk_permissao_global (usuario_id, tela) WHERE unidade_id IS NULL`.
+- **`savePermissionsAction` força `usuario_id = targetUserId`** (`app/actions/permissoes.ts`):
+  o payload trazia `usuario_id` próprio por linha sem validação — admin podia conceder
+  permissão a usuário de outra empresa via payload forjado.
+- **9 índices novos** para as queries reais (encomenda por unidade+data/status, orçamento
+  por unidade+criação, cliente por telefone, conversa por canal, permissao usuário+tela,
+  parciais `WHERE ativo` em insumo/receita/produto).
+- **Histórico de migrations reparado**: as 4 de julho (caderno, revisão, categoria,
+  locais) estavam aplicadas no banco mas fora do histórico da CLI — `migration repair`
+  + verificação coluna a coluna antes. `db push` volta a ser utilizável.
+
 ### Auditoria geral — blindagem do RBAC de admin + higiene
 > Passada de auditoria no projeto todo. Build, typecheck e 105 testes seguem verdes;
 > lint zerado. Foco em fechar brechas de escalonamento/inquilino nas ações de admin.
