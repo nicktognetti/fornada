@@ -7,6 +7,35 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Lote 4 — higiene: helpers duplicados consolidados
+> Ref: `AUDITORIA_FORNADA_v3.md` §6. Refactor sem mudança de comportamento;
+> tsc 0 erros, 113 testes, lint e build limpos.
+- **`lib/action-result.ts`**: o tipo `ActionResult` estava definido **11 vezes**
+  (7 na forma genérica, 4 na simples) — qualquer ajuste no contrato exigia mexer em todos.
+- **`app/lib/escopo.ts`**: `getEmpresaId` (7 cópias) e `getUnidadeEscrita` (5 cópias).
+  Uma das cópias usava `.single()`, que **lança erro** quando o usuário ainda não tem
+  vínculo de empresa; a versão central usa `.maybeSingle()` e devolve `null`.
+- **`formatData` centralizado** em duas telas (transferências a receber, compras). As
+  demais cópias têm formato diferente (com hora ou dia da semana) e ficaram como estavam
+  para não mudar o que aparece na tela.
+- **`alert()` bloqueante removido** dos canais do atendimento — o aviso de permissão de
+  notificação agora usa o erro inline que a tela já tinha.
+
+### Lote 5 — baseline das migrations: NÃO FEITO (bloqueado por ferramenta)
+> Documentado em **`docs/baseline-migrations.md`** com o procedimento completo.
+- As migrations **não recriam o banco do zero** (P1-8 da auditoria): FKs antes das
+  tabelas, `ADD CONSTRAINT IF NOT EXISTS` (sintaxe inválida), CTE recursivo recusado
+  pelo Postgres, função usada antes de criada, e drift real (`unidade.ativa` × `ativo`,
+  `insumo.unidade_medida` × `unidade_uso`). O `db push` de migrations novas funciona
+  normalmente — o risco é **perder o projeto Supabase e não conseguir reconstruir**.
+- Gerar a baseline exige `pg_dump` compatível com o servidor (PG 17.6): o
+  `supabase db dump` roda em container (**precisa de Docker Desktop**, ausente) e o
+  `pg_dump` local é 16.14, que recusa servidor mais novo. Sem Docker também não dá para
+  rodar o `db reset` local que **prova** o replay — e baseline não testada cria confiança
+  falsa justamente no cenário de desastre, então preferimos não entregar meia solução.
+- Enquanto isso, o backup/PITR do Supabase é a única rede de segurança: vale confirmar
+  no painel que está ativo e qual a janela.
+
 ### Hardening Lote 3 — consistência dos pedidos (APLICADO em produção 02/08)
 > Ref: `AUDITORIA_FORNADA_v3.md` §3 (P1-6), §4 (P2-1/2/8/9/11/12) e §8 (Lote 3).
 > Migration `20260802020000_edicao_pedido_transacional.sql`.

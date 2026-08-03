@@ -183,7 +183,16 @@ P1-6 (RPC transacional de edição), P2-1 (unidadeId nos temAcesso), P2-8/P2-9 (
 **Lote 4 — Higiene (meio dia):**
 Débitos da seção 6 (helpers, toaster, formatData) + P3s baratos.
 
-**Lote 5 — Baseline real das migrations (com calma, mas antes do próximo `db reset`):**
-P1-8 (dump + repair + CI de replay).
+**Lote 5 — Baseline real das migrations — ⚠️ BLOQUEADO POR FERRAMENTA:**
+P1-8 exige `pg_dump` compatível com o servidor (PG 17.6). O `supabase db dump` roda em
+container (**precisa de Docker Desktop**, não instalado) e o `pg_dump` nativo da máquina
+é 16.14 — recusa servidor mais novo. Sem Docker também não há como rodar o `db reset`
+local que **prova** que a baseline replica, e baseline não testada dá confiança falsa
+justamente no cenário de desastre. Procedimento completo, com a lista exata das 50
+versões para o `migration repair`, em **[docs/baseline-migrations.md](docs/baseline-migrations.md)** —
+vira tarefa de ~15 min assim que houver Docker.
+
+> Enquanto isso, o backup/PITR do plano Supabase é a **única** rede de segurança contra
+> perda do projeto — vale confirmar no painel que está ativo e qual a janela de retenção.
 
 Depois disso, roadmap da seção 7 começando pelos quick wins 1-4.
