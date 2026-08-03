@@ -3,14 +3,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/app/lib/authz'
-import { getUnidadeAutorizada, getUnidadePreferida } from '@/app/actions/unidade'
+import { getUnidadePreferida } from '@/app/actions/unidade'
 import { subtotalItem, totalPedido } from '@/lib/pedido-calc'
 import { upsertCliente } from '@/app/lib/cliente-upsert'
 import { unidadeGrande } from '@/lib/format'
+import { getEmpresaId, getUnidadeEscrita } from '@/app/lib/escopo'
+import type { ActionResult } from '@/lib/action-result'
 
-type ActionResult<T = void> = T extends void
-  ? { error?: string; success?: boolean }
-  : { error?: string; data?: T }
 
 export type EncomendaStatus = 'pendente' | 'em_producao' | 'pronto' | 'entregue' | 'cancelada'
 const ENCOMENDA_STATUS: EncomendaStatus[] = ['pendente', 'em_producao', 'pronto', 'entregue', 'cancelada']
@@ -60,20 +59,7 @@ export type EncomendaDetalhe = EncomendaListItem & {
   itens: { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; subtotal: number; observacao: string | null; local: string | null; unidade: string | null }[]
 }
 
-async function getEmpresaId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
-  const { data } = await supabase.from('usuario_empresa').select('empresa_id').eq('user_id', userId).maybeSingle()
-  return data?.empresa_id ?? null
-}
 
-async function getUnidadeEscrita(supabase: Awaited<ReturnType<typeof createClient>>, empresaId: string): Promise<string | null> {
-  const pref = await getUnidadeAutorizada()
-  if (pref) {
-    const { data } = await supabase.from('unidade').select('id').eq('id', pref).eq('empresa_id', empresaId).maybeSingle()
-    if (data) return data.id
-  }
-  const { data } = await supabase.from('unidade').select('id').eq('empresa_id', empresaId).eq('ativo', true).order('nome').limit(1).maybeSingle()
-  return data?.id ?? null
-}
 
 type ItemCalculado = EncomendaItemInput & { subtotal: number }
 
@@ -120,9 +106,9 @@ export async function criarEncomenda(
   if (!dados.hora_entrega) return { error: 'Informe a hora de entrega' }
   if (itens.length === 0) return { error: 'Adicione ao menos um item' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
-  const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+  const unidadeId = await getUnidadeEscrita(empresaId, supabase)
   if (!unidadeId) return { error: 'Unidade não encontrada' }
   if (!(await temAcesso(user.id, ['encomenda'], { unidadeId })))
     return { error: 'Sem permissão para criar encomendas nesta unidade' }

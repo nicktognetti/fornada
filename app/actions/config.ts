@@ -3,21 +3,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
+import { getEmpresaId } from '@/app/lib/escopo'
 
 type GetResult<T> = { error?: string; data?: T }
 type SaveResult = { error?: string; success?: boolean }
 
-async function getEmpresaId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
-): Promise<string | null> {
-  const { data } = await supabase
-    .from('usuario_empresa')
-    .select('empresa_id')
-    .eq('user_id', userId)
-    .single()
-  return data?.empresa_id ?? null
-}
 
 export async function getConfigAction<T = unknown>(
   chave: string
@@ -26,7 +16,7 @@ export async function getConfigAction<T = unknown>(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   const { data, error } = await supabase
@@ -53,7 +43,7 @@ export async function saveConfigAction(
   if (!user) return { error: 'Não autenticado' }
   if (!(await temAcesso(user.id, ['cadastros']))) return { error: 'Sem permissão para editar cadastros' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   const { error } = await supabase

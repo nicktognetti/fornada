@@ -8,10 +8,8 @@ import { criarEncomenda } from '@/app/actions/encomenda'
 import { enviarMensagemTexto } from '@/lib/atendimento/whatsapp'
 import { phoneNumberIdParaEnvio, type CanalAtendimento } from '@/lib/atendimento/canal'
 import { DURACAO_PAUSA_MINUTOS } from '@/lib/atendimento/memoria'
+import type { ActionResult } from '@/lib/action-result'
 
-type ActionResult<T = void> = T extends void
-  ? { error?: string; success?: boolean }
-  : { error?: string; data?: T }
 
 export type ConversaResumo = {
   id: string

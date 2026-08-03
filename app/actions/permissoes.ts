@@ -4,10 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import type { PermissaoMap, Permissao, NivelAcesso } from '@/app/lib/permissions'
+import type { ActionResult } from '@/lib/action-result'
 
-type ActionResult<T = void> = T extends void
-  ? { error?: string; success?: boolean }
-  : { error?: string; data?: T }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

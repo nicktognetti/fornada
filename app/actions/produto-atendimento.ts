@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { temAcesso } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
+import type { ActionResult } from '@/lib/action-result'
 
 /**
  * Campos do produto usados pelo agente WhatsApp (módulo Atendimento — Fase 1).
@@ -24,9 +25,6 @@ export type ProdutoAtendimento = {
   vende_encomenda: boolean
 }
 
-type ActionResult<T = void> = T extends void
-  ? { error?: string; success?: boolean }
-  : { error?: string; data?: T }
 
 const BUCKET_FOTOS = 'produto-fotos'
 const FOTO_MAX_BYTES = 5 * 1024 * 1024

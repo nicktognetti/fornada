@@ -4,9 +4,9 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
-import { getUnidadeAutorizada } from '@/app/actions/unidade'
 import { temAcesso, unidadeDoRegistro } from '@/app/lib/authz'
 import type { ActionResult, InsumoPreco } from './types'
+import { getEmpresaId, getUnidadeEscrita } from '@/app/lib/escopo'
 
 function parseNum(val: unknown): number {
   if (typeof val !== 'string') return NaN
@@ -34,34 +34,7 @@ const PrecoSchema = z.object({
     .refine(isPositiveNum, 'Quantidade deve ser maior que zero'),
 })
 
-async function getEmpresaId(userId: string): Promise<string | null> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('usuario_empresa')
-    .select('empresa_id')
-    .eq('user_id', userId)
-    .maybeSingle()
-  return data?.empresa_id ?? null
-}
 
-// Unidade a usar ao criar registros: a AUTORIZADA (cookie validado contra os
-// vínculos do usuário) se pertencer à empresa, senão a primeira unidade ativa
-// da empresa. A permissão de módulo nesta loja é checada à parte via temAcesso.
-async function getUnidadeEscrita(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  empresaId: string
-): Promise<string | null> {
-  const pref = await getUnidadeAutorizada()
-  if (pref) {
-    const { data } = await supabase
-      .from('unidade').select('id').eq('id', pref).eq('empresa_id', empresaId).maybeSingle()
-    if (data) return data.id
-  }
-  const { data } = await supabase
-    .from('unidade').select('id')
-    .eq('empresa_id', empresaId).eq('ativo', true).order('nome').limit(1).maybeSingle()
-  return data?.id ?? null
-}
 
 function getFormFields(formData: FormData, keys: string[]) {
   return Object.fromEntries(keys.map((k) => [k, formData.get(k)]))
@@ -82,7 +55,7 @@ export async function createInsumo(
   const empresaId = await getEmpresaId(user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
-  const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+  const unidadeId = await getUnidadeEscrita(empresaId, supabase)
   if (!(await temAcesso(user.id, ['insumos'], { unidadeId })))
     return { error: 'Sem permissão para criar insumos nesta unidade' }
 

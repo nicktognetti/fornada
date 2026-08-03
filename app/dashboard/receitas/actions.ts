@@ -9,6 +9,7 @@ import { getUnidadeAutorizada } from '@/app/actions/unidade'
 import { temAcesso, unidadeDoRegistro, setoresPermitidosCaderno, receitaSetorUnidade } from '@/app/lib/authz'
 import { LOCAIS_CONFIG_KEY, LOCAIS_PADRAO } from '@/app/lib/locais'
 import type { ActionResult } from './types'
+import { getEmpresaId, getUnidadeEscrita } from '@/app/lib/escopo'
 
 function isPositiveNum(val: unknown) {
   if (typeof val !== 'string') return false
@@ -81,34 +82,7 @@ const FOTO_TIPOS: Record<string, string> = {
   'image/webp': 'webp',
 }
 
-async function getEmpresaId(userId: string): Promise<string | null> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('usuario_empresa')
-    .select('empresa_id')
-    .eq('user_id', userId)
-    .maybeSingle()
-  return data?.empresa_id ?? null
-}
 
-// Unidade a usar ao criar registros: a preferida (cookie) se válida para a
-// empresa, senão a primeira unidade ativa da empresa. Evita registros órfãos
-// de unidade que somem sob o filtro por unidade das telas.
-async function getUnidadeEscrita(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  empresaId: string
-): Promise<string | null> {
-  const pref = await getUnidadeAutorizada()
-  if (pref) {
-    const { data } = await supabase
-      .from('unidade').select('id').eq('id', pref).eq('empresa_id', empresaId).maybeSingle()
-    if (data) return data.id
-  }
-  const { data } = await supabase
-    .from('unidade').select('id')
-    .eq('empresa_id', empresaId).eq('ativo', true).order('nome').limit(1).maybeSingle()
-  return data?.id ?? null
-}
 
 const ReceitaSchema = z.object({
   nome: z.string().min(1, 'Nome obrigatório'),
@@ -136,7 +110,7 @@ export async function createReceita(
   const empresaId = await getEmpresaId(user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
-  const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+  const unidadeId = await getUnidadeEscrita(empresaId, supabase)
   if (!(await temAcesso(user.id, ['receitas'], { unidadeId })))
     return { error: 'Sem permissão para criar fichas nesta unidade' }
 
@@ -668,7 +642,7 @@ export async function createReceitaCaderno(payload: {
   const empresaId = await getEmpresaId(user.id)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
-  const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+  const unidadeId = await getUnidadeEscrita(empresaId, supabase)
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
     return { error: 'Sem permissão para criar receitas nesta loja' }
 

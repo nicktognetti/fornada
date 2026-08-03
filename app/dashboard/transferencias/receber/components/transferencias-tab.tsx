@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, PackageCheck, TrendingDown, Loader2, CalendarDays, X } from 'lucide-react'
-import { formatBRL } from '@/lib/format'
+import { formatBRL, formatData } from '@/lib/format'
 import { getTransferenciaItensAction } from '@/app/actions/transferencia'
 import { ConfirmacaoDrawer } from '../../components/confirmacao-drawer'
 import type { TransferenciaReceber, StatusFinanceiro } from '../types'
@@ -23,11 +23,6 @@ const STATUS_FIN_CLS: Record<StatusFinanceiro, string> = {
   cancelado: 'bg-danger-tint text-danger ring-danger/20',
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  })
-}
 
 type ItemDrawer = {
   id: string
@@ -132,7 +127,7 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
                       {STATUS_FIN_LABEL[sfin]}
                     </span>
                   </div>
-                  <p className="text-xs text-secondary mt-0.5">{formatDate(t.created_at)}</p>
+                  <p className="text-xs text-secondary mt-0.5">{formatData(t.created_at)}</p>
                 </div>
 
                 {/* Origem + produtos */}

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Plus, X, ShoppingCart, Loader2, FileText, Paperclip } from 'lucide-react'
 import { criarCompraAction } from '@/app/actions/compra'
-import { parseDecimalBR, formatBRL } from '@/lib/format'
+import { parseDecimalBR, formatBRL, formatData } from '@/lib/format'
 import type { Compra } from '../types'
 
 const INPUT =
@@ -11,11 +11,6 @@ const INPUT =
 
 const LABEL = 'block text-xs font-medium uppercase tracking-wider text-secondary mb-1.5'
 
-function formatDate(iso: string) {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  })
-}
 
 interface Props {
   compras: Compra[]
@@ -133,7 +128,7 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
               >
                 {/* Data */}
                 <div className="w-24 shrink-0">
-                  <p className="text-sm font-medium text-ink-soft tabular-nums">{formatDate(c.data_compra)}</p>
+                  <p className="text-sm font-medium text-ink-soft tabular-nums">{formatData(c.data_compra)}</p>
                 </div>
 
                 {/* Fornecedor + obs */}

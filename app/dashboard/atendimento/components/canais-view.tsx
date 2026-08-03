@@ -42,10 +42,18 @@ export function CanaisView() {
       localStorage.setItem(PUSH_KEY, '0')
       return
     }
-    // Precisa da permissão do navegador (pergunta uma vez)
-    if (typeof Notification === 'undefined') { alert('Este navegador não suporta notificações.'); return }
+    // Precisa da permissão do navegador (pergunta uma vez). O aviso vai para o
+    // erro da tela — `alert()` trava a aba e destoa do resto do sistema.
+    if (typeof Notification === 'undefined') {
+      setErro('Este navegador não suporta notificações.')
+      return
+    }
     const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
-    if (perm !== 'granted') { alert('Permissão de notificação negada no navegador.'); return }
+    if (perm !== 'granted') {
+      setErro('Permissão de notificação negada no navegador. Libere nas configurações do site para receber avisos.')
+      return
+    }
+    setErro(null)
     setPush(true)
     localStorage.setItem(PUSH_KEY, '1')
   }

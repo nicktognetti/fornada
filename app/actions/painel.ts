@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache'
 import { getReceitaComposicao, type ReceitaComposicao } from '@/app/dashboard/receitas/composicao'
 import { valorPorGrande } from '@/lib/format'
 import type { ProdutoAtendimento } from '@/app/actions/produto-atendimento'
+import { getEmpresaId } from '@/app/lib/escopo'
+import type { ActionResult } from '@/lib/action-result'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -82,23 +84,9 @@ export type ProdutoDetalhe = {
   podeVerValores: boolean
 }
 
-type ActionResult<T = void> = T extends void
-  ? { error?: string; success?: boolean }
-  : { error?: string; data?: T }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function getEmpresaId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
-): Promise<string | null> {
-  const { data } = await supabase
-    .from('usuario_empresa')
-    .select('empresa_id')
-    .eq('user_id', userId)
-    .single()
-  return data?.empresa_id ?? null
-}
 
 // ── getPainelFinanceiro ───────────────────────────────────────────────────────
 
@@ -117,7 +105,7 @@ export async function getPainelFinanceiro(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   const sortCol = sort?.column ?? 'produto_nome'
@@ -221,7 +209,7 @@ export async function savePrecoVenda(
   if (!user) return { error: 'Não autenticado' }
   if (precoVenda <= 0) return { error: 'Preço deve ser maior que zero' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   // Busca unidade_id + verifica ownership de empresa
@@ -265,7 +253,7 @@ export async function savePrecoVendaLote(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   // Busca unidade_id + empresa_id de todos os produtos em batch
@@ -443,7 +431,7 @@ export async function createProdutoRevenda(
   if (!(await temAcesso(user.id, ['painel', 'precos', 'produtos'], { unidadeId })))
     return { error: 'Sem permissão para criar produtos nesta unidade' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   const { data, error } = await supabase
@@ -486,7 +474,7 @@ export async function createProdutoFabricado(
   if (!(await temAcesso(user.id, ['painel', 'precos', 'produtos'], { unidadeId })))
     return { error: 'Sem permissão para criar produtos nesta unidade' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   // A ficha precisa existir na empresa (RLS já restringe às unidades do usuário).
@@ -600,7 +588,7 @@ export async function getDespesasFixas(): Promise<ActionResult<DespesaFixa[]>> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   const { data, error } = await supabase
@@ -627,7 +615,7 @@ export async function saveDespesaFixa(
   if (!descricao.trim()) return { error: 'Descrição obrigatória' }
   if (valor <= 0) return { error: 'Valor deve ser maior que zero' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   if (id) {
@@ -662,7 +650,7 @@ export async function deleteDespesaFixa(id: string): Promise<ActionResult> {
   if (!user) return { error: 'Não autenticado' }
   if (!(await temAcesso(user.id, ['painel']))) return { error: 'Sem permissão para editar despesas' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
 
   const { error } = await supabase

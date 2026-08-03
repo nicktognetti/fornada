@@ -3,7 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/app/lib/authz'
-import { getUnidadePreferida, getUnidadeAutorizada } from '@/app/actions/unidade'
+import { getUnidadePreferida } from '@/app/actions/unidade'
+import { getEmpresaId, getUnidadeEscrita } from '@/app/lib/escopo'
+import type { ActionResult } from '@/lib/action-result'
 
 export type ClienteAutocomplete = { nome: string; telefone: string | null }
 export type ClienteRow = {
@@ -25,25 +27,8 @@ export type ClienteInput = {
   observacao?: string | null
 }
 
-type ActionResult<T = void> = T extends void
-  ? { error?: string; success?: boolean }
-  : { error?: string; data?: T }
 
-async function getEmpresaId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
-  const { data } = await supabase.from('usuario_empresa').select('empresa_id').eq('user_id', userId).maybeSingle()
-  return data?.empresa_id ?? null
-}
 
-// Unidade de escrita: a autorizada (cookie validado) se pertencer à empresa, senão a 1ª ativa.
-async function getUnidadeEscrita(supabase: Awaited<ReturnType<typeof createClient>>, empresaId: string): Promise<string | null> {
-  const pref = await getUnidadeAutorizada()
-  if (pref) {
-    const { data } = await supabase.from('unidade').select('id').eq('id', pref).eq('empresa_id', empresaId).maybeSingle()
-    if (data) return data.id
-  }
-  const { data } = await supabase.from('unidade').select('id').eq('empresa_id', empresaId).eq('ativo', true).order('nome').limit(1).maybeSingle()
-  return data?.id ?? null
-}
 
 // Normaliza os campos textuais (trim → null quando vazio).
 function limpar(dados: ClienteInput) {
@@ -89,9 +74,9 @@ export async function criarCliente(dados: ClienteInput): Promise<ActionResult<{ 
   if (!user) return { error: 'Não autenticado' }
   if (!dados.nome.trim()) return { error: 'Informe o nome do cliente' }
 
-  const empresaId = await getEmpresaId(supabase, user.id)
+  const empresaId = await getEmpresaId(user.id, supabase)
   if (!empresaId) return { error: 'Empresa não encontrada' }
-  const unidadeId = await getUnidadeEscrita(supabase, empresaId)
+  const unidadeId = await getUnidadeEscrita(empresaId, supabase)
   if (!unidadeId) return { error: 'Unidade não encontrada' }
   if (!(await temAcesso(user.id, ['clientes'], { unidadeId })))
     return { error: 'Sem permissão para cadastrar clientes nesta unidade' }
