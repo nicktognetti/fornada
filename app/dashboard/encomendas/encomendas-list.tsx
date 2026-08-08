@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Plus, Search, CalendarClock } from 'lucide-react'
+import { ClipboardList, Plus, Search, CalendarClock, ChefHat } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { formatBRL, normalizeSearch } from '@/lib/format'
 import { StatusBadgeEncomenda } from './components/status-badge-encomenda'
@@ -54,6 +54,12 @@ export function EncomendasList({ inicial, podeVerValores }: { inicial: Encomenda
         </div>
         <input type="date" value={de} onChange={(e) => setDe(e.target.value)} className="input-field sm:w-40" title="Entrega de" />
         <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} className="input-field sm:w-40" title="Entrega até" />
+        {/* A lista responde "quais pedidos temos"; a produção precisa do
+            inverso — quanto fazer de cada coisa, por setor. */}
+        <Link href="/dashboard/encomendas/producao" className="btn-ghost shrink-0 text-secondary hover:text-primary inline-flex items-center gap-1.5">
+          <ChefHat size={16} />
+          Plano de produção
+        </Link>
         <Link href="/dashboard/encomendas/nova" className="btn-primary shrink-0">
           <Plus size={16} />
           Nova encomenda

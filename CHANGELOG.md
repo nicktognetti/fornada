@@ -7,6 +7,35 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Plano de produção do dia (nova tela)
+> Roadmap nº 3 da auditoria v3 §7. Sem migration — é leitura derivada das
+> encomendas. 11 testes novos no agrupamento + 4 probes no banco vivo.
+- **A pergunta que faltava**: a lista de encomendas responde "quais pedidos temos";
+  a cozinha precisa do inverso — **"quanto faço de cada coisa, e em qual bancada"**.
+  Isso era somado no papel, encomenda por encomenda.
+- **`/dashboard/encomendas/producao`**: soma os itens de todas as encomendas de uma
+  data, **agrupados por setor** (Confeitaria, Padaria…), maior quantidade primeiro.
+  Navegação por dia (‹ Hoje ›, seletor de data) e botão de imprimir para a bancada.
+- **Só entra o que falta fazer**: pendente + em produção. Encomenda `pronto`,
+  `entregue` ou `cancelada` fica fora (mas o cabeçalho informa quantas já estão
+  prontas, para não parecer que sumiram).
+- **Soma inteligente**: mesmo produto do catálogo soma por `produto_id`; item avulso
+  soma por nome normalizado — "Bolo de Cenoura" e "bolo de cenoura", digitados em
+  pedidos diferentes, viram uma linha só. Produtos DIFERENTES com o mesmo nome não
+  se misturam. A unidade (kg/L/un) vem da ficha do produto.
+- **Observações preservadas**: "sem lactose" aparece junto do item, sem repetir.
+- **Sem RBAC novo**: a rota é filha de `/dashboard/encomendas`, então herda a tela
+  `encomenda` no proxy — quem já vê encomendas vê o plano, sem a Natali ter que
+  liberar permissão para ninguém.
+- **`lib/producao-agrupar.ts`**: o agrupamento é função **pura e testada** (11 casos,
+  incluindo NaN, mesma encomenda com item repetido, e ordenação). Errar essa conta é
+  produzir errado — não podia ficar só dentro da action.
+
+> **Por que não a tela de estoque** (também no roadmap): `insumo_saldo` só recebe
+> entrada de transferência — não tem baixa por produção/venda nem entrada por compra.
+> O número **já está errado por construção**, e mostrar estoque errado é pior do que
+> não mostrar. Precisa dos itens 5-7 do roadmap antes.
+
 ### Orçamento aprovado → Encomenda (fecha o elo do fluxo comercial)
 > Roadmap nº 1 da auditoria v3 §7. Migration `20260803010000_encomenda_origem_orcamento.sql`.
 > Verificado com 5 probes no banco vivo + tsc/lint/113 testes/build.
