@@ -8,6 +8,7 @@ import { criarEncomenda } from '@/app/actions/encomenda'
 import { enviarMensagemTexto } from '@/lib/atendimento/whatsapp'
 import { phoneNumberIdParaEnvio, type CanalAtendimento } from '@/lib/atendimento/canal'
 import { DURACAO_PAUSA_MINUTOS } from '@/lib/atendimento/memoria'
+import { calcularFunil, type FunilRobo, type MensagemMetrica } from '@/lib/atendimento-metricas'
 import type { ActionResult } from '@/lib/action-result'
 
 
@@ -522,7 +523,7 @@ export type PedidoRelatorio = {
 
 export async function relatorioAtendimento(
   mes: string, // YYYY-MM
-): Promise<ActionResult<{ pedidos: PedidoRelatorio[] }>> {
+): Promise<ActionResult<{ pedidos: PedidoRelatorio[]; funil: FunilRobo }>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -534,19 +535,42 @@ export async function relatorioAtendimento(
   const inicio = `${mes}-01T00:00:00-03:00`
   const fimDate = new Date(inicio)
   fimDate.setMonth(fimDate.getMonth() + 1)
+  const fim = fimDate.toISOString()
 
-  let q = supabase
+  let qPedidos = supabase
     .from('atendimento_encomenda')
-    .select('canal, status, produto, criado_em')
+    .select('canal, status, produto, criado_em, conversa_id')
     .gte('criado_em', inicio)
-    .lt('criado_em', fimDate.toISOString())
+    .lt('criado_em', fim)
     .order('criado_em', { ascending: true })
     .limit(2000)
-  if (unidadeId) q = q.eq('unidade_id', unidadeId)
+  if (unidadeId) qPedidos = qPedidos.eq('unidade_id', unidadeId)
 
-  const { data, error } = await q
-  if (error) return { error: error.message }
-  return { data: { pedidos: (data ?? []) as PedidoRelatorio[] } }
+  // Topo do funil: quem CONVERSOU com o robô. Sem isso o relatório só sabia
+  // quantos pedidos foram anotados, não de quantos atendimentos eles vieram.
+  let qMensagens = supabase
+    .from('atendimento_mensagem')
+    .select('conversa_id, role, criado_em')
+    .gte('criado_em', inicio)
+    .lt('criado_em', fim)
+    .order('criado_em', { ascending: true })
+    .limit(20000)
+  if (unidadeId) qMensagens = qMensagens.eq('unidade_id', unidadeId)
+
+  const [rPedidos, rMensagens] = await Promise.all([qPedidos, qMensagens])
+  if (rPedidos.error) return { error: rPedidos.error.message }
+  if (rMensagens.error) return { error: rMensagens.error.message }
+
+  const pedidos = (rPedidos.data ?? []) as (PedidoRelatorio & { conversa_id: string | null })[]
+  const conversasComPedido = new Set(
+    pedidos.map((p) => p.conversa_id).filter((id): id is string => !!id),
+  )
+  const funil = calcularFunil(
+    (rMensagens.data ?? []) as MensagemMetrica[],
+    conversasComPedido,
+  )
+
+  return { data: { pedidos, funil } }
 }
 
 // ── Cadastro do cliente pela conversa ─────────────────────────────────────────

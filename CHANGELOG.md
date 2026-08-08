@@ -7,6 +7,28 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Métricas do robô: o funil completo (aba Relatório)
+> Roadmap nº 4 da auditoria v3 §7. Sem migration — leitura de dados já existentes.
+> 13 testes novos no cálculo + 7 probes no banco vivo.
+- **O relatório começava na anotação**: sabia quantos pedidos o robô anotou, mas não
+  de **quantos atendimentos** eles vieram. Faltava o topo do funil — sem ele não dá
+  para responder "de cada 10 clientes que chamam no WhatsApp, quantos compram?".
+- **Funil em 3 etapas** com barras proporcionais: *conversaram com o robô* →
+  *viraram pedido anotado* → *viraram encomenda oficial*.
+- **Tempo de resposta (mediana)**: quanto o cliente espera o robô responder. Mediana
+  e não média de propósito — uma resposta travada de 10 min distorceria a média e
+  esconderia que o atendimento normal é de segundos.
+- **Mensagens trocadas** e média por conversa: mostra se o robô resolve em 2 trocas
+  ou enrola em 15.
+- Os números novos também entram no **PDF/impressão** do relatório, para a Natali
+  ter o ROI do agente em uma folha.
+- **`lib/atendimento-metricas.ts`**: cálculo **puro e testado** (13 casos, incluindo
+  mensagens fora de ordem, cliente mandando 3 seguidas — a espera conta desde a
+  primeira —, robô falando sem pergunta antes, e data inválida).
+- Detalhe que evita número inflado: pedido de conversa **sem atividade no período**
+  não conta na conversão do mês (cliente que voltou reusa a mesma conversa, porque
+  `atendimento_conversa` é única por loja+número).
+
 ### Plano de produção do dia (nova tela)
 > Roadmap nº 3 da auditoria v3 §7. Sem migration — é leitura derivada das
 > encomendas. 11 testes novos no agrupamento + 4 probes no banco vivo.

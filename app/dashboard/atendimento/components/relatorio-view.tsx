@@ -1,9 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
-import { BarChart3, Truck, ClipboardList, Loader2 } from 'lucide-react'
+import { BarChart3, Truck, ClipboardList, Loader2, MessagesSquare, Timer } from 'lucide-react'
 import { relatorioAtendimento, type PedidoRelatorio } from '@/app/actions/atendimento'
+import { formatDuracaoCurta, type FunilRobo } from '@/lib/atendimento-metricas'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
+
+const FUNIL_VAZIO: FunilRobo = {
+  conversasAtendidas: 0, conversasComPedido: 0, taxaConversao: 0,
+  mensagensCliente: 0, mensagensRobo: 0, mediaMensagensPorConversa: 0,
+  medianaRespostaSegundos: null,
+}
 
 /** Mês atual no fuso local (YYYY-MM). */
 function mesAtual(): string {
@@ -20,6 +27,7 @@ function chaveProduto(p: string): string {
 export function RelatorioView() {
   const [mes, setMes] = useState(mesAtual())
   const [pedidos, setPedidos] = useState<PedidoRelatorio[]>([])
+  const [funil, setFunil] = useState<FunilRobo>(FUNIL_VAZIO)
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, startTransition] = useTransition()
 
@@ -27,7 +35,7 @@ export function RelatorioView() {
     startTransition(async () => {
       const res = await relatorioAtendimento(m)
       if (res.error || !res.data) setErro(res.error ?? 'Erro ao carregar')
-      else { setErro(null); setPedidos(res.data.pedidos) }
+      else { setErro(null); setPedidos(res.data.pedidos); setFunil(res.data.funil) }
     })
   }, [])
 
@@ -95,7 +103,59 @@ export function RelatorioView() {
         </div>
       </div>
 
-      {stats.total === 0 && !erro && !carregando && (
+      {/* Funil do robô — o topo (quem conversou) que o relatório não enxergava */}
+      <div className="card-surface p-4 space-y-3">
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <p className="field-label">Funil do robô</p>
+          <p className="text-[11px] text-faint">
+            De cada 10 clientes que chamam no WhatsApp, {Math.round(funil.taxaConversao / 10)} viram pedido
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          {[
+            { label: 'Conversaram com o robô', valor: funil.conversasAtendidas, cor: 'bg-blue-500/50' },
+            { label: 'Viraram pedido anotado', valor: funil.conversasComPedido, cor: 'bg-accent-primary/70' },
+            { label: 'Viraram encomenda oficial', valor: stats.viraram, cor: 'bg-success/60' },
+          ].map((etapa) => (
+            <div key={etapa.label} className="flex items-center gap-2">
+              <span className="text-xs text-secondary w-44 shrink-0">{etapa.label}</span>
+              <div className="flex-1 h-5 rounded bg-input overflow-hidden">
+                <div
+                  className={`h-full rounded ${etapa.cor} transition-all`}
+                  style={{ width: `${funil.conversasAtendidas > 0 ? (etapa.valor / funil.conversasAtendidas) * 100 : 0}%` }}
+                />
+              </div>
+              <span className="text-xs text-primary tabular-nums w-8 text-right shrink-0 font-semibold">{etapa.valor}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-subtle">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-secondary flex items-center gap-1">
+              <Timer size={10} /> Resposta
+            </p>
+            <p className="text-primary font-semibold tabular-nums mt-0.5" title="Mediana do tempo entre a mensagem do cliente e a resposta do robô">
+              {formatDuracaoCurta(funil.medianaRespostaSegundos)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-secondary flex items-center gap-1">
+              <MessagesSquare size={10} /> Mensagens
+            </p>
+            <p className="text-primary font-semibold tabular-nums mt-0.5">
+              {funil.mensagensCliente + funil.mensagensRobo}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-secondary">Por conversa</p>
+            <p className="text-primary font-semibold tabular-nums mt-0.5">{funil.mediaMensagensPorConversa}</p>
+          </div>
+        </div>
+      </div>
+
+      {stats.total === 0 && funil.conversasAtendidas === 0 && !erro && !carregando && (
         <div className="card-surface flex flex-col items-center justify-center py-14 text-center px-6">
           <BarChart3 size={26} className="text-secondary/40 mb-3" />
           <p className="text-sm text-secondary">Nenhum pedido do robô neste mês.</p>
@@ -150,10 +210,14 @@ export function RelatorioView() {
             </tr>
           </thead>
           <tbody>
+            <tr><td style={T.td}>Clientes que conversaram</td><td style={T.tdRight}>{funil.conversasAtendidas}</td></tr>
+            <tr><td style={T.td}>Conversas que viraram pedido</td><td style={T.tdRight}>{funil.conversasComPedido} ({funil.taxaConversao}%)</td></tr>
             <tr><td style={T.td}>Pedidos no mês</td><td style={T.tdRight}>{stats.total}</td></tr>
             <tr><td style={T.td}>Delivery</td><td style={T.tdRight}>{stats.delivery}</td></tr>
             <tr><td style={T.td}>Encomendas</td><td style={T.tdRight}>{stats.encomendas}</td></tr>
             <tr><td style={T.td}>Viraram pedido oficial</td><td style={T.tdRight}>{stats.viraram} ({stats.conversao}%)</td></tr>
+            <tr><td style={T.td}>Tempo de resposta (mediana)</td><td style={T.tdRight}>{formatDuracaoCurta(funil.medianaRespostaSegundos)}</td></tr>
+            <tr><td style={T.td}>Mensagens trocadas</td><td style={T.tdRight}>{funil.mensagensCliente + funil.mensagensRobo} ({funil.mediaMensagensPorConversa}/conversa)</td></tr>
           </tbody>
         </table>
         {stats.dias.length > 0 && (
