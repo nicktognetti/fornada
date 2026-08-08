@@ -17,6 +17,7 @@ o banco do zero**. Num `supabase db reset` limpo a cadeia quebra em vários pont
 | `ALTER VIEW vw_produto_financeiro` antes do `CREATE VIEW` | `20260620000003:25` vs `20260621000000:109` |
 | `usuario_empresa.usuario_id` (a coluna real é `user_id`) | `20260618120000` policies |
 | **Drift**: migrations criam `unidade.ativa`, `insumo.unidade_medida`; o banco real (e o código) usam `unidade.ativo`, `insumo.unidade_uso` | vários |
+| **Drift**: migration declara `insumo_preco.observacao` e `created_at`; o banco real **não tem `observacao`** e a coluna de data chama `criado_em`. Tem ainda `fornecedor_id`, `unidade_id` e `nota_fiscal_ref`, que a migration não declara (descoberto em 03/08 ao gravar reajuste de custo — quebrou com `PGRST204`) | `20260620000004_schema_central.sql:189-198` |
 | `baseline.sql` é vazio — o schema original foi criado à mão no SQL Editor | `20260617150000_baseline.sql` |
 
 **Consequência prática:** hoje o `db push` funciona normalmente para migrations novas

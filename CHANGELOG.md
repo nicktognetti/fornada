@@ -7,6 +7,39 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Compra com itens → reajuste automático do custo do insumo
+> Roadmap nº 5 da auditoria v3 §7, por um caminho diferente do previsto.
+> Migration `20260803020000_compra_itens_e_rls.sql`. 9 probes no banco vivo.
+- **A dor**: o custo do insumo era **cadastro fixo**. A planilha que a Natali mandou
+  em julho traz o custo cadastrado, não o preço da nota — não servia para reajuste, e
+  esperar um export de NFe do ERP deixava tudo parado.
+- **A saída**: a compra que ela **já registra** passa a aceitar **itens**. Cada item
+  pode ser ligado a um insumo do cadastro (autocomplete entre os 193) e, com um
+  checkbox, **atualiza o custo daquele insumo com o preço realmente pago**. O custo
+  real entra pela porta que já existia.
+- **Como o reajuste funciona**: `insumo_preco` guarda o par (preço da embalagem,
+  quanto ela rende). A compra informa só o preço — o **rendimento é característica do
+  insumo, não da nota**. Então reaproveitamos `qtd_uso_por_compra` e `unidade_compra`
+  do preço vigente e trocamos só o valor: é exatamente "mesmo saco de 5 kg, agora mais
+  caro". Verificado: custo de uso foi de R$ 0,02 → R$ 0,024/g com o rendimento intacto.
+- **Insumo sem preço anterior é pulado com aviso** — sem histórico não há como saber
+  quantos gramas a embalagem rende, e chutar corromperia o custo de todas as fichas.
+- **Histórico preservado** (INSERT, nunca UPDATE); a origem fica em `nota_fiscal_ref`
+  ("Compra Fornecedor · data"), então dá para saber se um preço veio de compra ou foi
+  digitado à mão.
+- **Total da compra vira a soma dos itens** quando há itens — some o campo de digitar
+  o valor duas vezes.
+- **P2-7 da auditoria fechado de carona**: `criarCompraAction` não tinha `temAcesso` e
+  aceitava `unidade_id` do cliente (dava para lançar compra na loja do vizinho); e a
+  RLS de `compra`/`compra_item` ainda usava a função legada `get_user_unidade_id()`,
+  que lê a tabela congelada `fornada.usuario_unidade` — quem opera duas lojas não via
+  as compras da segunda. Ambas agora no padrão `_loja` das demais tabelas.
+
+> **Drift novo encontrado** (registrado em `docs/baseline-migrations.md`): a migration
+> declara `insumo_preco.observacao`, mas a coluna **não existe no banco real** — o
+> primeiro teste do reajuste quebrou com `PGRST204`. O banco tem `nota_fiscal_ref`,
+> que é semanticamente melhor e foi o que passamos a usar.
+
 ### Métricas do robô: o funil completo (aba Relatório)
 > Roadmap nº 4 da auditoria v3 §7. Sem migration — leitura de dados já existentes.
 > 13 testes novos no cálculo + 7 probes no banco vivo.

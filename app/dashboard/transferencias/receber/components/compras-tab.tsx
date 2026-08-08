@@ -1,10 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, X, ShoppingCart, Loader2, FileText, Paperclip } from 'lucide-react'
-import { criarCompraAction } from '@/app/actions/compra'
+import { useState, useMemo } from 'react'
+import { Plus, X, ShoppingCart, Loader2, FileText, Paperclip, Trash2, TrendingUp } from 'lucide-react'
+import { criarCompraAction, getInsumosParaCompra } from '@/app/actions/compra'
 import { parseDecimalBR, formatBRL, formatData } from '@/lib/format'
-import type { Compra } from '../types'
+import type { Compra, InsumoParaCompra, NovaCompraItemInput } from '../types'
+
+interface LinhaItem {
+  key: number
+  /** Texto digitado; casado com o nome do insumo pelo datalist. */
+  nome: string
+  quantidade: string
+  preco: string
+  atualizarCusto: boolean
+}
 
 const INPUT =
   'w-full bg-input border border-subtle rounded-lg px-4 py-2.5 text-sm text-primary placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent-primary/40 focus:border-accent-primary transition-colors'
@@ -28,12 +37,45 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
   const [observacao,  setObservacao]  = useState('')
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState<string | null>(null)
+  const [aviso,       setAviso]       = useState<string | null>(null)
+
+  // Itens da compra (opcionais). Detalhar permite reajustar o custo do insumo.
+  const [insumos, setInsumos] = useState<InsumoParaCompra[]>([])
+  const [linhas, setLinhas] = useState<LinhaItem[]>([])
+  const keyRef = useState(() => ({ n: 0 }))[0]
+
+  const insumoPorNome = useMemo(
+    () => new Map(insumos.map((i) => [i.nome.trim().toLowerCase(), i])),
+    [insumos],
+  )
+  function acharInsumo(nome: string): InsumoParaCompra | undefined {
+    return insumoPorNome.get(nome.trim().toLowerCase())
+  }
+
+  // Soma dos itens: quando há itens, o valor total vem deles (não se digita duas vezes).
+  const somaItens = useMemo(
+    () => linhas.reduce((s, l) => s + (parseDecimalBR(l.quantidade) || 0) * (parseDecimalBR(l.preco) || 0), 0),
+    [linhas],
+  )
+
+  async function abrirModal() {
+    setModalOpen(true)
+    if (insumos.length === 0) setInsumos(await getInsumosParaCompra(unidadeId))
+  }
+
+  function addLinha() {
+    setLinhas((prev) => [...prev, { key: (keyRef.n += 1), nome: '', quantidade: '1', preco: '', atualizarCusto: true }])
+  }
+  function setLinha(key: number, patch: Partial<LinhaItem>) {
+    setLinhas((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
+  }
 
   function resetForm() {
     setFornecedor('')
     setDataCompra(new Date().toISOString().split('T')[0])
     setValorInput('')
     setObservacao('')
+    setLinhas([])
     setError(null)
   }
 
@@ -43,11 +85,36 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
   }
 
   async function handleSalvar() {
-    setError(null)
-    const valor = parseDecimalBR(valorInput)
+    setError(null); setAviso(null)
+    const temItens = linhas.length > 0
+    // Com itens, o total é a soma deles; sem itens, o campo digitado.
+    const valor = temItens ? somaItens : parseDecimalBR(valorInput)
+
     if (!fornecedor.trim())        { setError('Informe o fornecedor.'); return }
     if (!dataCompra)               { setError('Informe a data da compra.'); return }
-    if (Number.isNaN(valor) || valor <= 0) { setError('Informe um valor válido maior que zero.'); return }
+    if (Number.isNaN(valor) || valor <= 0) {
+      setError(temItens ? 'Preencha quantidade e preço dos itens.' : 'Informe um valor válido maior que zero.')
+      return
+    }
+
+    const itens: NovaCompraItemInput[] = []
+    for (const l of linhas) {
+      const nome = l.nome.trim()
+      if (!nome) { setError('Descreva todos os itens (ou remova as linhas vazias).'); return }
+      const q = parseDecimalBR(l.quantidade)
+      if (!q || q <= 0) { setError(`Informe a quantidade de "${nome}".`); return }
+      const p = parseDecimalBR(l.preco)
+      if (Number.isNaN(p) || p < 0) { setError(`Informe o preço de "${nome}".`); return }
+      const ins = acharInsumo(nome)
+      itens.push({
+        insumo_id: ins?.id ?? null,
+        descricao: nome,
+        quantidade: q,
+        preco_unitario: p,
+        // Só reajusta insumo cadastrado que já tenha rendimento conhecido.
+        atualizar_custo: !!ins && l.atualizarCusto && ins.qtd_uso_por_compra !== null,
+      })
+    }
 
     setLoading(true)
     const result = await criarCompraAction({
@@ -56,10 +123,12 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
       data_compra: dataCompra,
       valor_total: valor,
       observacao:  observacao.trim() || undefined,
+      itens:       itens.length > 0 ? itens : undefined,
     })
     setLoading(false)
 
     if (result.error) { setError(result.error); return }
+    if (result.aviso) setAviso(result.aviso)
 
     // Adiciona otimisticamente à lista local
     const nova: Compra = {
@@ -73,7 +142,9 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
       created_at:  new Date().toISOString(),
     }
     setCompras((prev) => [nova, ...prev])
-    fecharModal()
+    // Com aviso (ex.: insumo sem histórico de preço), o modal fica aberto para
+    // a mensagem ser lida; sem aviso, fecha direto.
+    if (result.aviso) { resetForm() } else { fecharModal() }
   }
 
   return (
@@ -86,7 +157,7 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
             : `${compras.length} compra${compras.length !== 1 ? 's' : ''} registrada${compras.length !== 1 ? 's' : ''}`}
         </p>
         <button
-          onClick={() => setModalOpen(true)}
+          onClick={abrirModal}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-sm font-semibold shadow-sm transition-colors"
         >
           <Plus size={14} />
@@ -103,7 +174,7 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
             Registre compras e notas fiscais para controle financeiro desta unidade.
           </p>
           <button
-            onClick={() => setModalOpen(true)}
+            onClick={abrirModal}
             className="mt-5 flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent-primary hover:bg-accent-hover text-accent-ink text-sm font-semibold shadow-sm transition-colors"
           >
             <Plus size={14} />
@@ -172,7 +243,7 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onMouseDown={(e) => { if (e.target === e.currentTarget) fecharModal() }}
         >
-          <div className="w-full max-w-[520px] bg-surface border border-subtle rounded-xl shadow-2xl shadow-black/40 flex flex-col">
+          <div className="w-full max-w-[600px] max-h-[90vh] overflow-y-auto bg-surface border border-subtle rounded-xl shadow-2xl shadow-black/40 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-subtle">
               <div>
@@ -221,15 +292,133 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
                   <label className={LABEL}>
                     Valor Total (R$) <span className="text-danger normal-case font-normal">*</span>
                   </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={valorInput}
-                    onChange={(e) => setValorInput(e.target.value)}
-                    placeholder="0,00"
-                    className={INPUT}
-                  />
+                  {linhas.length > 0 ? (
+                    <div className={`${INPUT} flex items-center justify-between bg-canvas`}>
+                      <span className="text-primary font-semibold tabular-nums">R$ {formatBRL(somaItens)}</span>
+                      <span className="text-[11px] text-faint">soma dos itens</span>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={valorInput}
+                      onChange={(e) => setValorInput(e.target.value)}
+                      placeholder="0,00"
+                      className={INPUT}
+                    />
+                  )}
                 </div>
+              </div>
+
+              {/* Itens — opcionais. É o que transforma a compra em reajuste de custo. */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={`${LABEL} mb-0`}>
+                    Itens <span className="normal-case font-normal text-faint">(opcional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addLinha}
+                    className="text-xs text-accent-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    <Plus size={12} /> Adicionar item
+                  </button>
+                </div>
+
+                {linhas.length === 0 ? (
+                  <p className="text-xs text-faint bg-canvas border border-dashed border-subtle rounded-lg px-3 py-2.5">
+                    Detalhe os itens para <strong className="text-secondary">atualizar o custo dos insumos</strong> com
+                    o preço que você pagou de verdade.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <datalist id="insumos-compra">
+                      {insumos.map((i) => <option key={i.id} value={i.nome} />)}
+                    </datalist>
+
+                    {linhas.map((l) => {
+                      const ins = acharInsumo(l.nome)
+                      const novoPreco = parseDecimalBR(l.preco)
+                      const mudouPreco =
+                        !!ins && ins.preco_atual !== null && novoPreco > 0 &&
+                        Math.abs(ins.preco_atual - novoPreco) >= 0.01
+                      return (
+                        <div key={l.key} className="bg-canvas border border-subtle rounded-lg p-2.5 space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              list="insumos-compra"
+                              value={l.nome}
+                              onChange={(e) => setLinha(l.key, { nome: e.target.value })}
+                              placeholder="Insumo ou descrição do item"
+                              className={`${INPUT} py-1.5 text-sm flex-1`}
+                              aria-label="Item da compra"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setLinhas((prev) => prev.filter((x) => x.key !== l.key))}
+                              className="p-2 rounded-lg text-secondary hover:text-danger hover:bg-danger-tint transition-colors shrink-0"
+                              aria-label="Remover item"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="text" inputMode="decimal" value={l.quantidade}
+                              onChange={(e) => setLinha(l.key, { quantidade: e.target.value })}
+                              placeholder="Qtd" className={`${INPUT} py-1.5 text-sm w-20`}
+                              aria-label="Quantidade"
+                            />
+                            <span className="text-faint text-xs">×</span>
+                            <input
+                              type="text" inputMode="decimal" value={l.preco}
+                              onChange={(e) => setLinha(l.key, { preco: e.target.value })}
+                              placeholder="Preço un." className={`${INPUT} py-1.5 text-sm w-28`}
+                              aria-label="Preço unitário"
+                            />
+                            <span className="text-secondary text-xs tabular-nums ml-auto">
+                              R$ {formatBRL((parseDecimalBR(l.quantidade) || 0) * (parseDecimalBR(l.preco) || 0))}
+                            </span>
+                          </div>
+
+                          {/* Reajuste: só faz sentido com insumo cadastrado e rendimento conhecido */}
+                          {ins && ins.qtd_uso_por_compra !== null && (
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={l.atualizarCusto}
+                                onChange={(e) => setLinha(l.key, { atualizarCusto: e.target.checked })}
+                                className="mt-0.5 accent-[var(--t-accent)]"
+                              />
+                              <span className="text-[11px] text-secondary leading-snug">
+                                Atualizar o custo deste insumo
+                                {mudouPreco && (
+                                  <span className="text-accent-primary font-medium inline-flex items-center gap-1 ml-1">
+                                    <TrendingUp size={10} />
+                                    R$ {formatBRL(ins.preco_atual!)} → R$ {formatBRL(novoPreco)}
+                                  </span>
+                                )}
+                                {ins.unidade_compra && (
+                                  <span className="text-faint block">por {ins.unidade_compra}</span>
+                                )}
+                              </span>
+                            </label>
+                          )}
+                          {ins && ins.qtd_uso_por_compra === null && (
+                            <p className="text-[11px] text-faint">
+                              Sem preço cadastrado ainda — lance o primeiro na tela de Insumos para poder reajustar por aqui.
+                            </p>
+                          )}
+                          {!ins && l.nome.trim() && (
+                            <p className="text-[11px] text-faint">Item avulso (não é um insumo cadastrado).</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Observação */}
@@ -256,9 +445,12 @@ export function ComprasTab({ compras: comprasIniciais, unidadeId }: Props) {
                 </div>
               </div>
 
-              {/* Erro */}
+              {/* Erro / aviso */}
               {error && (
                 <p className="text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{error}</p>
+              )}
+              {aviso && (
+                <p className="text-sm text-primary bg-accent-tint rounded-lg px-3 py-2">{aviso}</p>
               )}
             </div>
 
