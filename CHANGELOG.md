@@ -7,6 +7,27 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Mapa de arquitetura + correção de dependência (03/08)
+> Passada de mapeamento (camadas, auth, escopo por loja, pontos de entrada,
+> fluxo de dado ponta a ponta). Achados acionáveis corrigidos abaixo.
+- **`zod` não estava no `package.json`** — era importado em
+  `app/dashboard/insumos/actions.ts:3` e `app/dashboard/receitas/actions.ts:3`,
+  mas só existia **de carona** no `eslint-config-next` → `eslint-plugin-react-hooks`,
+  ou seja, uma **devDependency de terceiro**. Um `npm ci --omit=dev` (ou um bump do
+  eslint) derrubaria o build de produção sem aviso. Agora é dependência direta na
+  mesma versão que já rodava (`zod@4.4.3` — zero mudança de comportamento);
+  comprovado com `npm ls zod --omit=dev`.
+- **`lib/supabase/client.ts` removido** (8 linhas): o `createBrowserClient` tinha
+  **zero importadores**. Confirmado no mapeamento que **nenhum** código de navegador
+  fala com o Supabase — 100% do tráfego passa por Server Component ou Server Action,
+  e não há Realtime. A anon key só é usada server-side (`lib/supabase/server.ts:9`)
+  e no proxy (`proxy.ts:37`).
+- **3 views legadas dropadas** (`20260803000000_limpeza_views_legadas.sql`):
+  `fornada.vw_transferencias_pendentes/recentes` e `fornada.vw_dashboard_transferencias`
+  ficaram para trás quando as tabelas saíram de `fornada` para `public` em 20/06.
+  Zero referências no código. Só as VIEWS — as tabelas do schema `fornada` seguem
+  intocadas (têm dados históricos).
+
 ### Lote 4 — higiene: helpers duplicados consolidados
 > Ref: `AUDITORIA_FORNADA_v3.md` §6. Refactor sem mudança de comportamento;
 > tsc 0 erros, 113 testes, lint e build limpos.
