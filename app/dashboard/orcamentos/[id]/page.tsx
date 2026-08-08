@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { getOrcamento } from '@/app/actions/orcamento'
+import { getOrcamento, getEncomendasDoOrcamento } from '@/app/actions/orcamento'
 import { OrcamentoView } from './orcamento-view'
 
 export default async function OrcamentoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const res = await getOrcamento(id)
+  const [res, encomendas] = await Promise.all([getOrcamento(id), getEncomendasDoOrcamento(id)])
   if (res.error || !res.data) notFound()
 
   return (
@@ -15,7 +15,7 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
         <ArrowLeft size={15} />
         Orçamentos
       </Link>
-      <OrcamentoView orcamento={res.data} />
+      <OrcamentoView orcamento={res.data} encomendas={encomendas} />
     </div>
   )
 }

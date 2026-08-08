@@ -261,6 +261,26 @@ export async function getOrcamento(id: string): Promise<ActionResult<OrcamentoDe
   }
 }
 
+// ── Encomendas já geradas a partir deste orçamento ──────────────────────────────
+// Alimenta o aviso "já virou encomenda Nº X" na tela do orçamento, para a Natali
+// não gerar a mesma produção duas vezes. Devolve lista (não single) porque
+// gerar duas é legítimo em alguns casos — o aviso informa, não bloqueia.
+export async function getEncomendasDoOrcamento(
+  orcamentoId: string,
+): Promise<{ id: string; numero: number; status: string }[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  // RLS por loja já restringe o que este usuário enxerga.
+  const { data } = await supabase
+    .from('encomenda')
+    .select('id, numero, status')
+    .eq('orcamento_id', orcamentoId)
+    .order('numero', { ascending: true })
+  return (data as { id: string; numero: number; status: string }[]) ?? []
+}
+
 // ── Atualizar status do orçamento ───────────────────────────────────────────────
 export async function atualizarStatusOrcamento(id: string, status: OrcamentoStatus): Promise<ActionResult> {
   const supabase = await createClient()

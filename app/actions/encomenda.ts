@@ -31,6 +31,8 @@ export type EncomendaDados = {
   com_valor: boolean
   rastrear_status: boolean  // acompanhar fluxo de produção
   observacao?: string | null
+  /** Orçamento que originou a encomenda (só no create; null = avulsa/balcão/robô). */
+  orcamento_id?: string | null
 }
 
 export type EncomendaStatusEvento = { status: EncomendaStatus; changed_at: string }
@@ -120,6 +122,15 @@ export async function criarEncomenda(
     ? totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
     : 0
 
+  // A origem vem do cliente: confirma que o orçamento existe, é visível para
+  // este usuário (a RLS por loja filtra) e é da MESMA loja da encomenda —
+  // senão dava para amarrar a encomenda a um orçamento de outra loja.
+  if (dados.orcamento_id) {
+    const { data: orc } = await supabase
+      .from('orcamento').select('unidade_id').eq('id', dados.orcamento_id).maybeSingle()
+    if (!orc || orc.unidade_id !== unidadeId) return { error: 'Orçamento de origem inválido' }
+  }
+
   const { data: enc, error: e1 } = await supabase
     .from('encomenda')
     .insert({
@@ -132,6 +143,7 @@ export async function criarEncomenda(
       rastrear_status: dados.rastrear_status,
       total,
       observacao: dados.observacao?.trim() || null,
+      orcamento_id: dados.orcamento_id ?? null,
       status: 'pendente',
     })
     .select('id').single()
@@ -155,6 +167,8 @@ export async function criarEncomenda(
   await upsertCliente(supabase, empresaId, unidadeId, dados.cliente_nome, dados.cliente_contato)
 
   revalidatePath('/dashboard/encomendas')
+  // A tela do orçamento mostra "já virou encomenda Nº X" — precisa recarregar.
+  if (dados.orcamento_id) revalidatePath(`/dashboard/orcamentos/${dados.orcamento_id}`)
   return { data: { id: enc.id } }
 }
 

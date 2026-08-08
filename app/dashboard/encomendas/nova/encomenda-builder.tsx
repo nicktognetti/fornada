@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ClipboardList, Trash2, Loader2 } from 'lucide-react'
+import { ClipboardList, Trash2, Loader2, FileText } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { ProdutoPicker } from '@/app/components/ui/produto-picker'
 import { parseDecimalBR, formatBRL } from '@/lib/format'
@@ -37,27 +38,53 @@ export type EncomendaEdicao = {
   itens: { produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number; observacao: string | null; local: string | null }[]
 }
 
+/**
+ * Encomenda nova pré-preenchida a partir de um orçamento aprovado.
+ * Traz cliente e itens prontos; a equipe só informa data/hora de entrega
+ * (que o orçamento não tem) e confere antes de salvar.
+ */
+export type EncomendaDeOrcamento = {
+  orcamento_id: string
+  numero: number
+  cliente_nome: string
+  cliente_contato: string | null
+  observacao: string | null
+  itens: { produto_id: string | null; descricao: string; quantidade: number; preco_unitario: number }[]
+}
+
 function hojeISO() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[]; locais: string[]; edicao?: EncomendaEdicao }) {
+export function EncomendaBuilder({ produtos, clientes, locais, edicao, origem }: { produtos: ProdutoOrcamento[]; clientes: ClienteAutocomplete[]; locais: string[]; edicao?: EncomendaEdicao; origem?: EncomendaDeOrcamento }) {
   const router = useRouter()
   const keyRef = useState(() => ({ n: 0 }))[0]
-  const [cliente, setCliente] = useState(edicao?.cliente_nome ?? '')
-  const [contato, setContato] = useState(edicao?.cliente_contato ?? '')
+  const [cliente, setCliente] = useState(edicao?.cliente_nome ?? origem?.cliente_nome ?? '')
+  const [contato, setContato] = useState(edicao?.cliente_contato ?? origem?.cliente_contato ?? '')
   const [data, setData] = useState(edicao?.data_entrega ?? hojeISO())
   const [hora, setHora] = useState(edicao?.hora_entrega?.slice(0, 5) ?? '')
   const [rastrear, setRastrear] = useState(edicao?.rastrear_status ?? true)
-  const [obs, setObs] = useState(edicao?.observacao ?? '')
-  const [linhas, setLinhas] = useState<Linha[]>(() =>
-    (edicao?.itens ?? []).map((it) => ({
-      key: (keyRef.n += 1), produto_id: it.produto_id, descricao: it.descricao, base: it.preco_unitario,
-      quantidade: String(it.quantidade), ajustePct: '', preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '', obs: it.observacao ?? '', local: it.local ?? null,
-      unidade: it.produto_id ? (produtos.find((pp) => pp.id === it.produto_id)?.unidade_venda ?? null) : null,
-    })),
+  const [obs, setObs] = useState(
+    edicao?.observacao ??
+    (origem ? [`Gerada do orçamento Nº ${origem.numero}`, origem.observacao].filter(Boolean).join(' · ') : '')
   )
+  const [linhas, setLinhas] = useState<Linha[]>(() => {
+    // Edição usa os itens salvos; encomenda nova vinda de orçamento usa os dele.
+    // O setor (local) não existe no orçamento — vem do cadastro do produto.
+    const base = edicao?.itens
+      ?? origem?.itens.map((it) => ({ ...it, observacao: null, local: null as string | null }))
+      ?? []
+    return base.map((it) => {
+      const prod = it.produto_id ? produtos.find((pp) => pp.id === it.produto_id) : undefined
+      return {
+        key: (keyRef.n += 1), produto_id: it.produto_id, descricao: it.descricao, base: it.preco_unitario,
+        quantidade: String(it.quantidade), ajustePct: '', preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '', obs: it.observacao ?? '',
+        local: it.local ?? prod?.local ?? null,
+        unidade: prod?.unidade_venda ?? null,
+      }
+    })
+  })
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -132,7 +159,7 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produ
       }
     }
     setSaving(true); setErro(null)
-    const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: comValor, rastrear_status: rastrear, observacao: obs }
+    const dados = { cliente_nome: cliente, cliente_contato: contato, data_entrega: data, hora_entrega: hora, com_valor: comValor, rastrear_status: rastrear, observacao: obs, orcamento_id: origem?.orcamento_id ?? null }
     const itens = linhas.map((l) => ({
       produto_id: l.produto_id, descricao: l.descricao,
       quantidade: parseDecimalBR(l.quantidade), preco_unitario: parseDecimalBR(l.preco) || 0, observacao: l.obs, local: l.local,
@@ -150,6 +177,19 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao }: { produ
   return (
     <div className="max-w-3xl space-y-6">
       <PageTitle icon={ClipboardList} subtitle="Lance a encomenda e imprima a comanda pra produção">{edicao ? 'Editar encomenda' : 'Nova encomenda'}</PageTitle>
+
+      {origem && (
+        <div className="card-surface px-4 py-3 flex items-start gap-2.5 border-l-2 border-l-accent-primary">
+          <FileText size={15} className="text-accent-primary shrink-0 mt-0.5" />
+          <p className="text-secondary text-sm">
+            Cliente e itens vieram do{' '}
+            <Link href={`/dashboard/orcamentos/${origem.orcamento_id}`} className="text-accent-primary hover:underline font-medium">
+              orçamento Nº {origem.numero}
+            </Link>
+            . Informe a <strong className="text-primary">data e a hora de entrega</strong> e confira os itens antes de salvar.
+          </p>
+        </div>
+      )}
 
       {/* Cliente + entrega */}
       <div className="card-surface p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">

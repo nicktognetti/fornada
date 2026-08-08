@@ -7,6 +7,27 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Orçamento aprovado → Encomenda (fecha o elo do fluxo comercial)
+> Roadmap nº 1 da auditoria v3 §7. Migration `20260803010000_encomenda_origem_orcamento.sql`.
+> Verificado com 5 probes no banco vivo + tsc/lint/113 testes/build.
+- **Antes, orçamento aprovado NÃO virava encomenda**: a Natali redigitava cliente,
+  contato e todos os itens à mão na tela de encomendas — com o risco de errar preço ou
+  esquecer item. Era o gap nº 1 apontado no mapeamento de arquitetura.
+- **Agora**: botão **"Gerar encomenda"** na tela do orçamento leva ao formulário de nova
+  encomenda **já preenchido** com cliente, contato e itens. A equipe só informa a
+  **data e hora de entrega** (que o orçamento não tem, por definição) e confere antes de
+  salvar. O botão fica em destaque quando o orçamento está aprovado.
+- **O setor (local) de cada item vem do cadastro do produto** — o orçamento não guarda
+  setor, mas a comanda sai separada por setor na produção, então é preenchido na origem.
+- **Rastreabilidade**: `encomenda.orcamento_id` guarda de onde a encomenda veio. A tela
+  do orçamento passa a mostrar **"Já virou a encomenda Nº X"** com link — evita mandar a
+  mesma produção duas vezes sem perceber. Informa, não bloqueia (gerar uma segunda é
+  legítimo, e o botão vira "Gerar outra encomenda").
+- **`ON DELETE SET NULL`** na FK: excluir o orçamento **não** derruba uma encomenda que
+  já pode estar em produção — ela só perde a referência à origem. Comprovado em probe.
+- **Guarda de loja**: `orcamento_id` chega do cliente, então a action confere que o
+  orçamento existe, é visível para o usuário (RLS) e é da **mesma loja** da encomenda.
+
 ### Mapa de arquitetura + correção de dependência (03/08)
 > Passada de mapeamento (camadas, auth, escopo por loja, pontos de entrada,
 > fluxo de dado ponta a ponta). Achados acionáveis corrigidos abaixo.

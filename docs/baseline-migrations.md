@@ -52,14 +52,16 @@ produção uma função que executa SQL arbitrário (backdoor), o que não se ju
 
 ```bash
 # 1. Gerar a baseline a partir do banco REAL (só leitura)
-npx supabase db dump --linked --schema public -f supabase/migrations/20260803000000_baseline_real.sql
+#    Use um timestamp POSTERIOR à última migration aplicada (confira com
+#    `npx supabase migration list --linked`) — o exemplo abaixo assume 04/08.
+npx supabase db dump --linked --schema public -f supabase/migrations/20260804000000_baseline_real.sql
 ```
 
 ```bash
 # 2. Conferir que o dump veio completo (tabelas, funcoes, policies, views)
-grep -c "CREATE TABLE" supabase/migrations/20260803000000_baseline_real.sql
-grep -c "CREATE POLICY" supabase/migrations/20260803000000_baseline_real.sql
-grep -c "CREATE FUNCTION\|CREATE OR REPLACE FUNCTION" supabase/migrations/20260803000000_baseline_real.sql
+grep -c "CREATE TABLE" supabase/migrations/20260804000000_baseline_real.sql
+grep -c "CREATE POLICY" supabase/migrations/20260804000000_baseline_real.sql
+grep -c "CREATE FUNCTION\|CREATE OR REPLACE FUNCTION" supabase/migrations/20260804000000_baseline_real.sql
 ```
 
 Confira que aparecem os objetos críticos dos Lotes 1–3:
@@ -99,9 +101,10 @@ npx supabase migration repair --status reverted --linked \
   20260630000000 20260630000001 20260701000000 20260701000001 20260701000002 \
   20260701000003 20260705000000 20260705000001 20260706000000 20260706000001 \
   20260706000002 20260706000003 20260707000000 20260708000000 20260708120000 \
-  20260709000000 20260709100000 20260802000000 20260802010000 20260802020000
+  20260709000000 20260709100000 20260802000000 20260802010000 20260802020000 \
+  20260803000000
 
-npx supabase migration repair --status applied --linked 20260803000000
+npx supabase migration repair --status applied --linked 20260804000000
 ```
 
 ```bash

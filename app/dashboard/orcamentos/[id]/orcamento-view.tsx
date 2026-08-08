@@ -3,14 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, CheckCircle2, XCircle, Clock, Loader2, Pencil } from 'lucide-react'
+import { Trash2, CheckCircle2, XCircle, Clock, Loader2, Pencil, ClipboardList } from 'lucide-react'
 import { formatBRL, formatData } from '@/lib/format'
 import { DocumentoImpressao, BotaoImprimir, tabelaImpressao as T } from '@/app/components/ui/documento-impressao'
 import { excluirOrcamento, atualizarStatusOrcamento, type OrcamentoDetalhe, type OrcamentoStatus } from '@/app/actions/orcamento'
 import { StatusBadgeOrcamento } from '../components/status-badge-orcamento'
 import { statusExibicao } from '@/lib/orcamento-status'
 
-export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe }) {
+export type EncomendaGerada = { id: string; numero: number; status: string }
+
+export function OrcamentoView({ orcamento: o, encomendas = [] }: { orcamento: OrcamentoDetalhe; encomendas?: EncomendaGerada[] }) {
   const router = useRouter()
   const [confirm, setConfirm] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
@@ -64,6 +66,18 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
               <Clock size={13} /> Reabrir
             </button>
           )}
+          {/* Fecha o elo do fluxo comercial: leva o cliente e os itens prontos
+              para a encomenda — antes tudo era redigitado à mão. */}
+          <Link
+            href={`/dashboard/encomendas/nova?orcamento=${o.id}`}
+            className={`text-xs px-4 py-2 min-h-[36px] inline-flex items-center gap-1 ${
+              o.status === 'aprovado' && encomendas.length === 0
+                ? 'btn-primary'
+                : 'btn-ghost text-secondary hover:text-primary'
+            }`}
+          >
+            <ClipboardList size={13} /> {encomendas.length > 0 ? 'Gerar outra encomenda' : 'Gerar encomenda'}
+          </Link>
           <BotaoImprimir label="Imprimir orçamento" className="text-xs px-4 py-2" />
           <Link href={`/dashboard/orcamentos/${o.id}/editar`} className="btn-ghost text-xs px-4 py-2 min-h-[36px] text-secondary hover:text-primary inline-flex items-center gap-1">
             <Pencil size={13} /> Editar
@@ -83,6 +97,26 @@ export function OrcamentoView({ orcamento: o }: { orcamento: OrcamentoDetalhe })
           )}
         </div>
       </div>
+
+      {/* Encomendas já geradas deste orçamento — evita mandar a mesma
+          produção duas vezes sem perceber. Informa, não bloqueia. */}
+      {encomendas.length > 0 && (
+        <div className="card-surface px-4 py-3 mb-5 flex items-start gap-2.5 border-l-2 border-l-accent-primary print:hidden">
+          <ClipboardList size={15} className="text-accent-primary shrink-0 mt-0.5" />
+          <p className="text-secondary text-sm">
+            {encomendas.length === 1 ? 'Já virou a encomenda ' : 'Já virou as encomendas '}
+            {encomendas.map((e, i) => (
+              <span key={e.id}>
+                {i > 0 && ', '}
+                <Link href={`/dashboard/encomendas/${e.id}`} className="text-accent-primary hover:underline font-medium">
+                  Nº {e.numero}
+                </Link>
+              </span>
+            ))}
+            .
+          </p>
+        </div>
+      )}
 
       {/* Itens (tela) */}
       <div className="card-surface overflow-hidden">
