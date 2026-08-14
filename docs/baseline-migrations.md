@@ -51,12 +51,27 @@ produção uma função que executa SQL arbitrário (backdoor), o que não se ju
 > ⚠️ **NUNCA** rodar `supabase db reset --linked`: isso **apaga o banco de produção**.
 > O `db reset` só pode ser usado contra a instância local (`supabase start`).
 
-## Pré-requisito (escolha um)
+## Pré-requisito — situação em 14/08/2026
 
-- **Docker Desktop** instalado e rodando (caminho recomendado — habilita `db dump` e,
-  principalmente, o `db reset` local que valida a baseline); **ou**
-- **PostgreSQL 17 client tools** (`pg_dump` 17.x) para o dump, mas aí a validação do
-  replay continua dependendo do Docker.
+**Quase pronto. Faltam 3 passos manuais**, todos na máquina do Nicholas:
+
+- [x] **Docker Desktop instalado** — v4.86.0, em
+      `C:\Users\nicholas\AppData\Local\Programs\DockerDesktop\`
+      (repare: instalou no perfil do usuário, **não** em `Program Files`; o `docker.exe`
+      fica em `...\DockerDesktop\resources\bin\docker.exe`)
+- [x] **WSL instalado** — `wsl --install` rodado como admin, WSL 2.7.11 + Ubuntu
+- [ ] **Terminar o setup do Ubuntu** — ele pede um usuário Unix e uma senha no primeiro
+      boot (ficou parado nisso)
+- [ ] **Reiniciar o Windows**
+- [ ] **Abrir o Docker Desktop**, aceitar os termos e esperar aparecer *"Engine running"*
+
+Confirme com: `docker ps` (tem que responder sem erro). Só então siga o procedimento.
+
+> **Por que não dá para trocar Docker por PostgreSQL 17 local:** o dump até sairia, mas
+> a validação não. As migrations usam `auth.users`, `auth.uid()`, os papéis
+> `authenticated`/`service_role` e o schema `storage` — que só existem na imagem do
+> Supabase. Um Postgres puro reprovaria a baseline por coisas que **não são** problema,
+> e um "reprovado" falso é pior do que não testar.
 
 ## Procedimento
 
