@@ -19,6 +19,11 @@ o banco do zero**. Num `supabase db reset` limpo a cadeia quebra em vários pont
 | **Drift**: migrations criam `unidade.ativa`, `insumo.unidade_medida`; o banco real (e o código) usam `unidade.ativo`, `insumo.unidade_uso` | vários |
 | **Drift**: migration declara `insumo_preco.observacao` e `created_at`; o banco real **não tem `observacao`** e a coluna de data chama `criado_em`. Tem ainda `fornecedor_id`, `unidade_id` e `nota_fiscal_ref`, que a migration não declara (descoberto em 03/08 ao gravar reajuste de custo — quebrou com `PGRST204`) | `20260620000004_schema_central.sql:189-198` |
 | `baseline.sql` é vazio — o schema original foi criado à mão no SQL Editor | `20260617150000_baseline.sql` |
+| **Drift**: `meta_faturamento` constava como APLICADA no histórico (local e remoto) mas a tabela **nunca existiu** no banco — "salvar meta do mês" no Painel estava quebrado em silêncio. Descoberto em 14/08 no backup de dados; corrigido por `20260814000000_meta_faturamento_faltante.sql` | `20260622000001_meta_faturamento.sql` |
+
+> ⚠️ **O histórico de migrations do Supabase NÃO prova que o SQL rodou.** Já apareceram
+> 4 divergências. Ao mexer numa tabela que você não tocou recentemente, confirme que ela
+> existe de verdade (um `select` simples resolve) antes de confiar no arquivo da migration.
 
 **Consequência prática:** hoje o `db push` funciona normalmente para migrations novas
 (usado nos Lotes 1–3), mas **se o projeto Supabase for perdido, não existe caminho

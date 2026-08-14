@@ -40,6 +40,8 @@ yarn-error.log*
 *backup*.sql
 *.dump
 *.sql.gz
+*backup*.json
+/backups/
 
 # scripts auxiliares de seed/demo (não versionar)
 _demo_*

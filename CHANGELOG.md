@@ -7,6 +7,23 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Backup de dados + correção da meta de faturamento (14/08)
+> Disparado pelo aviso do Supabase de pausa por inatividade no plano free.
+- **`scripts/backup-dados.mjs`**: exporta TODAS as tabelas de negócio para JSON
+  (`backups/fornada-dados-AAAA-MM-DD.json`, ignorado pelo git — são dados reais de
+  cliente e o repo é público). Roda com `node scripts/backup-dados.mjs`. É a rede de
+  segurança enquanto a baseline real das migrations não existe: projeto free pausado
+  por 90 dias **não pode mais ser despausado**, só ter os dados baixados.
+  Primeira execução: 516 linhas em 30 tabelas.
+- **BUG ATIVO corrigido — `meta_faturamento` não existia**: a migration
+  `20260622000001` consta como **aplicada** no histórico (local e remoto), mas a tabela
+  nunca foi criada. `getMetaFaturamento` não checa o erro, então a leitura degradava em
+  silêncio (Painel caía na meta automática) — mas **salvar a meta do mês simplesmente
+  não funcionava**. Criada por `20260814000000_meta_faturamento_faltante.sql` e
+  verificada (upsert + leitura + limpeza).
+- É o **4º drift** entre migration e banco real. Registrado no runbook com o aviso: o
+  histórico do Supabase **não prova que o SQL rodou** — confira a tabela antes de confiar.
+
 ### Compra com itens → reajuste automático do custo do insumo
 > Roadmap nº 5 da auditoria v3 §7, por um caminho diferente do previsto.
 > Migration `20260803020000_compra_itens_e_rls.sql`. 9 probes no banco vivo.
