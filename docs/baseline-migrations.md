@@ -60,12 +60,25 @@ produção uma função que executa SQL arbitrário (backdoor), o que não se ju
       (repare: instalou no perfil do usuário, **não** em `Program Files`; o `docker.exe`
       fica em `...\DockerDesktop\resources\bin\docker.exe`)
 - [x] **WSL instalado** — `wsl --install` rodado como admin, WSL 2.7.11 + Ubuntu
-- [ ] **Terminar o setup do Ubuntu** — ele pede um usuário Unix e uma senha no primeiro
-      boot (ficou parado nisso)
-- [ ] **Reiniciar o Windows**
-- [ ] **Abrir o Docker Desktop**, aceitar os termos e esperar aparecer *"Engine running"*
+- [x] **WSL confirmado funcional** — 2.7.11, kernel 6.18.33.2, distro Ubuntu registrada
+      e rodando. *O prompt de "usuário Unix" do Ubuntu **não precisa** ser respondido:
+      o Docker Desktop usa a distro própria dele (`docker-desktop`), não o Ubuntu.*
+- [x] **Recurso "Docker AI" desligado** — na 1ª subida o Docker Desktop caiu com
+      `initializing Inference manager: ... remove .../dockerInference`: um socket órfão
+      de 0 byte que ele não consegue apagar. Não usamos nada desse recurso, então
+      `EnableDockerAI` virou `false` em
+      `%APPDATA%\Docker\settings-store.json` (backup `.bak-2026-08-14` ao lado).
+- [ ] **Reiniciar o Windows** ← *o que falta*. Necessário duas vezes: para concluir a
+      instalação do WSL e para limpar os sockets órfãos em
+      `%LOCALAPPDATA%\Docker\run\` (o Windows não deixa removê-los com o sistema no ar).
+- [ ] **Abrir o Docker Desktop**, aceitar os termos e esperar *"Engine running"*.
 
-Confirme com: `docker ps` (tem que responder sem erro). Só então siga o procedimento.
+Confirme com `docker ps` — tem que responder sem erro. Só então siga o procedimento.
+
+> O `docker` **não fica no PATH** deste shell; o caminho completo é
+> `C:\Users\nicholas\AppData\Local\Programs\DockerDesktop\resources\bin\docker.exe`.
+> Se voltar o erro do Inference manager mesmo com `EnableDockerAI=false`, o próximo
+> passo é *Settings → AI* na interface e desligar o Model Runner por lá.
 
 > **Por que não dá para trocar Docker por PostgreSQL 17 local:** o dump até sairia, mas
 > a validação não. As migrations usam `auth.users`, `auth.uid()`, os papéis
