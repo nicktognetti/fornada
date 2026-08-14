@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { parseDecimalBR } from '@/lib/format'
-import { getUnidadeAutorizada } from '@/app/actions/unidade'
+import { getUnidadeAutorizada, getUnidadePreferida } from '@/app/actions/unidade'
 import { temAcesso, unidadeDoRegistro, setoresPermitidosCaderno, receitaSetorUnidade } from '@/app/lib/authz'
 import { LOCAIS_CONFIG_KEY, LOCAIS_PADRAO } from '@/app/lib/locais'
 import type { ActionResult } from './types'
@@ -790,10 +790,17 @@ export async function contarReceitasPendentes(): Promise<{ total: number }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { total: 0 }
-  const { count } = await supabase
+  // Filtra pela loja ativa: sem isso o badge do menu somava as duas lojas e
+  // não batia com a lista, que é filtrada — a Natali via "3 pendentes" e
+  // encontrava 1 na tela.
+  const unidadeId = await getUnidadePreferida()
+  let q = supabase
     .from('receita')
     .select('id', { count: 'exact', head: true })
     .eq('ativo', true)
     .eq('revisao_pendente', true)
+  if (unidadeId) q = q.eq('unidade_id', unidadeId)
+
+  const { count } = await q
   return { total: count ?? 0 }
 }

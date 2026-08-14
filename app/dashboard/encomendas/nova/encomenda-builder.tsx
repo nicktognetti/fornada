@@ -78,7 +78,10 @@ export function EncomendaBuilder({ produtos, clientes, locais, edicao, origem }:
     return base.map((it) => {
       const prod = it.produto_id ? produtos.find((pp) => pp.id === it.produto_id) : undefined
       return {
-        key: (keyRef.n += 1), produto_id: it.produto_id, descricao: it.descricao, base: it.preco_unitario,
+        key: (keyRef.n += 1), produto_id: it.produto_id, descricao: it.descricao,
+        // Base do % = preço de CATÁLOGO. Com o preço salvo, reaplicar +10%
+        // num item já ajustado em +10% virava +21% (juro composto silencioso).
+        base: prod?.preco_base ?? it.preco_unitario,
         quantidade: String(it.quantidade), ajustePct: '', preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '', obs: it.observacao ?? '',
         local: it.local ?? prod?.local ?? null,
         unidade: prod?.unidade_venda ?? null,

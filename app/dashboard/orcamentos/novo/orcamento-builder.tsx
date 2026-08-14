@@ -38,16 +38,23 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
   const [validade, setValidade] = useState(String(edicao?.validade_dias ?? 7))
   const [obs, setObs] = useState(edicao?.observacao ?? '')
   const [linhas, setLinhas] = useState<Linha[]>(() =>
-    (edicao?.itens ?? []).map((it) => ({
-      key: (keyRef.n += 1),
-      produto_id: it.produto_id,
-      descricao: it.descricao,
-      base: it.preco_unitario,
-      quantidade: String(it.quantidade),
-      ajustePct: '',
-      preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '',
-      unidade: it.produto_id ? (produtos.find((pp) => pp.id === it.produto_id)?.unidade_venda ?? null) : null,
-    })),
+    (edicao?.itens ?? []).map((it) => {
+      const prod = it.produto_id ? produtos.find((pp) => pp.id === it.produto_id) : undefined
+      return {
+        key: (keyRef.n += 1),
+        produto_id: it.produto_id,
+        descricao: it.descricao,
+        // A base do % é o preço de CATÁLOGO, não o preço já salvo. Usando o
+        // salvo, reaplicar +10% num item que já fora ajustado em +10% dava
+        // +21% (juro composto silencioso). Item avulso não tem catálogo:
+        // aí o salvo é a única referência que existe.
+        base: prod?.preco_base ?? it.preco_unitario,
+        quantidade: String(it.quantidade),
+        ajustePct: '',
+        preco: it.preco_unitario > 0 ? it.preco_unitario.toFixed(2) : '',
+        unidade: prod?.unidade_venda ?? null,
+      }
+    }),
   )
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)

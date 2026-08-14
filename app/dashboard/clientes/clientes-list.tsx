@@ -9,7 +9,22 @@ import { criarCliente, atualizarCliente, excluirCliente, type ClienteRow, type C
 const VAZIO: ClienteInput = { nome: '', telefone: '', email: '', endereco: '', documento: '', observacao: '' }
 
 export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: string }) {
-  const [rows, setRows] = useState<ClienteRow[]>(inicial)
+  // Estado DERIVADO dos props (mesmo padrão do produto-list). Espelhar `inicial`
+  // num useState congelava a lista: ao trocar de loja no seletor, o server
+  // mandava os clientes da loja nova e a tela seguia mostrando os da anterior.
+  // Aqui guardamos só as edições otimistas desta sessão e casamos com os props
+  // frescos no render.
+  const [criados, setCriados] = useState<ClienteRow[]>([])
+  const [editados, setEditados] = useState<Record<string, ClienteRow>>({})
+  const [excluidos, setExcluidos] = useState<Set<string>>(new Set())
+
+  const rows = useMemo(() => {
+    const doServidor = inicial.map((c) => editados[c.id] ?? c)
+    // Um cliente recém-criado some da lista local assim que o server o devolve.
+    const idsDoServidor = new Set(inicial.map((c) => c.id))
+    const aindaLocais = criados.filter((c) => !idsDoServidor.has(c.id))
+    return ordena([...doServidor, ...aindaLocais].filter((c) => !excluidos.has(c.id)))
+  }, [inicial, criados, editados, excluidos])
   const [busca, setBusca] = useState('')
   const [msg, setMsg] = useState<string | null>(erro ?? null)
 
@@ -57,12 +72,13 @@ export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: 
       const res = await atualizarCliente(editId, form)
       setSalvando(false)
       if (res.error) { setMsg(res.error); return }
-      setRows((prev) => ordena(prev.map((c) => (c.id === editId ? { ...c, ...limpaRow(form) } : c))))
+      const atual = rows.find((c) => c.id === editId)
+      if (atual) setEditados((prev) => ({ ...prev, [editId]: { ...atual, ...limpaRow(form) } }))
     } else {
       const res = await criarCliente(form)
       setSalvando(false)
       if (res.error || !res.data) { setMsg(res.error ?? 'Erro ao salvar'); return }
-      setRows((prev) => ordena([...prev, { id: res.data!.id, created_at: new Date().toISOString(), ...limpaRow(form) }]))
+      setCriados((prev) => [...prev, { id: res.data!.id, created_at: new Date().toISOString(), ...limpaRow(form) }])
     }
     fechar()
   }
@@ -72,7 +88,7 @@ export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: 
     const res = await excluirCliente(id)
     setBusyId(null)
     if (res.error) { setMsg(res.error); return }
-    setRows((prev) => prev.filter((c) => c.id !== id))
+    setExcluidos((prev) => new Set(prev).add(id))
     setConfirmId(null)
     if (editId === id) fechar()
   }

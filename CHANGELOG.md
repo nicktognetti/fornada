@@ -7,6 +7,23 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Lote 7 — P3 que valiam a pena (14/08)
+> Últimos achados do `AUDITORIA_FORNADA_v3.md` §5 com impacto real.
+> Auditoria v3 agora **zerada**: P0, P1, P2 e os P3 relevantes, todos fechados.
+- **Ajuste de % virava juro composto** (bug de dinheiro): ao editar um pedido, a base
+  do campo "%" era o **preço já salvo**. Reaplicar +10% num item que já tinha sido
+  ajustado em +10% dava **+21%** — silenciosamente. Agora a base é o preço de
+  **catálogo** do produto; item avulso, que não tem catálogo, mantém o preço salvo
+  como única referência possível. Corrigido nos dois builders (orçamento e encomenda).
+- **Trocar de loja mostrava os clientes da loja anterior**: `ClientesList` espelhava a
+  prop num `useState`, então o `router.refresh()` do seletor de loja trazia os dados
+  novos e a tela seguia com os antigos. Passou a **estado derivado** (mesmo padrão do
+  `produto-list`, commit dcf1562): guarda só as edições otimistas da sessão e casa com
+  os props frescos no render.
+- **Badge de revisões pendentes contava as duas lojas**, mas a lista é filtrada por
+  loja — a Natali via "3 pendentes" no menu e achava 1 na tela.
+- **PII nos logs já estava resolvido** no Lote 2 (`mascarar()` no webhook) — reconferido.
+
 ### Lote 6 — os P2 de segurança que sobraram da auditoria (14/08)
 > Fecha os últimos achados abertos do `AUDITORIA_FORNADA_v3.md` §4.
 > Migrations `20260814010000` e `20260814020000`. 6/6 probes no banco vivo.
