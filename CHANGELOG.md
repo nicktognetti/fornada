@@ -7,6 +7,43 @@ Formato: `tipo: descrição — detalhes`
 
 ## [Não lançado]
 
+### Lote 6 — os P2 de segurança que sobraram da auditoria (14/08)
+> Fecha os últimos achados abertos do `AUDITORIA_FORNADA_v3.md` §4.
+> Migrations `20260814010000` e `20260814020000`. 6/6 probes no banco vivo.
+- **P2-3 — item de receita editável por fora do setor**: `updateItem`/`removeItem`
+  validavam unidade e setor contra o `receita_id` vindo do **formulário**, mas o
+  UPDATE/DELETE era por `item_id`. Bastava enviar o id de uma receita permitida com o
+  id de um item de outra para editá-lo — e a detecção de ciclo rodava contra o pai
+  errado, deixando gravar A⊃B⊃A. Agora a receita é derivada do próprio item
+  (`receitaDoItem`, service role pelo mesmo motivo de `unidadeDoRegistro`), e o
+  parâmetro `receitaId` de `removeItem` foi **removido da assinatura** — não dá mais
+  para passar o errado.
+- **P2-5 — escalonamento de privilégio**: `assertAdmin` aceita o admin "só de
+  Configurações", e nada impedia que ele **resetasse a senha do admin geral** e entrasse
+  como ele. Nova trava `podeMexerEmAdminGlobal` aplicada nas **5** ações de admin
+  (salvar/apagar permissão, desabilitar, excluir, resetar senha): mexer em quem é admin
+  global exige ser admin global.
+- **P2-4 — IDOR de leitura**: `getTransferenciaItensAction` lia com service role
+  checando apenas login; com o UUID em mãos, qualquer autenticado via itens, quantidades
+  e preços de qualquer transferência. Agora valida a empresa antes.
+- **P2-17 — ficha excluída deixando produto órfão**: a exclusão é soft (`ativo=false`),
+  então a FK não dispara e o produto seguia **ativo** ligado a uma ficha inativa — perdia
+  custo e sumia do painel sem explicação. Agora bloqueia e diz qual produto.
+- **P2-14 — ciclo derrubava meio sistema**: `fn_fornada_custo_receita` é recursiva e não
+  tinha limite. Uma ficha A⊃B⊃A estouraria a pilha e, como as views de custo dependem
+  dela, cairiam **Receitas, Preços, Produtos, Painel, Simulador, Resumo e o catálogo do
+  robô**. Agora carrega o caminho percorrido: ramo cíclico contribui 0 em vez de estourar.
+  Comprovado com um ciclo real no banco — as telas continuaram respondendo.
+
+> **5º drift, e era bug ativo — `receita.tipo` não aceitava `'base'`.** O CHECK real
+> só permitia `'final'`, embora a migration declare os dois, o Zod aceite os dois e o
+> modal ofereça "Base — sub-receita". **Criar sub-receita era impossível em produção** —
+> e as 5 receitas do banco são todas `'final'`, o que explica por que ninguém notou:
+> a máquina inteira de sub-receita (cálculo recursivo, ciclo, rendimento da sub) nunca
+> rodou com dado real. Corrigido. Descoberto por acaso, ao montar um ciclo para testar
+> o P2-14 — e **corrige uma afirmação de 03/08**: naquele dia removi do modal os tipos
+> inválidos achando que `'base'` funcionava, porque a migration dizia que sim.
+
 ### Backup de dados + correção da meta de faturamento (14/08)
 > Disparado pelo aviso do Supabase de pausa por inatividade no plano free.
 - **`scripts/backup-dados.mjs`**: exporta TODAS as tabelas de negócio para JSON

@@ -21,9 +21,13 @@ o banco do zero**. Num `supabase db reset` limpo a cadeia quebra em vários pont
 | `baseline.sql` é vazio — o schema original foi criado à mão no SQL Editor | `20260617150000_baseline.sql` |
 | **Drift**: `meta_faturamento` constava como APLICADA no histórico (local e remoto) mas a tabela **nunca existiu** no banco — "salvar meta do mês" no Painel estava quebrado em silêncio. Descoberto em 14/08 no backup de dados; corrigido por `20260814000000_meta_faturamento_faltante.sql` | `20260622000001_meta_faturamento.sql` |
 
+| **Drift**: o CHECK real de `receita.tipo` aceitava **só `'final'`**, embora a migration declare `IN ('final','base')`, o Zod aceite os dois e o modal ofereça "Base". **Criar sub-receita era impossível** — toda a máquina de sub-receita (cálculo recursivo, detecção de ciclo) nunca rodou com dado real. Corrigido por `20260814020000_receita_tipo_base.sql` | `20260620000004_schema_central.sql:239` |
+
 > ⚠️ **O histórico de migrations do Supabase NÃO prova que o SQL rodou.** Já apareceram
-> 4 divergências. Ao mexer numa tabela que você não tocou recentemente, confirme que ela
-> existe de verdade (um `select` simples resolve) antes de confiar no arquivo da migration.
+> **5 divergências**, e duas delas eram bug ativo em produção (meta de faturamento não
+> salvava; sub-receita não podia ser criada). Ao mexer numa tabela ou coluna que você não
+> tocou recentemente, **confirme contra o banco** (um `select` ou um insert de teste
+> resolve) antes de confiar no arquivo da migration.
 
 **Consequência prática:** hoje o `db push` funciona normalmente para migrations novas
 (usado nos Lotes 1–3), mas **se o projeto Supabase for perdido, não existe caminho

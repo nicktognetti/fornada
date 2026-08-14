@@ -58,7 +58,7 @@ export function FichaView({ receita, custo, itens }: Props) {
 
   async function handleRemoveItem(item: ReceitaItemComCusto) {
     setDeletingItemId(item.id)
-    await removeItem(item.id, receita.id)
+    await removeItem(item.id)
     setDeletingItemId(null)
     setConfirmItemId(null)
   }

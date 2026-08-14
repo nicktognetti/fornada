@@ -286,6 +286,25 @@ export async function getTransferenciaItensAction(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
+  // Só checava login: com o UUID em mãos, qualquer autenticado (de qualquer
+  // empresa) lia itens, quantidades e preços de qualquer transferência.
+  // O service role abaixo é para ver o NOME de produto da outra loja — não
+  // para dispensar a checagem de posse.
+  const { data: vinculos } = await supabase
+    .from('usuario_empresa')
+    .select('empresa_id')
+    .eq('user_id', user.id)
+  const empresaIds = (vinculos ?? []).map((v: { empresa_id: string }) => v.empresa_id)
+  if (empresaIds.length === 0) return { error: 'Empresa não encontrada' }
+
+  const { data: transf } = await supabaseAdmin
+    .from('transferencia')
+    .select('empresa_id')
+    .eq('id', transferenciaId)
+    .maybeSingle()
+  if (!transf || !empresaIds.includes(transf.empresa_id as string))
+    return { error: 'Transferência não encontrada' }
+
   const { data: itensRaw, error: itensErr } = await supabaseAdmin
     .from('transferencia_item')
     .select('id, produto_id, quantidade_enviada, preco_unitario')

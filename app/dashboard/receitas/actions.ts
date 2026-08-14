@@ -221,6 +221,24 @@ export async function deleteReceita(id: string): Promise<ActionResult> {
     return { error: 'Esta receita é usada como sub-receita em outra ficha. Remova a referência antes de excluir.' }
   }
 
+  // Bloquear se há produto de venda apontando para esta ficha. A exclusão é
+  // soft (ativo=false), então a FK não dispara: o produto continuaria ATIVO
+  // no catálogo, ligado a uma ficha inativa — perdia o custo e sumia/zerava
+  // no painel e nos pedidos, sem nenhuma explicação para a Natali.
+  const { data: produtos } = await supabase
+    .from('produto')
+    .select('nome')
+    .eq('receita_id', id)
+    .eq('ativo', true)
+    .limit(3)
+
+  if (produtos && produtos.length > 0) {
+    const nomes = (produtos as { nome: string }[]).map((p) => p.nome).join(', ')
+    return {
+      error: `Esta ficha está ligada ao produto ${nomes}. Desvincule ou desative o produto antes de excluir a ficha.`,
+    }
+  }
+
   const { error } = await supabase.from('receita').update({ ativo: false }).eq('id', id)
   if (error) return { error: 'Erro ao excluir: ' + error.message }
 
@@ -366,6 +384,28 @@ export async function addItensLote(
 
 // ─── Editar item ────────────────────────────────────────────────────────────────
 
+/**
+ * Receita REAL a que um item pertence, lida do próprio item.
+ *
+ * Não dá para confiar no `receita_id` que vem do formulário: as checagens de
+ * unidade e de setor rodavam contra ELE, mas o UPDATE/DELETE é por `item_id`.
+ * Bastava enviar o id de uma receita permitida junto com o id de um item de
+ * outra (de setor proibido) para editá-lo — e, de quebra, a detecção de ciclo
+ * rodava contra o pai errado, permitindo gravar A⊃B⊃A.
+ *
+ * Usa service role pelo mesmo motivo de `unidadeDoRegistro`: se lesse com o
+ * cliente autenticado, a RLS esconderia o item de outra loja e o `null`
+ * resultante LIBERARIA a checagem em vez de barrar.
+ */
+async function receitaDoItem(itemId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('receita_item')
+    .select('receita_id')
+    .eq('id', itemId)
+    .maybeSingle()
+  return (data?.receita_id as string | undefined) ?? null
+}
+
 export async function updateItem(
   _prev: ActionResult | undefined,
   formData: FormData
@@ -375,8 +415,11 @@ export async function updateItem(
   if (!user) return { error: 'Não autenticado' }
 
   const id = formData.get('id') as string
-  const receita_id = formData.get('receita_id') as string
-  if (!id || !receita_id) return { error: 'IDs não informados' }
+  if (!id) return { error: 'IDs não informados' }
+
+  // A receita vem do ITEM, nunca do formulário.
+  const receita_id = await receitaDoItem(id)
+  if (!receita_id) return { error: 'Item não encontrado' }
 
   const unidadeId = await unidadeDoRegistro('receita', receita_id)
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))
@@ -419,10 +462,16 @@ export async function updateItem(
 
 // ─── Remover item ───────────────────────────────────────────────────────────────
 
-export async function removeItem(id: string, receitaId: string): Promise<ActionResult> {
+// A receita NÃO é parâmetro de propósito: vem do próprio item (`receitaDoItem`).
+// Antes as telas passavam o receita_id e a checagem de setor rodava contra ELE,
+// enquanto o DELETE era por item_id — dava para apagar item de setor proibido.
+export async function removeItem(id: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+
+  const receitaId = await receitaDoItem(id)
+  if (!receitaId) return { error: 'Item não encontrado' }
 
   const unidadeId = await unidadeDoRegistro('receita', receitaId)
   if (!(await temAcesso(user.id, ['receitas', 'caderno'], { unidadeId })))

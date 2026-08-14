@@ -46,6 +46,20 @@ async function empresasDoUsuario(userId: string): Promise<string[]> {
   return [...new Set(((data ?? []) as { empresa_id: string }[]).map((r) => r.empresa_id))]
 }
 
+/**
+ * Mexer num usuário que É admin global exige ser admin global também.
+ *
+ * `assertAdmin` aceita o admin "só de Configurações". Sem esta trava, ele
+ * resetava a senha do admin geral da mesma empresa e entrava como ele —
+ * escalonamento de privilégio pelo caminho mais curto. Vale igual para
+ * excluir e desabilitar: derrubar o admin geral é tão grave quanto virar ele.
+ */
+async function podeMexerEmAdminGlobal(callerId: string, targetUserId: string): Promise<boolean> {
+  if (callerId === targetUserId) return true
+  if (!(await isAdminGlobal(targetUserId))) return true  // alvo comum: segue o fluxo normal
+  return isAdminGlobal(callerId)
+}
+
 // O admin pode gerenciar este usuário-alvo? Precisa compartilhar empresa.
 // Alvo SEM empresa (órfão) é liberado: não pertence a outra empresa, então
 // não há vazamento entre inquilinos — e permite limpeza de órfãos.
@@ -178,6 +192,8 @@ export async function savePermissionsAction(
   if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
   if (!(await podeGerenciarUsuario(user.id, targetUserId)))
     return { error: 'Usuário não pertence à sua empresa' }
+  if (!(await podeMexerEmAdminGlobal(user.id, targetUserId)))
+    return { error: 'Apenas um administrador geral pode gerenciar outro administrador geral' }
 
   // Só admin global concede admin global (tela='*') — barra auto-promoção.
   if (permissoes.some((p) => p.tela === '*') && !(await isAdminGlobal(user.id)))
@@ -232,6 +248,8 @@ export async function deletePermissionAction(
   if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
   if (!(await podeGerenciarUsuario(user.id, targetUserId)))
     return { error: 'Usuário não pertence à sua empresa' }
+  if (!(await podeMexerEmAdminGlobal(user.id, targetUserId)))
+    return { error: 'Apenas um administrador geral pode gerenciar outro administrador geral' }
 
   let q = supabaseAdmin
     .from('permissao')
@@ -258,6 +276,8 @@ export async function disableUserAction(targetUserId: string): Promise<ActionRes
   if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
   if (!(await podeGerenciarUsuario(user.id, targetUserId)))
     return { error: 'Usuário não pertence à sua empresa' }
+  if (!(await podeMexerEmAdminGlobal(user.id, targetUserId)))
+    return { error: 'Apenas um administrador geral pode gerenciar outro administrador geral' }
 
   const { error } = await supabaseAdmin
     .from('permissao')
@@ -280,6 +300,8 @@ export async function deleteUserAction(targetUserId: string): Promise<ActionResu
   if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
   if (!(await podeGerenciarUsuario(user.id, targetUserId)))
     return { error: 'Usuário não pertence à sua empresa' }
+  if (!(await podeMexerEmAdminGlobal(user.id, targetUserId)))
+    return { error: 'Apenas um administrador geral pode gerenciar outro administrador geral' }
 
   // Tenta remover do Auth; se "not found" o usuário já foi deletado — continua limpeza
   const { error } = await supabaseAdmin.auth.admin.deleteUser(targetUserId)
@@ -306,6 +328,8 @@ export async function resetPasswordAction(
   if (!(await assertAdmin(user.id))) return { error: 'Acesso negado' }
   if (!(await podeGerenciarUsuario(user.id, targetUserId)))
     return { error: 'Usuário não pertence à sua empresa' }
+  if (!(await podeMexerEmAdminGlobal(user.id, targetUserId)))
+    return { error: 'Apenas um administrador geral pode gerenciar outro administrador geral' }
   if (newPassword.length < 6) return { error: 'Senha deve ter pelo menos 6 caracteres' }
 
   const { error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {

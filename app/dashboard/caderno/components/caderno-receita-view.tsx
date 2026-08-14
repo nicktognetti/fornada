@@ -60,7 +60,7 @@ export function CadernoReceitaView({ receita, itens, podeEditar }: Props) {
 
   async function handleRemove(id: string) {
     setRemovendo(id)
-    await removeItem(id, receita.id)
+    await removeItem(id)
     setRemovendo(null)
     setConfirmRemove(null)
     router.refresh()
