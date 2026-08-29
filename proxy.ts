@@ -65,7 +65,9 @@ export async function proxy(request: NextRequest) {
   const isApiAtendimento =
     pathname.startsWith('/api/atendimento/webhook') ||
     pathname.startsWith('/api/atendimento/comandas')
-  const isPublicPath = isLoginPage || isApiAtendimento
+  // /api/health: keep-alive do Supabase via cron da Vercel (leitura mínima, sem dados).
+  const isHealth = pathname === '/api/health'
+  const isPublicPath = isLoginPage || isApiAtendimento || isHealth
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()
