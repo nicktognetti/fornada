@@ -9,13 +9,34 @@
 import { useEffect } from 'react'
 
 let assandoCount = 0
+let assandoTimer: ReturnType<typeof setInterval> | null = null
+let assandoFrame = 1
+
+function ligaCursor() {
+  const html = document.documentElement
+  html.classList.add('cursor-assando', 'assando-f1')
+  if (!assandoTimer) {
+    assandoTimer = setInterval(() => {
+      assandoFrame = (assandoFrame % 3) + 1
+      html.classList.remove('assando-f1', 'assando-f2', 'assando-f3')
+      html.classList.add(`assando-f${assandoFrame}`)
+    }, 280)
+  }
+}
+
+function desligaCursor() {
+  const html = document.documentElement
+  html.classList.remove('cursor-assando', 'assando-f1', 'assando-f2', 'assando-f3')
+  if (assandoTimer) { clearInterval(assandoTimer); assandoTimer = null; assandoFrame = 1 }
+}
+
 function useCursorAssando() {
   useEffect(() => {
     assandoCount += 1
-    document.documentElement.classList.add('cursor-assando')
+    ligaCursor()
     return () => {
       assandoCount -= 1
-      if (assandoCount <= 0) document.documentElement.classList.remove('cursor-assando')
+      if (assandoCount <= 0) desligaCursor()
     }
   }, [])
 }
