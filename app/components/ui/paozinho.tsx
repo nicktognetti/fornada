@@ -1,9 +1,27 @@
+'use client'
+
 /**
  * Pãozinho soltando fumaça — indicador de "assando" (carregando/salvando).
- * Sem hooks: pode ser usado em server e client components.
+ * Enquanto QUALQUER pãozinho estiver visível, o cursor do mouse vira a
+ * baguetinha (classe `cursor-assando` no <html>, estilo em globals.css).
  */
 
+import { useEffect } from 'react'
+
+let assandoCount = 0
+function useCursorAssando() {
+  useEffect(() => {
+    assandoCount += 1
+    document.documentElement.classList.add('cursor-assando')
+    return () => {
+      assandoCount -= 1
+      if (assandoCount <= 0) document.documentElement.classList.remove('cursor-assando')
+    }
+  }, [])
+}
+
 export function Paozinho({ size = 40, className = '' }: { size?: number; className?: string }) {
+  useCursorAssando()
   return (
     <span className={`inline-flex ${className}`} style={{ width: size, height: size }} aria-label="Carregando" role="status">
       <svg viewBox="0 0 48 48" width={size} height={size} fill="none">
