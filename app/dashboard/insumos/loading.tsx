@@ -1,5 +1,8 @@
+import { PaozinhoOverlay } from '@/app/components/ui/paozinho'
+
 export default function InsumosLoading() {
   return (
+    <>
     <div className="space-y-4 animate-pulse">
       <div className="flex items-center justify-between">
         <div className="h-8 w-36 rounded-lg bg-surface-2" />
@@ -20,5 +23,7 @@ export default function InsumosLoading() {
         ))}
       </div>
     </div>
+    <PaozinhoOverlay />
+    </>
   )
 }

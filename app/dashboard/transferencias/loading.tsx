@@ -1,5 +1,8 @@
+import { PaozinhoOverlay } from '@/app/components/ui/paozinho'
+
 export default function Loading() {
   return (
+    <>
     <div>
       {/* Header skeleton */}
       <div className="flex items-start justify-between mb-8 gap-4">
@@ -52,5 +55,7 @@ export default function Loading() {
         ))}
       </div>
     </div>
+    <PaozinhoOverlay />
+    </>
   )
 }

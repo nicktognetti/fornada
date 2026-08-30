@@ -1,5 +1,8 @@
+import { PaozinhoOverlay } from '@/app/components/ui/paozinho'
+
 export default function DashboardLoading() {
   return (
+    <>
     <div className="max-w-2xl space-y-6 animate-pulse">
       <div className="h-8 w-48 rounded-lg bg-surface-2" />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -24,5 +27,7 @@ export default function DashboardLoading() {
         ))}
       </div>
     </div>
+    <PaozinhoOverlay />
+    </>
   )
 }

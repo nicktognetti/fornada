@@ -1,5 +1,8 @@
+import { PaozinhoOverlay } from '@/app/components/ui/paozinho'
+
 export default function ProdutosLoading() {
   return (
+    <>
     <div className="space-y-6 animate-pulse">
       {/* Título */}
       <div className="space-y-2">
@@ -28,5 +31,7 @@ export default function ProdutosLoading() {
         ))}
       </div>
     </div>
+    <PaozinhoOverlay />
+    </>
   )
 }

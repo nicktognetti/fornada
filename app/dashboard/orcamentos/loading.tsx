@@ -1,5 +1,8 @@
+import { PaozinhoOverlay } from '@/app/components/ui/paozinho'
+
 export default function OrcamentosLoading() {
   return (
+    <>
     <div className="space-y-6 animate-pulse">
       <div className="space-y-2">
         <div className="h-8 w-40 rounded-lg bg-surface-2" />
@@ -21,5 +24,7 @@ export default function OrcamentosLoading() {
         ))}
       </div>
     </div>
+    <PaozinhoOverlay />
+    </>
   )
 }

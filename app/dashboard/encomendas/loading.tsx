@@ -1,5 +1,8 @@
+import { PaozinhoOverlay } from '@/app/components/ui/paozinho'
+
 export default function EncomendasLoading() {
   return (
+    <>
     <div className="space-y-5 animate-pulse">
       <div className="space-y-2">
         <div className="h-8 w-44 rounded-lg bg-surface-2" />
@@ -22,5 +25,7 @@ export default function EncomendasLoading() {
         ))}
       </div>
     </div>
+    <PaozinhoOverlay />
+    </>
   )
 }

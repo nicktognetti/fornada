@@ -4,7 +4,8 @@ import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, AlertTriangle, BookOpen, ListOrdered, ChefHat, Camera, Loader2, Clock, Flame, Gauge, Lightbulb, BadgeCheck, Tag } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { deleteReceita, removeItem, uploadReceitaFoto, removeReceitaFoto, marcarReceitaRevisada } from '../actions'
+import { deleteReceita, removeItem, uploadReceitaFoto, removeReceitaFoto, marcarReceitaRevisada, updateReceita, updateItem, getInsumos, getReceitasParaSubReceita } from '../actions'
+import { InlineEdit, IngredienteSwap, type OpcaoIngrediente } from './inline-edit'
 import { formatBRL, formatCustoGrande } from '@/lib/format'
 import { ReceitaModal } from './receita-modal'
 import { ItemModal } from './item-modal'
@@ -37,6 +38,58 @@ export function FichaView({ receita, custo, itens }: Props) {
   const [revisando, setRevisando] = useState(false)
   const keyRef = useRef(0)
   const fotoInputRef = useRef<HTMLInputElement>(null)
+  const opcoesRef = useRef<OpcaoIngrediente[] | null>(null)
+
+  // Edição inline: número no formato BR (parseDecimalBR trata ponto como milhar)
+  const numBR = (n: number) => String(n).replace('.', ',')
+
+  async function salvarCampoReceita(campo: 'nome' | 'rendimento', valor: string): Promise<string | null> {
+    const fd = new FormData()
+    fd.set('id', receita.id)
+    fd.set('nome', campo === 'nome' ? valor : receita.nome)
+    fd.set('tipo', receita.tipo)
+    fd.set('rendimento', campo === 'rendimento' ? valor : numBR(receita.rendimento))
+    fd.set('rendimento_unidade', receita.rendimento_unidade)
+    if (receita.observacao) fd.set('observacao', receita.observacao)
+    if (receita.categoria) fd.set('categoria', receita.categoria)
+    fd.set('passos', JSON.stringify(receita.passos ?? []))
+    if (receita.tempo_preparo_min != null) fd.set('tempo_preparo_min', String(receita.tempo_preparo_min))
+    if (receita.temperatura_forno != null) fd.set('temperatura_forno', String(receita.temperatura_forno))
+    if (receita.tempo_forno_min != null) fd.set('tempo_forno_min', String(receita.tempo_forno_min))
+    if (receita.dificuldade) fd.set('dificuldade', receita.dificuldade)
+    const res = await updateReceita(undefined, fd)
+    if (res?.error) return res.error
+    router.refresh()
+    return null
+  }
+
+  async function salvarItemInline(
+    item: ReceitaItemComCusto,
+    mud: { quantidade?: string; insumo_id?: string | null; sub_receita_id?: string | null },
+  ): Promise<string | null> {
+    const fd = new FormData()
+    fd.set('id', item.id)
+    fd.set('quantidade', mud.quantidade ?? numBR(item.quantidade))
+    const insumo = mud.insumo_id !== undefined ? mud.insumo_id : item.insumo_id
+    const sub = mud.sub_receita_id !== undefined ? mud.sub_receita_id : item.sub_receita_id
+    if (insumo) fd.set('insumo_id', insumo)
+    if (sub) fd.set('sub_receita_id', sub)
+    const res = await updateItem(undefined, fd)
+    if (res?.error) return res.error
+    router.refresh()
+    return null
+  }
+
+  async function carregarOpcoesIngrediente(): Promise<OpcaoIngrediente[]> {
+    if (opcoesRef.current) return opcoesRef.current
+    const [ins, subs] = await Promise.all([getInsumos(), getReceitasParaSubReceita(receita.id)])
+    const lista: OpcaoIngrediente[] = [
+      ...ins.map((i: { id: string; nome: string }) => ({ id: i.id, nome: i.nome, tipo: 'insumo' as const })),
+      ...subs.map((s: { id: string; nome: string }) => ({ id: s.id, nome: s.nome, tipo: 'sub' as const })),
+    ]
+    opcoesRef.current = lista
+    return lista
+  }
 
   async function handleMarcarRevisada() {
     setRevisando(true)
@@ -105,12 +158,24 @@ export function FichaView({ receita, custo, itens }: Props) {
                   <Tag size={10} /> {receita.categoria.trim()}
                 </span>
               )}
-              <span className="text-secondary text-xs">
-                Rende {receita.rendimento} {receita.rendimento_unidade}
+              <span className="text-secondary text-xs inline-flex items-center gap-1">
+                Rende
+                <InlineEdit
+                  numeric
+                  value={numBR(receita.rendimento)}
+                  onSave={(v) => salvarCampoReceita('rendimento', v)}
+                  inputClassName="w-20 text-xs"
+                  title="Clique para corrigir o rendimento"
+                />
+                {receita.rendimento_unidade}
               </span>
             </div>
             <h1 className="font-playfair text-primary text-[28px] sm:text-[34px] font-bold leading-tight">
-              {receita.nome}
+              <InlineEdit
+                value={receita.nome}
+                onSave={(v) => salvarCampoReceita('nome', v)}
+                inputClassName="font-playfair text-[22px] sm:text-[26px] font-bold w-full max-w-xl"
+              />
             </h1>
             {receita.observacao && (
               <p className="text-secondary text-sm mt-2 flex items-start gap-1.5">
@@ -308,12 +373,24 @@ export function FichaView({ receita, custo, itens }: Props) {
                       <td className="px-5 py-3 max-w-[280px]">
                         <div className="flex items-center gap-2">
                           {item.is_pendente && <AlertTriangle size={13} className="text-amber-500 shrink-0" />}
-                          <span className={`font-medium truncate block ${item.is_pendente ? 'text-amber-400' : 'text-primary'}`} title={item.nome_display}>
-                            {item.nome_display}
-                          </span>
+                          <IngredienteSwap
+                            nomeAtual={item.nome_display}
+                            carregarOpcoes={carregarOpcoesIngrediente}
+                            onTrocar={(op) => salvarItemInline(item, op.tipo === 'insumo'
+                              ? { insumo_id: op.id, sub_receita_id: null }
+                              : { insumo_id: null, sub_receita_id: op.id })}
+                            className={`font-medium ${item.is_pendente ? 'text-amber-400' : 'text-primary'}`}
+                          />
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right text-primary tabular-nums">{item.quantidade}</td>
+                      <td className="px-4 py-3 text-right text-primary tabular-nums">
+                        <InlineEdit
+                          numeric
+                          value={numBR(item.quantidade)}
+                          onSave={(v) => salvarItemInline(item, { quantidade: v })}
+                          inputClassName="w-20 text-right"
+                        />
+                      </td>
                       <td className="px-2 py-3 text-secondary">{item.unidade}</td>
                       <td className="px-4 py-3 text-right text-secondary text-xs tabular-nums">
                         {item.custo_unitario != null ? formatCustoGrande(item.custo_unitario, item.unidade) : '—'}
@@ -365,13 +442,24 @@ export function FichaView({ receita, custo, itens }: Props) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         {item.is_pendente && <AlertTriangle size={13} className="text-amber-500 shrink-0" />}
-                        <p className={`text-sm font-medium truncate ${item.is_pendente ? 'text-amber-400' : 'text-primary'}`}>
-                          {item.nome_display}
-                        </p>
+                        <IngredienteSwap
+                          nomeAtual={item.nome_display}
+                          carregarOpcoes={carregarOpcoesIngrediente}
+                          onTrocar={(op) => salvarItemInline(item, op.tipo === 'insumo'
+                            ? { insumo_id: op.id, sub_receita_id: null }
+                            : { insumo_id: null, sub_receita_id: op.id })}
+                          className={`text-sm font-medium ${item.is_pendente ? 'text-amber-400' : 'text-primary'}`}
+                        />
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-secondary text-xs">
-                          {item.quantidade} {item.unidade}
+                          <InlineEdit
+                            numeric
+                            value={numBR(item.quantidade)}
+                            onSave={(v) => salvarItemInline(item, { quantidade: v })}
+                            inputClassName="w-16 text-xs"
+                          />{' '}
+                          {item.unidade}
                           {item.custo_item != null && (
                             <span className="ml-2 text-primary font-playfair text-sm">R$ {formatBRL(item.custo_item)}</span>
                           )}

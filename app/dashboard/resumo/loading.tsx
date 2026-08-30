@@ -1,5 +1,8 @@
+import { PaozinhoOverlay } from '@/app/components/ui/paozinho'
+
 export default function ResumoLoading() {
   return (
+    <>
     <div className="max-w-2xl space-y-8 animate-pulse">
       {/* Título */}
       <div className="space-y-2">
@@ -27,5 +30,7 @@ export default function ResumoLoading() {
         <div className="h-3 w-40 rounded bg-surface-2" />
       </div>
     </div>
+    <PaozinhoOverlay />
+    </>
   )
 }

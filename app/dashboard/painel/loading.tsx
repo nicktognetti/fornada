@@ -1,5 +1,8 @@
+import { PaozinhoOverlay } from '@/app/components/ui/paozinho'
+
 export default function PainelLoading() {
   return (
+    <>
     <div className="max-w-5xl space-y-6 animate-pulse">
       {/* Title skeleton */}
       <div className="h-8 w-64 rounded-lg bg-surface-2" />
@@ -31,5 +34,7 @@ export default function PainelLoading() {
         ))}
       </div>
     </div>
+    <PaozinhoOverlay />
+    </>
   )
 }
