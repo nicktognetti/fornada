@@ -51,7 +51,7 @@ export function PaozinhoMini({ className = '' }: { className?: string }) {
  */
 export function PaozinhoOverlay() {
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl border border-subtle bg-surface px-4 py-2.5 shadow-lg pointer-events-none">
+    <div className="fixed top-4 left-[272px] max-lg:left-auto max-lg:right-4 z-50 flex items-center gap-2.5 rounded-2xl border border-subtle bg-surface px-4 py-2.5 shadow-lg pointer-events-none">
       <Paozinho size={30} />
       <span className="text-secondary text-xs">assando…</span>
     </div>
