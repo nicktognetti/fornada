@@ -8,7 +8,7 @@ import { PrecificarLoteGrid, type InsumoParaPrecificar } from './precificar-lote
 export default async function PrecificarLotePage() {
   const [unidadeId, supabase] = await Promise.all([getUnidadePreferida(), createClient()])
 
-  let q = supabase.from('insumo').select('id, nome, categoria, unidade_uso').eq('ativo', true).order('nome')
+  let q = supabase.from('insumo').select('id, nome, categoria, unidade_uso').eq('ativo', true).order('nome').range(0, 4999)
   if (unidadeId) q = q.eq('unidade_id', unidadeId)
   const insumosRes = await q
   const insumos = (insumosRes.data as { id: string; nome: string; categoria: string | null; unidade_uso: string }[] ?? [])

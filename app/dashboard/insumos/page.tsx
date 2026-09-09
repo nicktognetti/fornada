@@ -8,7 +8,7 @@ import type { Insumo, CustoAtual, InsumoComCusto } from './types'
 export default async function InsumosPage() {
   const [unidadeId, supabase] = await Promise.all([getUnidadePreferida(), createClient()])
 
-  let insumosQuery = supabase.from('insumo').select('*').eq('ativo', true).order('nome')
+  let insumosQuery = supabase.from('insumo').select('*').eq('ativo', true).order('nome').range(0, 4999)
   if (unidadeId) insumosQuery = insumosQuery.eq('unidade_id', unidadeId)
 
   const insumosRes = await insumosQuery

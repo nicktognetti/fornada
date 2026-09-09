@@ -8,13 +8,13 @@ import type { ReceitaComCusto, ReceitaTipo } from './types'
 export default async function ReceitasPage() {
   const [unidadeId, supabase] = await Promise.all([getUnidadePreferida(), createClient()])
 
-  let query = supabase.from('vw_custo_receita').select('*').order('nome')
+  let query = supabase.from('vw_custo_receita').select('*').order('nome').range(0, 4999)
   if (unidadeId) query = query.eq('unidade_id', unidadeId)
 
   // A view de custo não traz foto nem o status de revisão; buscamos à parte.
   const [{ data }, { data: meta }] = await Promise.all([
     query,
-    supabase.from('receita').select('id, foto_url, revisao_pendente, categoria').eq('ativo', true),
+    supabase.from('receita').select('id, foto_url, revisao_pendente, categoria').eq('ativo', true).range(0, 4999),
   ])
   const metaRows = (meta as { id: string; foto_url: string | null; revisao_pendente: boolean; categoria: string | null }[]) ?? []
   const fotoPorId = new Map<string, string>(

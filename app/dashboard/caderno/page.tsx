@@ -12,8 +12,8 @@ export default async function CadernoPage() {
 
   const [{ data }, { data: { user } }] = await Promise.all([
     (unidadeId
-      ? supabase.from('receita').select('id, nome, tipo, categoria, rendimento, rendimento_unidade, foto_url, passos, tempo_preparo_min, dificuldade, revisao_pendente').eq('ativo', true).eq('unidade_id', unidadeId).order('nome')
-      : supabase.from('receita').select('id, nome, tipo, categoria, rendimento, rendimento_unidade, foto_url, passos, tempo_preparo_min, dificuldade, revisao_pendente').eq('ativo', true).order('nome')),
+      ? supabase.from('receita').select('id, nome, tipo, categoria, rendimento, rendimento_unidade, foto_url, passos, tempo_preparo_min, dificuldade, revisao_pendente').eq('ativo', true).eq('unidade_id', unidadeId).order('nome').range(0, 4999)
+      : supabase.from('receita').select('id, nome, tipo, categoria, rendimento, rendimento_unidade, foto_url, passos, tempo_preparo_min, dificuldade, revisao_pendente').eq('ativo', true).order('nome').range(0, 4999)),
     supabase.auth.getUser(),
   ])
 
