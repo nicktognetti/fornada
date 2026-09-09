@@ -132,9 +132,17 @@ export function InsumoModal({ insumo, categorias, modo = 'completo', onClose }: 
     if (insumo) getPrecoHistorico(insumo.id).then(setHistorico)
   }, [insumo])
 
+  const [avisoPreco, setAvisoPreco] = useState(false)
+
   useEffect(() => {
+    // Se salvou os DADOS mas há um preço digitado e ainda não registrado,
+    // mantém o modal aberto e avisa — evita descartar o preço em silêncio.
+    if (editState?.success && (precoCompra.trim() || qtdUso.trim()) && !precoState?.success) {
+      setAvisoPreco(true)
+      return
+    }
     if (createState?.success || editState?.success || precoState?.success) onClose()
-  }, [createState?.success, editState?.success, precoState?.success, onClose])
+  }, [createState?.success, editState?.success, precoState?.success, precoCompra, qtdUso, onClose])
 
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -245,6 +253,11 @@ export function InsumoModal({ insumo, categorias, modo = 'completo', onClose }: 
                   unidadeCompraDefault={insumo.custo?.unidade_compra ?? ''}
                   focoPreco={soPreco}
                 />
+                {avisoPreco && !precoState?.success && (
+                  <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-amber-400 text-sm">
+                    Dados salvos ✓ — mas o preço digitado ainda NÃO foi registrado. Confira os campos e clique em “Registrar Novo Preço”.
+                  </div>
+                )}
                 <ErrorBox message={precoState?.error} />
                 <button type="submit" disabled={precoPending} className={soPreco ? 'w-full btn-primary' : 'w-full btn-ghost border-accent-primary/25 text-accent-primary hover:text-accent-primary hover:border-accent-primary/40 hover:bg-accent-primary/6'}>
                   {precoPending ? 'Registrando…' : 'Registrar Novo Preço'}
