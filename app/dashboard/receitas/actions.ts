@@ -496,6 +496,7 @@ export async function getInsumos() {
     .select('id, nome, categoria, unidade_uso')
     .eq('ativo', true)
     .order('nome')
+    .range(0, 4999)
   return data ?? []
 }
 
@@ -509,6 +510,7 @@ export async function getReceitasParaSubReceita(excluirId: string) {
     .eq('ativo', true)
     .neq('id', excluirId)
     .order('nome')
+    .range(0, 4999)
   return data ?? []
 }
 

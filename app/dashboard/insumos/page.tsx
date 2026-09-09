@@ -24,11 +24,13 @@ export default async function InsumosPage() {
         supabase.from('insumo_preco')
           .select('insumo_id, unidade_compra, preco_compra, qtd_uso_por_compra, vigente_desde')
           .in('insumo_id', insumoIds)
-          .order('vigente_desde', { ascending: false }),
+          .order('vigente_desde', { ascending: false })
+          .range(0, 9999),
         supabase.from('receita_item')
           .select('insumo_id, receita_id')
           .not('insumo_id', 'is', null)
-          .in('insumo_id', insumoIds),
+          .in('insumo_id', insumoIds)
+          .range(0, 9999),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }]
 
