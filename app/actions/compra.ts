@@ -163,6 +163,7 @@ export async function getInsumosParaCompra(unidadeId: string): Promise<InsumoPar
     .eq('unidade_id', unidadeId)
     .eq('ativo', true)
     .order('nome')
+    .range(0, 4999)
   if (!insumos || insumos.length === 0) return []
 
   const { data: precos } = await supabase
@@ -170,6 +171,7 @@ export async function getInsumosParaCompra(unidadeId: string): Promise<InsumoPar
     .select('insumo_id, preco_compra, qtd_uso_por_compra, unidade_compra, vigente_desde')
     .in('insumo_id', insumos.map((i: { id: string }) => i.id))
     .order('vigente_desde', { ascending: false })
+    .range(0, 9999)
 
   const vigente = new Map<string, { preco_compra: number; qtd_uso_por_compra: number; unidade_compra: string }>()
   for (const p of (precos ?? []) as { insumo_id: string; preco_compra: number; qtd_uso_por_compra: number; unidade_compra: string }[]) {
