@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { BackLink } from '@/app/components/ui/back-link'
 import { FichaView } from '../components/ficha-view'
 import { getReceitaComposicao } from '../composicao'
 import type { Receita } from '../types'
@@ -26,13 +26,12 @@ export default async function FichaPage({ params }: Props) {
 
   return (
     <div>
-      <Link
-        href="/dashboard/receitas"
+      <BackLink
+        fallbackHref="/dashboard/receitas"
         className="inline-flex items-center gap-1.5 text-secondary hover:text-accent-primary text-sm mb-6 transition-all hover:-translate-x-0.5"
       >
-        <ArrowLeft size={15} />
         Fichas Técnicas
-      </Link>
+      </BackLink>
 
       <FichaView
         receita={receita}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Plus, BookOpen, Search, ChevronRight, ChevronDown, AlertTriangle, Tag } from 'lucide-react'
 import Link from 'next/link'
 import { normalizeSearch, formatBRL, formatCustoGrande } from '@/lib/format'
@@ -19,10 +19,37 @@ const TIPO_CONFIG: Record<string, { label: string; cls: string }> = {
 
 type TipoFiltro = '' | 'final' | 'base'
 
+const MEM_KEY = 'fichas:list-state'
+
+function lerMemoria(): { busca: string; tipo: TipoFiltro; setor: string; scrollY: number } {
+  try {
+    const raw = sessionStorage.getItem(MEM_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch { /* sessionStorage indisponível: segue padrão */ }
+  return { busca: '', tipo: '', setor: '', scrollY: 0 }
+}
+
 export function ReceitaList({ receitas }: Props) {
-  const [busca, setBusca] = useState('')
-  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('')
-  const [setorFiltro, setSetorFiltro] = useState('')
+  const memInicial = useRef(lerMemoria())
+  const [busca, setBusca] = useState(memInicial.current.busca)
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>(memInicial.current.tipo)
+  const [setorFiltro, setSetorFiltro] = useState(memInicial.current.setor)
+
+  // Restaura a posição ao voltar de uma ficha; grava filtros+scroll ao sair.
+  useEffect(() => {
+    const y = memInicial.current.scrollY
+    if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y))
+  }, [])
+  useEffect(() => {
+    const salvar = () => {
+      try {
+        sessionStorage.setItem(MEM_KEY, JSON.stringify({ busca, tipo: tipoFiltro, setor: setorFiltro, scrollY: window.scrollY }))
+      } catch { /* ignora */ }
+    }
+    window.addEventListener('pagehide', salvar)
+    salvar()
+    return () => { salvar(); window.removeEventListener('pagehide', salvar) }
+  }, [busca, tipoFiltro, setorFiltro])
   const [modalOpen, setModalOpen] = useState(false)
   const [modalKey, setModalKey] = useState(0)
   const keyRef = useRef(0)
