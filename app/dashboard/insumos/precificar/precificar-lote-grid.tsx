@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Tag, Search, ChevronDown, Check, Loader2 } from 'lucide-react'
-import { normalizeSearch, parseDecimalBR, formatCustoGrande } from '@/lib/format'
+import { buscaMatch, parseDecimalBR, formatCustoGrande } from '@/lib/format'
 import { addPrecosLote } from '../actions'
 
 export interface InsumoParaPrecificar {
@@ -42,9 +42,8 @@ export function PrecificarLoteGrid({ insumos, categorias }: { insumos: InsumoPar
   }
 
   const filtered = useMemo(() => {
-    const term = normalizeSearch(busca)
     return insumos.filter((i) => {
-      const matchBusca = !term || normalizeSearch(i.nome).includes(term) || normalizeSearch(i.categoria ?? '').includes(term)
+      const matchBusca = buscaMatch(busca, i.nome, i.categoria)
       const matchCat = !categoriaFiltro || i.categoria === categoriaFiltro
       const matchStatus = statusFiltro === 'todos' || i.custoAtual == null
       return matchBusca && matchCat && matchStatus

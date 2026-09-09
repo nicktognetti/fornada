@@ -18,7 +18,7 @@ export default async function ProdutosPage() {
   const [result, unidadesRes, receitasRes, locaisEncomendaRes] = await Promise.all([
     getPainelFinanceiro(unidadeId ?? undefined),
     supabase.from('unidade').select('id, nome').order('nome'),
-    supabase.from('vw_custo_receita').select('id, nome, custo_unitario, rendimento_unidade').eq('ativo', true)
+    supabase.from('vw_custo_receita').select('id, nome, custo_unitario, rendimento_unidade').eq('ativo', true).range(0, 4999)
       .not('nome', 'like', '- %')
       .not('nome', 'like', '%(sem nome)%')
       .order('nome')
@@ -34,13 +34,13 @@ export default async function ProdutosPage() {
     vende_delivery?: boolean | null; vende_encomenda?: boolean | null
   }
   const CAMPOS_ATENDIMENTO = ', sempre_disponivel, disponivel_hoje, foto_url, sugestao_do_dia, vende_delivery, vende_encomenda'
-  let localQuery = supabase.from('produto').select(`id, local, receita_id${CAMPOS_ATENDIMENTO}`).eq('ativo', true)
+  let localQuery = supabase.from('produto').select(`id, local, receita_id${CAMPOS_ATENDIMENTO}`).eq('ativo', true).range(0, 4999)
   if (unidadeId) localQuery = localQuery.eq('unidade_id', unidadeId)
   let locaisData = (await localQuery).data as ProdutoExtra[] | null
   let temAtendimento = locaisData !== null
   if (locaisData === null) {
     // Migration 20260705000000 ainda não aplicada — segue sem os campos do agente.
-    let fb = supabase.from('produto').select('id, local, receita_id').eq('ativo', true)
+    let fb = supabase.from('produto').select('id, local, receita_id').eq('ativo', true).range(0, 4999)
     if (unidadeId) fb = fb.eq('unidade_id', unidadeId)
     locaisData = (await fb).data as ProdutoExtra[] | null
     temAtendimento = false

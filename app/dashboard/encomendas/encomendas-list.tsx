@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ClipboardList, Plus, Search, CalendarClock, ChefHat } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
-import { formatBRL, normalizeSearch } from '@/lib/format'
+import { buscaMatch, formatBRL } from '@/lib/format'
 import { StatusBadgeEncomenda } from './components/status-badge-encomenda'
 import type { EncomendaListItem, EncomendaStatus } from '@/app/actions/encomenda'
 
@@ -32,9 +32,8 @@ export function EncomendasList({ inicial, podeVerValores }: { inicial: Encomenda
   const [ate, setAte] = useState('')
 
   const filtrados = useMemo(() => {
-    const t = normalizeSearch(busca)
     return inicial.filter((e) => {
-      const mBusca = !t || normalizeSearch(e.cliente_nome).includes(t)
+      const mBusca = buscaMatch(busca, e.cliente_nome)
       const mTab = tab === 'todas' ? e.status !== 'cancelada' : e.status === tab
       const mDe = !de || e.data_entrega >= de
       const mAte = !ate || e.data_entrega <= ate

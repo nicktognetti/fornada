@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { Users, Plus, Search, Pencil, Trash2, Check, X, Loader2, Phone, Mail, MapPin, IdCard } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
-import { normalizeSearch } from '@/lib/format'
+import { buscaMatch } from '@/lib/format'
 import { criarCliente, atualizarCliente, excluirCliente, type ClienteRow, type ClienteInput } from '@/app/actions/cliente'
 
 const VAZIO: ClienteInput = { nome: '', telefone: '', email: '', endereco: '', documento: '', observacao: '' }
@@ -39,10 +39,9 @@ export function ClientesList({ inicial, erro }: { inicial: ClienteRow[]; erro?: 
   const [busyId, setBusyId] = useState<string | null>(null)
 
   const filtrados = useMemo(() => {
-    const t = normalizeSearch(busca)
-    if (!t) return rows
+    if (!busca.trim()) return rows
     return rows.filter((c) =>
-      normalizeSearch(`${c.nome} ${c.telefone ?? ''} ${c.email ?? ''} ${c.documento ?? ''} ${c.endereco ?? ''}`).includes(t),
+      buscaMatch(busca, c.nome, c.telefone, c.email, c.documento, c.endereco),
     )
   }, [rows, busca])
 

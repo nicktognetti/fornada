@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Search, Plus, X } from 'lucide-react'
-import { formatBRL, normalizeSearch } from '@/lib/format'
+import { buscaMatch, formatBRL } from '@/lib/format'
 import type { ProdutoOrcamento } from '@/app/actions/orcamento'
 
 const LIMITE = 60
@@ -29,10 +29,9 @@ export function ProdutoPicker({
   }, [produtos])
 
   const filtrados = useMemo(() => {
-    const t = normalizeSearch(busca)
     return produtos.filter((p) => {
       const mCat = !cat || p.categoria === cat
-      const mBusca = !t || normalizeSearch(p.nome).includes(t)
+      const mBusca = buscaMatch(busca, p.nome, p.categoria)
       return mCat && mBusca
     })
   }, [produtos, busca, cat])

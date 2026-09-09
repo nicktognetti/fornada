@@ -55,7 +55,7 @@ export default async function ResumePage() {
   let insumoCountQ   = supabase.from('insumo').select('*', { count: 'exact', head: true }).eq('ativo', true)
   let receitaCountQ  = supabase.from('receita').select('*', { count: 'exact', head: true }).eq('ativo', true)
   let produtoCountQ  = supabase.from('produto').select('*', { count: 'exact', head: true }).eq('ativo', true)
-  let insumoIdsQ     = supabase.from('insumo').select('id').eq('ativo', true)
+  let insumoIdsQ     = supabase.from('insumo').select('id').eq('ativo', true).range(0, 4999)
   let nomesQ         = supabase.from('insumo').select('id, nome').eq('ativo', true)
   let produtosQ      = supabase.from('produto').select('id, nome, receita_id').eq('ativo', true)
   let ultimasFichasQ = supabase.from('receita').select('id, nome, updated_at').eq('ativo', true).order('updated_at', { ascending: false }).limit(5)

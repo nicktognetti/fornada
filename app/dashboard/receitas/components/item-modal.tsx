@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState, useRef, useTransition } from 'reac
 import { X, ShoppingCart, Plus, Trash2 } from 'lucide-react'
 import { addItensLote, updateItem, getInsumos, getReceitasParaSubReceita } from '../actions'
 import { SectionLabel } from '@/app/components/ui/section-label'
-import { normalizeSearch, parseDecimalBR } from '@/lib/format'
+import { buscaMatch, parseDecimalBR } from '@/lib/format'
 import type { ActionResult, ReceitaItemComCusto, InsumoOpcao } from '../types'
 
 interface SubReceitaOpcao {
@@ -72,10 +72,9 @@ function ItemAddModal({ receitaId, onClose }: { receitaId: string; onClose: () =
   const keyRef = useRef(0)
   const buscaRef = useRef<HTMLInputElement>(null)
 
-  const termNorm = normalizeSearch(busca)
   const opcoes = tipo === 'insumo'
-    ? insumos.filter(i => !termNorm || normalizeSearch(i.nome).includes(termNorm) || normalizeSearch(i.categoria ?? '').includes(termNorm))
-    : subReceitas.filter(s => !termNorm || normalizeSearch(s.nome).includes(termNorm))
+    ? insumos.filter(i => buscaMatch(busca, i.nome, i.categoria))
+    : subReceitas.filter(s => buscaMatch(busca, s.nome))
 
   const selected = tipo === 'insumo'
     ? insumos.find(i => i.id === selectedId)
@@ -304,10 +303,9 @@ function ItemEditModal({ receitaId, item, onClose }: { receitaId: string; item: 
     setTipo(t); setBusca(''); setSelectedId('')
   }
 
-  const termNorm = normalizeSearch(busca)
   const opcoes = tipo === 'insumo'
-    ? insumos.filter(i => !termNorm || normalizeSearch(i.nome).includes(termNorm) || normalizeSearch(i.categoria ?? '').includes(termNorm))
-    : subReceitas.filter(s => !termNorm || normalizeSearch(s.nome).includes(termNorm))
+    ? insumos.filter(i => buscaMatch(busca, i.nome, i.categoria))
+    : subReceitas.filter(s => buscaMatch(busca, s.nome))
 
   const selected = tipo === 'insumo'
     ? insumos.find(i => i.id === selectedId)

@@ -121,6 +121,17 @@ export function formatCustoGrande(valorPorBase: number, unidade: string | null |
   )
 }
 
+/**
+ * Busca amigável: divide em palavras, ignora plural simples (s final) e
+ * verifica se TODAS aparecem em algum dos alvos. Usar em toda listagem.
+ */
+export function buscaMatch(busca: string, ...alvos: (string | null | undefined)[]): boolean {
+  const termos = normalizeSearch(busca).split(' ').filter(Boolean).map(t => t.replace(/s$/, ''))
+  if (termos.length === 0) return true
+  const alvo = alvos.map(a => normalizeSearch(a ?? '')).join(' ')
+  return termos.every(t => alvo.includes(t))
+}
+
 export function normalizeSearch(text: string): string {
   return text
     .normalize('NFD')

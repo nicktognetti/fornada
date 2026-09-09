@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { FileText, Plus, Search } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
-import { formatBRL, normalizeSearch, formatData, diaBR } from '@/lib/format'
+import { formatBRL, buscaMatch, formatData, diaBR } from '@/lib/format'
 import { StatusBadgeOrcamento } from './components/status-badge-orcamento'
 import { statusExibicao, type OrcamentoStatusDisplay } from '@/lib/orcamento-status'
 import type { OrcamentoListItem } from '@/app/actions/orcamento'
@@ -24,14 +24,13 @@ export function OrcamentosList({ inicial }: { inicial: OrcamentoListItem[] }) {
   const [ate, setAte] = useState('')
 
   const filtrados = useMemo(() => {
-    const t = normalizeSearch(busca)
     return inicial.filter((o) => {
       // Dia no fuso da padaria: o corte por UTC (`slice(0,10)`) jogava um
       // orçamento criado às 21h30 para o dia seguinte, e ele sumia do filtro
       // "De/Até" mesmo com a data que a tela exibia dentro do intervalo.
       const dia = diaBR(o.created_at)
       const disp = statusExibicao(o.status, o.created_at, o.validade_dias)
-      const mBusca = !t || normalizeSearch(o.cliente_nome).includes(t)
+      const mBusca = buscaMatch(busca, o.cliente_nome)
       const mTab = tab === 'todos' || disp === tab
       const mDe = !de || dia >= de
       const mAte = !ate || dia <= ate

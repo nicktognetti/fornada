@@ -38,7 +38,7 @@ export default async function NovaTransferenciaPage() {
       ? supabaseAdmin.from('unidade').select('id, nome').eq('empresa_id', empresaIdFinal).eq('ativo', true).order('nome')
       : { data: [] as { id: string; nome: string }[] },
     empresaIdFinal
-      ? supabaseAdmin.from('produto').select('id, nome').eq('empresa_id', empresaIdFinal).eq('ativo', true).order('nome')
+      ? supabaseAdmin.from('produto').select('id, nome').eq('empresa_id', empresaIdFinal).eq('ativo', true).order('nome').range(0, 4999)
       : { data: [] as { id: string; nome: string }[] },
   ])
 

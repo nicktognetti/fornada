@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ChefHat, Search, Clock, ListOrdered, Plus, Tag, ChevronDown } from 'lucide-react'
-import { normalizeSearch } from '@/lib/format'
+import { buscaMatch } from '@/lib/format'
 import { LogoPlaceholder } from '@/app/components/ui/logo-placeholder'
 import { NovaReceitaModal } from './nova-receita-modal'
 import type { Dificuldade } from '@/app/dashboard/receitas/types'
@@ -40,9 +40,8 @@ export function CadernoCatalogo({ receitas, podeCriar }: Props) {
   }, [receitas])
 
   const filtered = useMemo(() => {
-    const term = normalizeSearch(busca)
     return receitas.filter((r) => {
-      const matchBusca = !term || normalizeSearch(r.nome).includes(term)
+      const matchBusca = buscaMatch(busca, r.nome, r.categoria)
       const matchSetor = !setor || (r.categoria?.trim() ?? '') === setor
       return matchBusca && matchSetor
     })
