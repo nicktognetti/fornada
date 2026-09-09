@@ -20,9 +20,10 @@ interface DecimalInputProps {
   value: string
   onChange: (v: string) => void
   required?: boolean
+  autoFocus?: boolean
 }
 
-function DecimalInput({ name, label, placeholder, value, onChange, required = true }: DecimalInputProps) {
+function DecimalInput({ name, label, placeholder, value, onChange, required = true, autoFocus = false }: DecimalInputProps) {
   return (
     <div>
       <label className="field-label">{label}</label>
@@ -34,6 +35,7 @@ function DecimalInput({ name, label, placeholder, value, onChange, required = tr
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         required={required}
+        autoFocus={autoFocus}
         className="input-field"
       />
     </div>
@@ -73,9 +75,9 @@ function ErrorBox({ message }: { message?: string }) {
   )
 }
 
-function PrecoCampos({ unidade_uso, precoCompra, setPrecoCompra, qtdUso, setQtdUso, unidadeCompraDefault = '' }: {
+function PrecoCampos({ unidade_uso, precoCompra, setPrecoCompra, qtdUso, setQtdUso, unidadeCompraDefault = '', focoPreco = false }: {
   unidade_uso: string; precoCompra: string; setPrecoCompra: (v: string) => void
-  qtdUso: string; setQtdUso: (v: string) => void; unidadeCompraDefault?: string
+  qtdUso: string; setQtdUso: (v: string) => void; unidadeCompraDefault?: string; focoPreco?: boolean
 }) {
   const qtdPlaceholder = unidade_uso === 'g' ? '25000' : unidade_uso === 'ml' ? '1000' : '24'
   return (
@@ -92,7 +94,7 @@ function PrecoCampos({ unidade_uso, precoCompra, setPrecoCompra, qtdUso, setQtdU
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <DecimalInput name="preco_compra" label="Preço de compra (R$)" placeholder="0,00" value={precoCompra} onChange={setPrecoCompra} />
+        <DecimalInput name="preco_compra" label="Preço de compra (R$)" placeholder="0,00" value={precoCompra} onChange={setPrecoCompra} autoFocus={focoPreco} />
         <DecimalInput name="qtd_uso_por_compra" label={`Qtd em ${unidade_uso}`} placeholder={qtdPlaceholder} value={qtdUso} onChange={setQtdUso} />
       </div>
       <PrecoPreview preco={precoCompra} qtd={qtdUso} unidade={unidade_uso} />
@@ -103,6 +105,7 @@ function PrecoCampos({ unidade_uso, precoCompra, setPrecoCompra, qtdUso, setQtdU
 interface Props {
   insumo: InsumoComCusto | null
   categorias: string[]
+  modo?: 'completo' | 'preco'
   onClose: () => void
 }
 
@@ -112,8 +115,9 @@ const UNIDADES_INSUMO = [
   { value: 'un', label: 'un', nome: 'unidade' },
 ]
 
-export function InsumoModal({ insumo, categorias, onClose }: Props) {
+export function InsumoModal({ insumo, categorias, modo = 'completo', onClose }: Props) {
   const isEdit = !!insumo
+  const soPreco = isEdit && modo === 'preco'
 
   const [createState, createAction, createPending] = useActionState<ActionResult | undefined, FormData>(createInsumo, undefined)
   const [editState, editAction, editPending] = useActionState<ActionResult | undefined, FormData>(updateInsumo, undefined)
@@ -142,7 +146,7 @@ export function InsumoModal({ insumo, categorias, onClose }: Props) {
             <h2 className="font-playfair text-primary text-[22px] font-bold leading-tight">
               {isEdit ? insumo.nome : 'Novo Insumo'}
             </h2>
-            {isEdit && <p className="text-secondary text-xs mt-0.5">editar cadastro</p>}
+            {isEdit && <p className="text-secondary text-xs mt-0.5">{soPreco ? 'atualizar preço' : 'editar cadastro'}</p>}
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-accent-primary hover:bg-accent-primary/10 transition-all" aria-label="Fechar">
             <X size={16} />
@@ -200,6 +204,7 @@ export function InsumoModal({ insumo, categorias, onClose }: Props) {
           {/* ── EDITAR ── */}
           {isEdit && (
             <>
+              {!soPreco && (
               <form action={editAction} className="space-y-4">
                 <input type="hidden" name="id" value={insumo.id} />
                 <SectionLabel icon={Pencil}>Dados do insumo</SectionLabel>
@@ -228,6 +233,7 @@ export function InsumoModal({ insumo, categorias, onClose }: Props) {
                   </button>
                 </div>
               </form>
+              )}
 
               <form action={precoAction} className="space-y-4">
                 <input type="hidden" name="insumo_id" value={insumo.id} />
@@ -237,9 +243,10 @@ export function InsumoModal({ insumo, categorias, onClose }: Props) {
                   precoCompra={precoCompra} setPrecoCompra={setPrecoCompra}
                   qtdUso={qtdUso} setQtdUso={setQtdUso}
                   unidadeCompraDefault={insumo.custo?.unidade_compra ?? ''}
+                  focoPreco={soPreco}
                 />
                 <ErrorBox message={precoState?.error} />
-                <button type="submit" disabled={precoPending} className="w-full btn-ghost border-accent-primary/25 text-accent-primary hover:text-accent-primary hover:border-accent-primary/40 hover:bg-accent-primary/6">
+                <button type="submit" disabled={precoPending} className={soPreco ? 'w-full btn-primary' : 'w-full btn-ghost border-accent-primary/25 text-accent-primary hover:text-accent-primary hover:border-accent-primary/40 hover:bg-accent-primary/6'}>
                   {precoPending ? 'Registrando…' : 'Registrar Novo Preço'}
                 </button>
               </form>

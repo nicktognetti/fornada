@@ -15,6 +15,7 @@ interface Props {
 interface ModalState {
   open: boolean
   insumo: InsumoComCusto | null
+  modo: 'completo' | 'preco'
   key: number
 }
 
@@ -37,7 +38,7 @@ export function InsumoList({ insumos, categorias }: Props) {
   const [busca, setBusca] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('')
-  const [modal, setModal] = useState<ModalState>({ open: false, insumo: null, key: 0 })
+  const [modal, setModal] = useState<ModalState>({ open: false, insumo: null, modo: 'completo', key: 0 })
   const keyRef = useRef(0)
 
   const filtered = useMemo(() => {
@@ -57,8 +58,9 @@ export function InsumoList({ insumos, categorias }: Props) {
     })
   }, [insumos, busca, categoriaFiltro, statusFiltro])
 
-  function openCreate() { setModal({ open: true, insumo: null, key: (keyRef.current += 1) }) }
-  function openEdit(insumo: InsumoComCusto) { setModal({ open: true, insumo, key: (keyRef.current += 1) }) }
+  function openCreate() { setModal({ open: true, insumo: null, modo: 'completo', key: (keyRef.current += 1) }) }
+  function openEdit(insumo: InsumoComCusto) { setModal({ open: true, insumo, modo: 'completo', key: (keyRef.current += 1) }) }
+  function openPreco(insumo: InsumoComCusto) { setModal({ open: true, insumo, modo: 'preco', key: (keyRef.current += 1) }) }
   function closeModal() { setModal((m) => ({ ...m, open: false })) }
 
   return (
@@ -173,13 +175,21 @@ export function InsumoList({ insumos, categorias }: Props) {
                 {/* Custo + badges */}
                 <div className="shrink-0 sm:text-right flex sm:flex-col items-center sm:items-end gap-2">
                   {insumo.custo?.custo_uso != null && insumo.custo.custo_uso > 0 ? (
-                    <p className="font-playfair text-accent-primary text-[22px] sm:text-[26px] font-bold leading-none">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openPreco(insumo) }}
+                      title="Clique para atualizar o preço"
+                      className="font-playfair text-accent-primary text-[22px] sm:text-[26px] font-bold leading-none rounded-lg px-1.5 py-1 -mx-1.5 hover:bg-accent-primary/10 border border-transparent hover:border-accent-primary/25 transition-all cursor-pointer"
+                    >
                       {formatCustoGrande(insumo.custo.custo_uso, insumo.unidade_uso)}
-                    </p>
+                    </button>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openPreco(insumo) }}
+                      title="Clique para registrar o preço"
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25 hover:bg-amber-500/25 transition-all cursor-pointer"
+                    >
                       Sem preço
-                    </span>
+                    </button>
                   )}
                   {insumo.nome.toLowerCase().includes('pendente') && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25">
@@ -217,6 +227,7 @@ export function InsumoList({ insumos, categorias }: Props) {
           key={modal.key}
           insumo={modal.insumo}
           categorias={categorias}
+          modo={modal.modo}
           onClose={closeModal}
         />
       )}
