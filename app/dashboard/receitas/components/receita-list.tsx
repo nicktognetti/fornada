@@ -34,9 +34,10 @@ export function ReceitaList({ receitas }: Props) {
   }, [receitas])
 
   const filtered = useMemo(() => {
-    const term = normalizeSearch(busca)
+    const termos = normalizeSearch(busca).split(' ').filter(Boolean).map(t => t.replace(/s$/, ''))
     return receitas.filter(r => {
-      const matchBusca = !term || normalizeSearch(r.nome).includes(term)
+      const alvo = normalizeSearch(r.nome) + ' ' + normalizeSearch(r.categoria ?? '')
+      const matchBusca = termos.length === 0 || termos.every(t => alvo.includes(t))
       const matchTipo = !tipoFiltro || r.tipo === tipoFiltro
       const matchSetor = !setorFiltro || (r.categoria?.trim() ?? '') === setorFiltro
       return matchBusca && matchTipo && matchSetor

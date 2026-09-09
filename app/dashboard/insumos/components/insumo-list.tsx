@@ -42,12 +42,10 @@ export function InsumoList({ insumos, categorias }: Props) {
   const keyRef = useRef(0)
 
   const filtered = useMemo(() => {
-    const term = normalizeSearch(busca)
+    const termos = normalizeSearch(busca).split(' ').filter(Boolean).map(t => t.replace(/s$/, ''))
     return insumos.filter((i) => {
-      const matchBusca =
-        !term ||
-        normalizeSearch(i.nome).includes(term) ||
-        normalizeSearch(i.categoria ?? '').includes(term)
+      const alvo = normalizeSearch(i.nome) + ' ' + normalizeSearch(i.categoria ?? '')
+      const matchBusca = termos.length === 0 || termos.every(t => alvo.includes(t))
       const matchCat = !categoriaFiltro || i.categoria === categoriaFiltro
       const matchStatus =
         statusFiltro === '' ? true :
