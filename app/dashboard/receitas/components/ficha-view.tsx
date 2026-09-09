@@ -404,9 +404,13 @@ export function FichaView({ receita, custo, itens }: Props) {
                             Pendente
                           </span>
                         ) : item.sub_receita_id ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 italic">
-                            Sub-receita
-                          </span>
+                          <Link
+                            href={`/dashboard/receitas/${item.sub_receita_id}`}
+                            title="Abrir a ficha desta sub-receita"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 italic hover:bg-blue-500/25 hover:border-blue-500/40 transition-colors"
+                          >
+                            Sub-receita ↗
+                          </Link>
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
@@ -469,9 +473,13 @@ export function FichaView({ receita, custo, itens }: Props) {
                             Pendente
                           </span>
                         ) : item.sub_receita_id ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 italic">
-                            Sub-receita
-                          </span>
+                          <Link
+                            href={`/dashboard/receitas/${item.sub_receita_id}`}
+                            title="Abrir a ficha desta sub-receita"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 italic hover:bg-blue-500/25 hover:border-blue-500/40 transition-colors"
+                          >
+                            Sub-receita ↗
+                          </Link>
                         ) : null}
                       </div>
                     </div>
