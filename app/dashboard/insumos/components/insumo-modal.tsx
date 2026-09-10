@@ -138,6 +138,8 @@ export function InsumoModal({ insumo, categorias, modo = 'completo', onClose }: 
     // Se salvou os DADOS mas há um preço digitado e ainda não registrado,
     // mantém o modal aberto e avisa — evita descartar o preço em silêncio.
     if (editState?.success && (precoCompra.trim() || qtdUso.trim()) && !precoState?.success) {
+      // Reação a estado de action externa — caso legítimo de setState em effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAvisoPreco(true)
       return
     }

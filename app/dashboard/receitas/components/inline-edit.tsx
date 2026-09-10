@@ -26,7 +26,13 @@ export function InlineEdit({ value, onSave, className = '', inputClassName = '',
   const inputRef = useRef<HTMLInputElement>(null)
   const cancelou = useRef(false)
 
-  useEffect(() => { setTexto(value) }, [value])
+  // Sincroniza prop→estado durante o render (padrão do React para "derived
+  // state"), em vez de setState num effect — era o erro de lint.
+  const [valorAnterior, setValorAnterior] = useState(value)
+  if (valorAnterior !== value) {
+    setValorAnterior(value)
+    setTexto(value)
+  }
   useEffect(() => {
     if (editando) { inputRef.current?.focus(); inputRef.current?.select() }
   }, [editando])

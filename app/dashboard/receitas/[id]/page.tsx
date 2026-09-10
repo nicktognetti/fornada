@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import { BackLink } from '@/app/components/ui/back-link'
 import { FichaView } from '../components/ficha-view'
 import { getReceitaComposicao } from '../composicao'

@@ -30,16 +30,18 @@ function lerMemoria(): { busca: string; tipo: TipoFiltro; setor: string; scrollY
 }
 
 export function ReceitaList({ receitas }: Props) {
-  const memInicial = useRef(lerMemoria())
-  const [busca, setBusca] = useState(memInicial.current.busca)
-  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>(memInicial.current.tipo)
-  const [setorFiltro, setSetorFiltro] = useState(memInicial.current.setor)
+  // Lazy init de estado (não ref): ref lida durante o render viola as regras
+  // do React e era o erro de lint. Comportamento idêntico — lê a memória 1x.
+  const [memInicial] = useState(lerMemoria)
+  const [busca, setBusca] = useState(memInicial.busca)
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>(memInicial.tipo)
+  const [setorFiltro, setSetorFiltro] = useState(memInicial.setor)
 
   // Restaura a posição ao voltar de uma ficha; grava filtros+scroll ao sair.
   useEffect(() => {
-    const y = memInicial.current.scrollY
+    const y = memInicial.scrollY
     if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y))
-  }, [])
+  }, [memInicial])
   useEffect(() => {
     const salvar = () => {
       try {
