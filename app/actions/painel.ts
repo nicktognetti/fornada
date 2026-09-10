@@ -382,10 +382,16 @@ export async function getProdutoDetalhe(
     margem_percentual: number | null; markup_percentual: number | null; unidade_nome: string | null
   } | null
 
-  const composicao =
-    podeVerValores && prod.tipo === 'produzido' && prod.receita_id
-      ? await getReceitaComposicao(prod.receita_id)
-      : null
+  // getReceitaComposicao lança em erro de query; numa server action o throw
+  // rejeitaria a promise no cliente e o drawer ficaria em spinner infinito.
+  let composicao = null
+  if (podeVerValores && prod.tipo === 'produzido' && prod.receita_id) {
+    try {
+      composicao = await getReceitaComposicao(prod.receita_id)
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'Erro ao carregar a composição da receita' }
+    }
+  }
 
   return {
     data: {

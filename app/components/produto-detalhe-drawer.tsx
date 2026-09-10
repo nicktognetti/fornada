@@ -64,6 +64,11 @@ export function ProdutoDetalheDrawer({ produtoId, onClose }: Props) {
         setAtd(res.data.atendimento)
       }
       setLoading(false)
+    }).catch(() => {
+      // Rejeição inesperada da action não pode deixar o drawer em spinner eterno.
+      if (!ativo) return
+      setErro('Erro ao carregar')
+      setLoading(false)
     })
     return () => { ativo = false }
   }, [produtoId])
