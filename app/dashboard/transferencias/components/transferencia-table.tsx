@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Eye, ArrowLeftRight, Trash2, Loader2, CalendarDays, X } from 'lucide-react'
 import { StatusBadgeTransferencia } from './status-badge'
+import { hojeBR, diaBR } from '@/lib/format'
 import { excluirTransferenciaAction } from '@/app/actions/transferencia'
 import type { StatusTransferencia } from './status-badge'
 
@@ -79,10 +80,6 @@ function ExcluirModal({
   )
 }
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
-
 export function TransferenciaTable({
   rows,
   sucesso,
@@ -95,10 +92,10 @@ export function TransferenciaTable({
   const [banner, setBanner] = useState(sucesso ?? null)
   const [excluindoId,  setExcluindoId]  = useState<string | null>(null)
   const [excluirLoading, setExcluirLoading] = useState(false)
-  const [dataFiltro, setDataFiltro] = useState<string>(todayISO)
+  const [dataFiltro, setDataFiltro] = useState<string>(hojeBR)
 
   const byDate = dataFiltro
-    ? rows.filter((r) => r.created_at.startsWith(dataFiltro))
+    ? rows.filter((r) => diaBR(r.created_at) === dataFiltro)
     : rows
   const filtered = byDate.filter((r) => STATUS_FILTER[tab].includes(r.status))
 

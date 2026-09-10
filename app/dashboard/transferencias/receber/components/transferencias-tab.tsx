@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, PackageCheck, TrendingDown, Loader2, CalendarDays, X } from 'lucide-react'
-import { formatBRL, formatData } from '@/lib/format'
+import { formatBRL, formatData, hojeBR, diaBR } from '@/lib/format'
 import { getTransferenciaItensAction } from '@/app/actions/transferencia'
 import { ConfirmacaoDrawer } from '../../components/confirmacao-drawer'
 import type { TransferenciaReceber, StatusFinanceiro } from '../types'
@@ -39,19 +39,15 @@ interface Props {
   isAdmin: boolean
 }
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
-
 export function TransferenciasTab({ transferencias, totalAReceber, isCentro, userId, isAdmin }: Props) {
   const router = useRouter()
   const [drawerTransferencia, setDrawerTransferencia] = useState<TransferenciaReceber | null>(null)
   const [drawerItens,         setDrawerItens]         = useState<ItemDrawer[]>([])
   const [loadingId,           setLoadingId]           = useState<string | null>(null)
-  const [dataFiltro, setDataFiltro] = useState<string>(todayISO)
+  const [dataFiltro, setDataFiltro] = useState<string>(hojeBR)
 
   const visiveis = dataFiltro
-    ? transferencias.filter((t) => t.created_at.startsWith(dataFiltro))
+    ? transferencias.filter((t) => diaBR(t.created_at) === dataFiltro)
     : transferencias
 
   async function abrirConfirmar(t: TransferenciaReceber) {

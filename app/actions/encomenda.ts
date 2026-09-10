@@ -183,6 +183,9 @@ export async function listarEncomendas(filtros?: { busca?: string; status?: Enco
   let q = supabase.from('encomenda')
     .select('id, numero, cliente_nome, data_entrega, hora_entrega, status, com_valor, total')
     .order('data_entrega', { ascending: true })
+    // Sem range o supabase-js corta em 1000 — e com ordenação ascendente o corte
+    // descartava justamente as datas mais futuras (a encomenda recém-criada).
+    .range(0, 4999)
   if (unidadeId) q = q.eq('unidade_id', unidadeId)
   if (filtros?.status) q = q.eq('status', filtros.status)
   if (filtros?.data) q = q.eq('data_entrega', filtros.data)

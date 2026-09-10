@@ -123,6 +123,10 @@ export async function getPainelFinanceiro(
   if (pagination) {
     const { page, pageSize } = pagination
     q = q.range(page * pageSize, (page + 1) * pageSize - 1)
+  } else {
+    // Sem range o supabase-js corta em 1000 linhas em silêncio — os KPIs saíam
+    // calculados sobre o subconjunto e produto novo sumia do picker/preços.
+    q = q.range(0, 4999)
   }
 
   const { data, error, count } = await q

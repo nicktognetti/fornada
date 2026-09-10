@@ -140,7 +140,9 @@ export async function getConversa(conversaId: string): Promise<ActionResult<Conv
       .from('atendimento_mensagem')
       .select('id, role, conteudo, criado_em')
       .eq('conversa_id', conversaId)
-      .order('criado_em', { ascending: true })
+      // Descendente + reverte abaixo: ascendente com limit devolvia as 200 mais
+      // ANTIGAS — em conversa longa, a mensagem recém-chegada nunca aparecia.
+      .order('criado_em', { ascending: false })
       .limit(200),
     supabase
       .from('atendimento_encomenda')
@@ -159,7 +161,7 @@ export async function getConversa(conversaId: string): Promise<ActionResult<Conv
       nome: conv.nome,
       canal: conv.canal,
       pausada: !!conv.pausada_ate && new Date(conv.pausada_ate) > new Date(),
-      mensagens: (msgsRes.data ?? []) as MensagemAtendimento[],
+      mensagens: ((msgsRes.data ?? []) as MensagemAtendimento[]).slice().reverse(),
       encomendas: (encRes.data ?? []) as EncomendaAnotada[],
     },
   }
