@@ -303,7 +303,11 @@ export function AtendimentoView({ conversasIniciais }: { conversasIniciais: Conv
                     {e.status === 'anotada' && (
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
-                          onClick={async () => { await confirmarEncomendaAnotada(e.id); abrirConversa(detalhe.id) }}
+                          onClick={async () => {
+                            const res = await confirmarEncomendaAnotada(e.id)
+                            if (res?.error) { setErro(res.error); return }
+                            abrirConversa(detalhe.id)
+                          }}
                           className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-input text-ink-soft hover:text-primary transition-colors"
                           title="Marcar como confirmada com o cliente"
                         >

@@ -153,6 +153,10 @@ export async function getConversa(conversaId: string): Promise<ActionResult<Conv
 
   const conv = convRes.data as { id: string; numero: string; nome: string | null; canal: CanalAtendimento; pausada_ate: string | null } | null
   if (!conv) return { error: 'Conversa não encontrada' }
+  // Erro engolido aqui renderizava "Sem mensagens registradas" — para a usuária,
+  // indistinguível de conversa apagada.
+  if (msgsRes.error) return { error: `Erro ao carregar as mensagens: ${msgsRes.error.message}` }
+  if (encRes.error) return { error: `Erro ao carregar os pedidos da conversa: ${encRes.error.message}` }
 
   return {
     data: {
@@ -227,13 +231,16 @@ export async function responderConversa(conversaId: string, texto: string): Prom
   })
   if (e1) return { error: `Mensagem enviada, mas falhou ao registrar: ${e1.message}` }
 
-  await supabase
+  const { error: e2 } = await supabase
     .from('atendimento_conversa')
     .update({
       pausada_ate: new Date(Date.now() + DURACAO_PAUSA_MINUTOS * 60_000).toISOString(),
       atualizado_em: new Date().toISOString(),
     })
     .eq('id', conversaId)
+  // Sem isso, a mensagem humana saía mas o robô NÃO ficava mudo — e o cliente
+  // recebia resposta da atendente e do robô ao mesmo tempo.
+  if (e2) return { error: `Mensagem enviada, mas não consegui pausar o robô: ${e2.message}` }
 
   revalidatePath('/dashboard/atendimento')
   return { success: true }
@@ -761,17 +768,28 @@ export async function virarPedido(
   )
   if (res.error || !res.data) {
     // Falhou ao criar: devolve a anotação para a fila (destrava).
-    await supabase
+    const { error: eRollback } = await supabase
       .from('atendimento_encomenda')
       .update({ status: 'anotada' })
       .eq('id', atendimentoEncomendaId)
+    if (eRollback) {
+      // Sem o rollback a anotação some da fila para sempre — precisa aparecer.
+      console.error('virarPedido: rollback da anotação falhou:', eRollback.message)
+      return { error: `${res.error ?? 'Erro ao criar a encomenda'} — e a anotação ficou travada; recarregue e tente de novo` }
+    }
     return { error: res.error ?? 'Erro ao criar a encomenda' }
   }
 
-  await supabase
+  const { error: eVinculo } = await supabase
     .from('atendimento_encomenda')
     .update({ encomenda_id: res.data.id })
     .eq('id', atendimentoEncomendaId)
+  if (eVinculo) {
+    // A encomenda existe, mas a anotação ficaria 'virou_pedido' sem link —
+    // linha morta na UI. Reporta com o número para achar a encomenda.
+    console.error('virarPedido: falhou ao vincular encomenda:', eVinculo.message)
+    return { error: `Encomenda criada, mas falhou ao vincular à anotação — procure-a na lista de Encomendas` }
+  }
 
   revalidatePath('/dashboard/atendimento')
   revalidatePath('/dashboard/encomendas')

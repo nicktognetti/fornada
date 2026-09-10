@@ -205,18 +205,24 @@ export async function salvarEncomendaAnotada(
   dados: DadosDaEncomenda,
 ): Promise<string | null> {
   try {
-    // Anti-duplicata: mesmo produto + quantidade na mesma conversa há pouco?
+    // Anti-duplicata: mesmo produto + quantidade + data na mesma conversa há
+    // pouco. Comparar só o produto descartava pedido legítimo ("quero MAIS um
+    // bolo de fubá" 5 min depois) — o robô confirmava ao cliente e o painel
+    // nunca registrava o segundo pedido.
     const desde = new Date(Date.now() - JANELA_DUPLICATA_MINUTOS * 60_000).toISOString()
-    const { data: recente } = await supabaseAdmin
+    const { data: recentes } = await supabaseAdmin
       .from('atendimento_encomenda')
-      .select('id')
+      .select('id, quantidade, data_texto')
       .eq('conversa_id', conversaId)
       .eq('produto', dados.produto)
       .gte('criado_em', desde)
-      .limit(1)
-      .maybeSingle()
-    if (recente) {
-      console.log(`Pedido duplicado ignorado (conversa ${conversaId}: "${dados.produto}" já anotado há pouco).`)
+      .limit(5)
+    const duplicata = (recentes ?? []).find(
+      (r) => (r.quantidade ?? null) === (dados.quantidade ?? null)
+          && (r.data_texto ?? null) === (dados.data ?? null)
+    )
+    if (duplicata) {
+      console.log(`Pedido duplicado ignorado (conversa ${conversaId}: "${dados.produto}" idêntico já anotado há pouco).`)
       return null
     }
 

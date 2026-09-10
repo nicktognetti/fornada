@@ -96,6 +96,7 @@ export function PainelDespesas({ despesas, onDespesasChange }: Props) {
   const [adicionando, setAdicionando] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [deletandoId, setDeletandoId] = useState<string | null>(null)
+  const [deleteErro, setDeleteErro] = useState<string | null>(null)
   const { canWrite } = usePermission('painel')
 
   const total = despesas.reduce((s, d) => s + d.valor, 0)
@@ -112,13 +113,20 @@ export function PainelDespesas({ despesas, onDespesasChange }: Props) {
 
   async function handleDelete(id: string) {
     setDeletandoId(id)
-    await deleteDespesaFixa(id)
-    onDespesasChange(despesas.filter((d) => d.id !== id))
+    setDeleteErro(null)
+    const res = await deleteDespesaFixa(id)
     setDeletandoId(null)
+    // Só tira da lista se o servidor confirmou — antes, a despesa "excluída"
+    // sumia da tela mesmo recusada e voltava no próximo reload.
+    if (res?.error) { setDeleteErro(res.error); return }
+    onDespesasChange(despesas.filter((d) => d.id !== id))
   }
 
   return (
     <section className="card-surface border border-subtle rounded-2xl overflow-hidden">
+      {deleteErro && (
+        <p className="mx-5 mt-3 text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{deleteErro}</p>
+      )}
       {/* Header colapsável */}
       <button
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-canvas/30 transition-colors"

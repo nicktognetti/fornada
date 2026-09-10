@@ -39,6 +39,11 @@ export async function getReceitaComposicao(receitaId: string): Promise<ReceitaCo
       .eq('receita_id', receitaId),
   ])
 
+  // Erro engolido aqui renderizava "Nenhum ingrediente cadastrado" e ficha sem
+  // custo — indistinguível de dados apagados. Falha alto: a página mostra erro.
+  if (custoRes.error) throw new Error(`Erro ao carregar o custo da receita: ${custoRes.error.message}`)
+  if (itemsRes.error) throw new Error(`Erro ao carregar os ingredientes: ${itemsRes.error.message}`)
+
   const rawItems: ItemRaw[] = (itemsRes.data as unknown as ItemRaw[]) ?? []
   const insumoIds = rawItems.filter((i) => i.insumo_id).map((i) => i.insumo_id as string)
   const subIds = rawItems.filter((i) => i.sub_receita_id).map((i) => i.sub_receita_id as string)
@@ -51,6 +56,11 @@ export async function getReceitaComposicao(receitaId: string): Promise<ReceitaCo
       ? supabase.from('vw_custo_receita').select('id, custo_unitario').in('id', subIds)
       : Promise.resolve({ data: [] as CustoSubRow[] }),
   ])
+
+  if ('error' in custosInsumoRes && custosInsumoRes.error)
+    throw new Error(`Erro ao carregar custos dos insumos: ${custosInsumoRes.error.message}`)
+  if ('error' in custosSubRes && custosSubRes.error)
+    throw new Error(`Erro ao carregar custos das sub-receitas: ${custosSubRes.error.message}`)
 
   const custoInsumoMap = new Map<string, number>(
     (custosInsumoRes.data as CustoInsumoRow[] ?? []).map((c) => [c.insumo_id, c.custo_uso])

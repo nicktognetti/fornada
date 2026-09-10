@@ -87,7 +87,8 @@ export function PedidosView({ onVerConversa }: { onVerConversa: (conversaId: str
   }, [canal, status, dia, carregar])
 
   async function confirmar(id: string) {
-    await confirmarEncomendaAnotada(id)
+    const res = await confirmarEncomendaAnotada(id)
+    if (res?.error) { setErro(res.error); return }
     carregar(canal, status, dia)
   }
 

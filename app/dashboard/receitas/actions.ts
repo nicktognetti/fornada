@@ -602,6 +602,9 @@ export async function removeReceitaFoto(receitaId: string): Promise<ActionResult
 // Revalida todas as telas que mostram uma receita: ficha (Natali) + caderno (produção).
 function revalidarReceita(receitaId: string) {
   revalidatePath(`/dashboard/receitas/${receitaId}`)
+  // A LISTA de fichas também exibe o custo — sem revalidar, editar ingredientes
+  // e voltar mostrava o custo antigo no card até outra mutação ou hard reload.
+  revalidatePath('/dashboard/receitas')
   revalidatePath('/dashboard/caderno')
   revalidatePath(`/dashboard/caderno/${receitaId}`)
 }

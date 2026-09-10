@@ -37,6 +37,7 @@ export function CadernoReceitaView({ receita, itens, podeEditar }: Props) {
   const [itemModal, setItemModal] = useState<{ open: boolean; item: ReceitaItemComCusto | null; key: number }>({ open: false, item: null, key: 0 })
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
   const [removendo, setRemovendo] = useState<string | null>(null)
+  const [removeErro, setRemoveErro] = useState<string | null>(null)
   const [fotoUrl, setFotoUrl] = useState<string | null>(receita.foto_url)
   const [enviandoFoto, setEnviandoFoto] = useState(false)
   const [fotoErro, setFotoErro] = useState('')
@@ -60,9 +61,11 @@ export function CadernoReceitaView({ receita, itens, podeEditar }: Props) {
 
   async function handleRemove(id: string) {
     setRemovendo(id)
-    await removeItem(id)
+    setRemoveErro(null)
+    const res = await removeItem(id)
     setRemovendo(null)
     setConfirmRemove(null)
+    if (res?.error) { setRemoveErro(res.error); return }
     router.refresh()
   }
 
@@ -173,6 +176,9 @@ export function CadernoReceitaView({ receita, itens, podeEditar }: Props) {
       </div>
 
       {/* Ingredientes */}
+      {removeErro && (
+        <p className="mb-3 text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{removeErro}</p>
+      )}
       <div className="card-surface overflow-hidden mb-4">
         <div className="flex items-center justify-between px-5 py-3 border-b border-accent-primary/10 bg-input">
           <div className="flex items-center gap-2">

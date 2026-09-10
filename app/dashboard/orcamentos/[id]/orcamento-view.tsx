@@ -17,22 +17,30 @@ export function OrcamentoView({ orcamento: o, encomendas = [] }: { orcamento: Or
   const [confirm, setConfirm] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
 
   async function mudarStatus(status: OrcamentoStatus) {
     setBusy(true)
-    await atualizarStatusOrcamento(o.id, status)
+    setErro(null)
+    const res = await atualizarStatusOrcamento(o.id, status)
     setBusy(false)
+    if (res?.error) { setErro(res.error); return }
     router.refresh()
   }
 
   async function excluir() {
     setExcluindo(true)
-    await excluirOrcamento(o.id)
+    setErro(null)
+    const res = await excluirOrcamento(o.id)
+    if (res?.error) { setErro(res.error); setExcluindo(false); return }
     router.push('/dashboard/orcamentos')
   }
 
   return (
     <>
+      {erro && (
+        <p className="mb-4 text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>
+      )}
       {/* Cabeçalho */}
       <div className="card-surface px-6 py-5 mb-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">

@@ -31,6 +31,7 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
   const router = useRouter()
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
 
   // Sem acompanhamento: vai direto de pendente para entregue.
   const proximo = e.rastrear_status
@@ -64,18 +65,25 @@ export function EncomendaView({ encomenda: e }: { encomenda: EncomendaDetalhe })
 
   async function mudarStatus(status: EncomendaStatus) {
     setBusy(true)
-    await atualizarStatusEncomenda(e.id, status)
+    setErro(null)
+    const res = await atualizarStatusEncomenda(e.id, status)
     setBusy(false)
+    if (res?.error) { setErro(res.error); return }
     router.refresh()
   }
   async function excluir() {
     setBusy(true)
-    await excluirEncomenda(e.id)
+    setErro(null)
+    const res = await excluirEncomenda(e.id)
+    if (res?.error) { setErro(res.error); setBusy(false); return }
     router.push('/dashboard/encomendas')
   }
 
   return (
     <>
+      {erro && (
+        <p className="mb-4 text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>
+      )}
       <div className="card-surface px-6 py-5 mb-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

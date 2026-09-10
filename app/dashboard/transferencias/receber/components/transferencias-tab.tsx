@@ -44,6 +44,7 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
   const [drawerTransferencia, setDrawerTransferencia] = useState<TransferenciaReceber | null>(null)
   const [drawerItens,         setDrawerItens]         = useState<ItemDrawer[]>([])
   const [loadingId,           setLoadingId]           = useState<string | null>(null)
+  const [erro,                setErro]                = useState<string | null>(null)
   const [dataFiltro, setDataFiltro] = useState<string>(hojeBR)
 
   const visiveis = dataFiltro
@@ -52,16 +53,23 @@ export function TransferenciasTab({ transferencias, totalAReceber, isCentro, use
 
   async function abrirConfirmar(t: TransferenciaReceber) {
     setLoadingId(t.id)
+    setErro(null)
     const result = await getTransferenciaItensAction(t.id)
     if (result.data) {
       setDrawerItens(result.data)
       setDrawerTransferencia(t)
+    } else {
+      // Antes o erro era engolido: o spinner parava e nada acontecia.
+      setErro(result.error ?? 'Erro ao carregar os itens da transferência')
     }
     setLoadingId(null)
   }
 
   return (
     <div className="space-y-4">
+      {erro && (
+        <p className="text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>
+      )}
       {/* Filtro de data */}
       <div className="flex items-center gap-2">
         <CalendarDays size={14} className="text-secondary shrink-0" />

@@ -273,11 +273,14 @@ export async function getEncomendasDoOrcamento(
   if (!user) return []
 
   // RLS por loja já restringe o que este usuário enxerga.
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('encomenda')
     .select('id, numero, status')
     .eq('orcamento_id', orcamentoId)
     .order('numero', { ascending: true })
+  // Erro engolido aqui escondia o aviso "já virou encomenda Nº X" — que existe
+  // justamente para evitar gerar a mesma produção duas vezes.
+  if (error) throw new Error(`Erro ao conferir encomendas do orçamento: ${error.message}`)
   return (data as { id: string; numero: number; status: string }[]) ?? []
 }
 

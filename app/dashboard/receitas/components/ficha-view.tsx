@@ -31,6 +31,7 @@ export function FichaView({ receita, custo, itens }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
+  const [itemErro, setItemErro] = useState<string | null>(null)
   const [confirmItemId, setConfirmItemId] = useState<string | null>(null)
   const [fotoUrl, setFotoUrl] = useState<string | null>(receita.foto_url)
   const [enviandoFoto, setEnviandoFoto] = useState(false)
@@ -111,9 +112,11 @@ export function FichaView({ receita, custo, itens }: Props) {
 
   async function handleRemoveItem(item: ReceitaItemComCusto) {
     setDeletingItemId(item.id)
-    await removeItem(item.id)
+    setItemErro(null)
+    const res = await removeItem(item.id)
     setDeletingItemId(null)
     setConfirmItemId(null)
+    if (res?.error) setItemErro(res.error)
   }
 
   async function onFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -327,6 +330,9 @@ export function FichaView({ receita, custo, itens }: Props) {
       )}
 
       {/* Tabela de itens */}
+      {itemErro && (
+        <p className="mb-3 text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{itemErro}</p>
+      )}
       <div className="card-surface overflow-hidden mb-4">
         {/* Header tabela */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-accent-primary/10 bg-input">

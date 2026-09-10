@@ -92,6 +92,7 @@ export function TransferenciaTable({
   const [banner, setBanner] = useState(sucesso ?? null)
   const [excluindoId,  setExcluindoId]  = useState<string | null>(null)
   const [excluirLoading, setExcluirLoading] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const [dataFiltro, setDataFiltro] = useState<string>(hojeBR)
 
   const byDate = dataFiltro
@@ -101,9 +102,11 @@ export function TransferenciaTable({
 
   async function handleExcluir(id: string) {
     setExcluirLoading(true)
-    await excluirTransferenciaAction(id)
+    setErro(null)
+    const res = await excluirTransferenciaAction(id)
     setExcluirLoading(false)
     setExcluindoId(null)
+    if (res?.error) { setErro(res.error); return }
     router.refresh()
   }
 
@@ -117,6 +120,10 @@ export function TransferenciaTable({
           <span>Transferência {banner} criada com sucesso.</span>
           <button onClick={() => setBanner(null)} className="text-success/60 hover:text-success text-lg leading-none">×</button>
         </div>
+      )}
+
+      {erro && (
+        <p className="mb-4 text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>
       )}
 
       {/* Filtro de data */}

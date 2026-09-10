@@ -77,10 +77,13 @@ export function ConfirmacaoDrawer({ transferenciaId, userId, itens, isAdmin = fa
   function handleQtdChange(id: string, qtdStr: string) {
     setConferencia((prev) => prev.map((i) => {
       if (i.id !== id) return i
-      const qtd = parseDecimalBR(qtdStr) ?? -1
+      const qtd = parseDecimalBR(qtdStr)
+      // NaN (campo vazio/lixo) NÃO pode virar RECEBIDO — mantém o status atual
+      // até a pessoa digitar um número; a validação do finalizar barra o resto.
+      if (Number.isNaN(qtd) || qtd < 0) return { ...i, quantidade_recebida: qtdStr }
       const autoStatus: ItemConferencia['status_item'] =
         qtd === 0                                      ? 'AUSENTE'   :
-        qtd !== i.quantidade_enviada && qtd > 0        ? 'DIFERENCA' :
+        qtd !== i.quantidade_enviada                   ? 'DIFERENCA' :
                                                          'RECEBIDO'
       return { ...i, quantidade_recebida: qtdStr, status_item: autoStatus }
     }))
@@ -97,6 +100,14 @@ export function ConfirmacaoDrawer({ transferenciaId, userId, itens, isAdmin = fa
     )
     if (semMotivo) {
       setError(`Informe o motivo da divergência para: ${semMotivo.produto_nome}`)
+      return
+    }
+    const qtdInvalida = conferencia.find((i) => {
+      const qtd = parseDecimalBR(i.quantidade_recebida)
+      return Number.isNaN(qtd) || qtd < 0
+    })
+    if (qtdInvalida) {
+      setError(`Quantidade recebida inválida para: ${qtdInvalida.produto_nome}`)
       return
     }
 
