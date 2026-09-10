@@ -56,16 +56,28 @@ export type ConversaDetalhe = {
 }
 
 // ── Listar conversas (unidade atual, filtro por canal) ────────────────────────
+// Loja de uma conversa/anotação — para escopar temAcesso por unidade. Sem isso,
+// quem tinha a tela de atendimento em UMA loja mexia nas conversas de todas as
+// lojas do vínculo (a checagem passava pela loja A e o RLS liberava A e B).
+async function unidadeDaConversa(conversaId: string): Promise<string | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('atendimento_conversa')
+    .select('unidade_id')
+    .eq('id', conversaId)
+    .maybeSingle()
+  return (data as { unidade_id: string | null } | null)?.unidade_id ?? null
+}
+
 export async function listarConversas(
   canal?: CanalAtendimento | 'todos',
 ): Promise<ActionResult<{ conversas: ConversaResumo[]; unidadeId: string | null }>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' })))
-    return { error: 'Sem permissão para ver o atendimento' }
-
   const unidadeId = await getUnidadePreferida()
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura', unidadeId })))
+    return { error: 'Sem permissão para ver o atendimento' }
 
   let q = supabase
     .from('atendimento_conversa')
@@ -127,7 +139,7 @@ export async function getConversa(conversaId: string): Promise<ActionResult<Conv
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' })))
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura', unidadeId: await unidadeDaConversa(conversaId) })))
     return { error: 'Sem permissão para ver o atendimento' }
 
   const [convRes, msgsRes, encRes] = await Promise.all([
@@ -185,7 +197,7 @@ async function setPausa(conversaId: string, pausadaAte: string | null): Promise<
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'])))
+  if (!(await temAcesso(user.id, ['atendimento'], { unidadeId: await unidadeDaConversa(conversaId) })))
     return { error: 'Sem permissão para assumir conversas' }
 
   const { error } = await supabase
@@ -204,8 +216,6 @@ export async function responderConversa(conversaId: string, texto: string): Prom
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   if (!texto.trim()) return { error: 'Escreva a mensagem' }
-  if (!(await temAcesso(user.id, ['atendimento'])))
-    return { error: 'Sem permissão para responder conversas' }
 
   // RLS garante que o usuário só enxerga conversas das lojas dele
   const { data: conv } = await supabase
@@ -214,6 +224,8 @@ export async function responderConversa(conversaId: string, texto: string): Prom
     .eq('id', conversaId)
     .maybeSingle()
   if (!conv) return { error: 'Conversa não encontrada' }
+  if (!(await temAcesso(user.id, ['atendimento'], { unidadeId: conv.unidade_id })))
+    return { error: 'Sem permissão para responder conversas desta loja' }
 
   const phoneNumberId = await phoneNumberIdParaEnvio(conv.unidade_id, conv.canal as CanalAtendimento)
   if (!phoneNumberId) return { error: 'Número de envio não configurado (atendimento_canal)' }
@@ -265,10 +277,9 @@ export async function listarPedidos(filtros?: {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' })))
-    return { error: 'Sem permissão para ver o atendimento' }
-
   const unidadeId = await getUnidadePreferida()
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura', unidadeId })))
+    return { error: 'Sem permissão para ver o atendimento' }
 
   let q = supabase
     .from('atendimento_encomenda')
@@ -320,9 +331,8 @@ export async function contarPedidosPendentes(): Promise<ActionResult<{ total: nu
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' }))) return { data: { total: 0 } }
-
   const unidadeId = await getUnidadePreferida()
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura', unidadeId }))) return { data: { total: 0 } }
   let q = supabase
     .from('atendimento_encomenda')
     .select('id', { count: 'exact', head: true })
@@ -536,10 +546,10 @@ export async function relatorioAtendimento(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' }))) return { error: 'Sem permissão' }
   if (!/^\d{4}-\d{2}$/.test(mes)) return { error: 'Mês inválido' }
 
   const unidadeId = await getUnidadePreferida()
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura', unidadeId }))) return { error: 'Sem permissão' }
   // Mês no fuso da padaria (Brasil, UTC-3)
   const inicio = `${mes}-01T00:00:00-03:00`
   const fimDate = new Date(inicio)
@@ -596,7 +606,6 @@ export async function getClienteDaConversa(conversaId: string): Promise<ActionRe
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura' }))) return { error: 'Sem permissão' }
 
   const { data: conv } = await supabase
     .from('atendimento_conversa')
@@ -604,6 +613,7 @@ export async function getClienteDaConversa(conversaId: string): Promise<ActionRe
     .eq('id', conversaId)
     .maybeSingle()
   if (!conv) return { error: 'Conversa não encontrada' }
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura', unidadeId: conv.unidade_id }))) return { error: 'Sem permissão' }
 
   const { data: cliente } = await supabase
     .from('cliente')
@@ -631,7 +641,6 @@ export async function salvarClienteDaConversa(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento']))) return { error: 'Sem permissão' }
   if (!dados.nome.trim()) return { error: 'Informe o nome do cliente' }
 
   const { data: conv } = await supabase
@@ -640,6 +649,7 @@ export async function salvarClienteDaConversa(
     .eq('id', conversaId)
     .maybeSingle()
   if (!conv) return { error: 'Conversa não encontrada' }
+  if (!(await temAcesso(user.id, ['atendimento'], { unidadeId: conv.unidade_id }))) return { error: 'Sem permissão' }
 
   const { data: existente } = await supabase
     .from('cliente')
@@ -678,7 +688,13 @@ export async function confirmarEncomendaAnotada(id: string): Promise<ActionResul
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento']))) return { error: 'Sem permissão' }
+  const { data: anotacao } = await supabase
+    .from('atendimento_encomenda')
+    .select('unidade_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (!anotacao) return { error: 'Anotação não encontrada' }
+  if (!(await temAcesso(user.id, ['atendimento'], { unidadeId: anotacao.unidade_id }))) return { error: 'Sem permissão' }
 
   const { error } = await supabase
     .from('atendimento_encomenda')
@@ -700,14 +716,14 @@ export async function virarPedido(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento']))) return { error: 'Sem permissão' }
 
   const { data: anotada } = await supabase
     .from('atendimento_encomenda')
-    .select('id, produto, quantidade, nome, endereco, itens, canal, status, conversa:conversa_id ( numero, nome )')
+    .select('id, unidade_id, produto, quantidade, nome, endereco, itens, canal, status, conversa:conversa_id ( numero, nome )')
     .eq('id', atendimentoEncomendaId)
     .maybeSingle()
   if (!anotada) return { error: 'Encomenda anotada não encontrada' }
+  if (!(await temAcesso(user.id, ['atendimento'], { unidadeId: anotada.unidade_id }))) return { error: 'Sem permissão' }
   if (anotada.status === 'virou_pedido') return { error: 'Esta anotação já virou pedido' }
 
   // Trava a anotação ANTES de criar a encomenda: o UPDATE só pega a linha se

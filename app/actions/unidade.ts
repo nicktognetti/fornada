@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { temAcesso } from '@/app/lib/authz'
 
 const COOKIE_NAME = 'unidade_preferida'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 ano
@@ -158,6 +159,19 @@ export async function copiarEntreUnidades(
   // Garante que ambas pertencem à mesma empresa
   const empresaUnidades = new Set(unidadesOk.map((u: { empresa_id: string }) => u.empresa_id))
   if (empresaUnidades.size > 1) return { error: 'Unidades de empresas diferentes' }
+
+  // RBAC por tela: copiar GRAVA em massa no destino — vínculo de loja não basta
+  // (usuário só-leitura passava). Exige escrita nas telas do que será copiado,
+  // na unidade DESTINO.
+  const telasNecessarias =
+    tipo === 'insumos' ? ['insumos'] :
+    tipo === 'precos'  ? ['insumos'] :   // preço de insumo é gerido na tela de insumos
+    tipo === 'fichas'  ? ['receitas'] :
+    ['insumos', 'receitas']
+  for (const tela of telasNecessarias) {
+    if (!(await temAcesso(user.id, [tela], { unidadeId: paraUnidadeId })))
+      return { error: `Sem permissão de escrita em "${tela}" na unidade de destino` }
+  }
 
   const copiados: { fichas?: number; insumos?: number; precos?: number } = {}
 

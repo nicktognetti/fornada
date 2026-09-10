@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { temAcesso } from '@/app/lib/authz'
 
 const COOKIE_EMPRESA = 'empresa_preferida'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -157,6 +158,9 @@ export async function salvarMetaManual(valor: number): Promise<{ error?: string;
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  // Meta de faturamento é escrita financeira — exige a tela do painel
+  // (antes qualquer membro da empresa alterava, inclusive só-leitura).
+  if (!(await temAcesso(user.id, ['painel']))) return { error: 'Sem permissão para alterar a meta' }
 
   const empresaId = await getEmpresaAtualId()
   if (!empresaId) return { error: 'Empresa não encontrada' }
@@ -181,6 +185,7 @@ export async function limparMetaManual(): Promise<{ error?: string; success?: bo
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!(await temAcesso(user.id, ['painel']))) return { error: 'Sem permissão para alterar a meta' }
 
   const empresaId = await getEmpresaAtualId()
   if (!empresaId) return { error: 'Empresa não encontrada' }

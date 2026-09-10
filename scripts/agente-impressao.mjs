@@ -102,9 +102,10 @@ async function imprimir(texto) {
 // ── Laço principal ───────────────────────────────────────────
 async function ciclo() {
   try {
-    const url = `${URL_BASE}/api/atendimento/comandas?token=${encodeURIComponent(TOKEN)}` +
-      (UNIDADE ? `&unidade=${encodeURIComponent(UNIDADE)}` : '')
-    const resp = await fetch(url)
+    // Token no header — na query string ele ficava em log de proxy/CDN.
+    const url = `${URL_BASE}/api/atendimento/comandas` +
+      (UNIDADE ? `?unidade=${encodeURIComponent(UNIDADE)}` : '')
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}` } })
     if (!resp.ok) {
       console.error(`[${new Date().toLocaleTimeString()}] API respondeu ${resp.status}`)
       return
@@ -125,8 +126,8 @@ async function ciclo() {
     if (impressos.length > 0) {
       await fetch(`${URL_BASE}/api/atendimento/comandas`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: TOKEN, ids: impressos }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
+        body: JSON.stringify({ ids: impressos }),
       })
     }
   } catch (e) {
