@@ -96,6 +96,7 @@ async function atualizarCustosDosInsumos(
     .select('insumo_id, preco_compra, qtd_uso_por_compra, unidade_compra, vigente_desde')
     .in('insumo_id', ids)
     .order('vigente_desde', { ascending: false })
+    .order('created_at', { ascending: false })
 
   // Vigente = o mais recente por insumo.
   const vigentePorInsumo = new Map<string, { qtd_uso_por_compra: number; unidade_compra: string }>()

@@ -25,6 +25,7 @@ export default async function InsumosPage() {
           .select('insumo_id, unidade_compra, preco_compra, qtd_uso_por_compra, vigente_desde')
           .in('insumo_id', insumoIds)
           .order('vigente_desde', { ascending: false })
+          .order('created_at', { ascending: false })
           .range(0, 9999),
         supabase.from('receita_item')
           .select('insumo_id, receita_id')

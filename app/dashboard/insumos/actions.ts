@@ -3,7 +3,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { parseDecimalBR } from '@/lib/format'
+import { parseDecimalBR, hojeBR } from '@/lib/format'
 import { temAcesso, unidadeDoRegistro } from '@/app/lib/authz'
 import type { ActionResult, InsumoPreco } from './types'
 import { getEmpresaId, getUnidadeEscrita } from '@/app/lib/escopo'
@@ -87,7 +87,7 @@ export async function createInsumo(
     unidade_compra: precoR.data.unidade_compra,
     preco_compra: parseNum(precoR.data.preco_compra),
     qtd_uso_por_compra: parseNum(precoR.data.qtd_uso_por_compra),
-    vigente_desde: new Date().toISOString().split('T')[0],
+    vigente_desde: hojeBR(),
   })
 
   if (e2) return { error: 'Insumo criado, mas erro no preço: ' + e2.message }
@@ -162,7 +162,7 @@ export async function addPreco(
     unidade_compra: result.data.unidade_compra,
     preco_compra: parseNum(result.data.preco_compra),
     qtd_uso_por_compra: parseNum(result.data.qtd_uso_por_compra),
-    vigente_desde: new Date().toISOString().split('T')[0],
+    vigente_desde: hojeBR(),
   })
 
   if (error) return { error: 'Erro ao registrar preço: ' + error.message }
@@ -203,7 +203,7 @@ export async function addPrecosLote(
     if (await temAcesso(user.id, ['insumos'], { unidadeId: u })) permitidas.add(u)
   }
 
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeBR()
   const rows: { insumo_id: string; unidade_compra: string; preco_compra: number; qtd_uso_por_compra: number; vigente_desde: string }[] = []
   let erros = 0
 
@@ -240,6 +240,7 @@ export async function getPrecoHistorico(insumoId: string): Promise<InsumoPreco[]
     .select('*')
     .eq('insumo_id', insumoId)
     .order('vigente_desde', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(3)
   return (data as InsumoPreco[]) ?? []
 }
