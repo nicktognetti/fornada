@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/app/lib/authz'
 import { getUnidadePreferida } from '@/app/actions/unidade'
@@ -56,17 +57,20 @@ export type ConversaDetalhe = {
 }
 
 // ── Listar conversas (unidade atual, filtro por canal) ────────────────────────
-// Loja de uma conversa/anotação — para escopar temAcesso por unidade. Sem isso,
-// quem tinha a tela de atendimento em UMA loja mexia nas conversas de todas as
+// Loja de uma conversa — para escopar temAcesso por unidade. Sem isso, quem
+// tinha a tela de atendimento em UMA loja mexia nas conversas de todas as
 // lojas do vínculo (a checagem passava pela loja A e o RLS liberava A e B).
-async function unidadeDaConversa(conversaId: string): Promise<string | null> {
-  const supabase = await createClient()
-  const { data } = await supabase
+// Via supabaseAdmin, como unidadeDoRegistro: sob RLS a conversa escondida
+// viria null, e avaliaAcesso com unidadeId null libera qualquer escopo.
+// Retorna undefined quando a conversa NÃO EXISTE — o caller nega (fail-closed).
+async function unidadeDaConversa(conversaId: string): Promise<string | null | undefined> {
+  const { data } = await supabaseAdmin
     .from('atendimento_conversa')
     .select('unidade_id')
     .eq('id', conversaId)
     .maybeSingle()
-  return (data as { unidade_id: string | null } | null)?.unidade_id ?? null
+  if (!data) return undefined
+  return (data as { unidade_id: string | null }).unidade_id
 }
 
 export async function listarConversas(
@@ -139,7 +143,9 @@ export async function getConversa(conversaId: string): Promise<ActionResult<Conv
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura', unidadeId: await unidadeDaConversa(conversaId) })))
+  const unidadeConv = await unidadeDaConversa(conversaId)
+  if (unidadeConv === undefined) return { error: 'Conversa não encontrada' }
+  if (!(await temAcesso(user.id, ['atendimento'], { nivel: 'leitura', unidadeId: unidadeConv })))
     return { error: 'Sem permissão para ver o atendimento' }
 
   const [convRes, msgsRes, encRes] = await Promise.all([
@@ -197,7 +203,9 @@ async function setPausa(conversaId: string, pausadaAte: string | null): Promise<
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  if (!(await temAcesso(user.id, ['atendimento'], { unidadeId: await unidadeDaConversa(conversaId) })))
+  const unidadeConv = await unidadeDaConversa(conversaId)
+  if (unidadeConv === undefined) return { error: 'Conversa não encontrada' }
+  if (!(await temAcesso(user.id, ['atendimento'], { unidadeId: unidadeConv })))
     return { error: 'Sem permissão para assumir conversas' }
 
   const { error } = await supabase
