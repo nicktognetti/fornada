@@ -14,6 +14,12 @@
 -- Mesmas colunas de saída; security_invoker preservado.
 -- ============================================================
 
+-- ⚠️ Drift confirmado em produção (11/09): o banco real NÃO tinha created_at
+-- em insumo_preco, apesar da migration 20260620000004 declarar a coluna.
+-- O ADD COLUMN abaixo é idempotente e resolve nos dois mundos.
+ALTER TABLE public.insumo_preco
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
 CREATE OR REPLACE VIEW public.vw_insumo_custo_atual
 WITH (security_invoker = true) AS
 SELECT DISTINCT ON (ip.insumo_id)
