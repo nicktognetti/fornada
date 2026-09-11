@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { emLotes } from '@/app/lib/in-lotes'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/app/lib/authz'
 import { hojeBR } from '@/lib/format'
@@ -167,15 +168,20 @@ export async function getInsumosParaCompra(unidadeId: string): Promise<InsumoPar
     .range(0, 4999)
   if (!insumos || insumos.length === 0) return []
 
-  const { data: precos } = await supabase
-    .from('insumo_preco')
-    .select('insumo_id, preco_compra, qtd_uso_por_compra, unidade_compra, vigente_desde')
-    .in('insumo_id', insumos.map((i: { id: string }) => i.id))
-    .order('vigente_desde', { ascending: false })
-    .range(0, 9999)
+  // Em LOTES: .in() com 1000+ ids estoura a URL e falha em silêncio —
+  // o módulo de compras perdia o preço vigente de TODOS os insumos.
+  const precos = await emLotes<{ insumo_id: string; preco_compra: number; qtd_uso_por_compra: number; unidade_compra: string }>(
+    insumos.map((i: { id: string }) => i.id), (lote) =>
+      supabase
+        .from('insumo_preco')
+        .select('insumo_id, preco_compra, qtd_uso_por_compra, unidade_compra, vigente_desde')
+        .in('insumo_id', lote)
+        .order('vigente_desde', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(0, 9999))
 
   const vigente = new Map<string, { preco_compra: number; qtd_uso_por_compra: number; unidade_compra: string }>()
-  for (const p of (precos ?? []) as { insumo_id: string; preco_compra: number; qtd_uso_por_compra: number; unidade_compra: string }[]) {
+  for (const p of precos) {
     if (!vigente.has(p.insumo_id)) vigente.set(p.insumo_id, p)
   }
 

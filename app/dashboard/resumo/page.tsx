@@ -7,6 +7,7 @@ import { PageTitle } from '@/app/components/ui/page-title'
 import { SectionLabel } from '@/app/components/ui/section-label'
 import { createClient } from '@/lib/supabase/server'
 import { getUnidadePreferida } from '@/app/actions/unidade'
+import { emLotes } from '@/app/lib/in-lotes'
 import { listarEncomendas, type EncomendaStatus } from '@/app/actions/encomenda'
 import { formatBRL } from '@/lib/format'
 
@@ -89,19 +90,17 @@ export default async function ResumePage() {
     (produtosRes.data as ProdutoRow[] ?? []).filter((p) => p.receita_id).map((p) => p.receita_id as string)
   )]
 
-  const [custosRes, itensRes, precoProdutoRes, custosReceitaRes] = await Promise.all([
-    insumoIds.length > 0
-      ? supabase.from('vw_insumo_custo_atual').select('insumo_id, custo_uso').in('insumo_id', insumoIds)
-      : Promise.resolve({ data: [] }),
-    insumoIds.length > 0
-      ? supabase.from('receita_item').select('insumo_id, quantidade').not('insumo_id', 'is', null).in('insumo_id', insumoIds)
-      : Promise.resolve({ data: [] }),
-    produtoIds.length > 0
-      ? supabase.from('produto_preco').select('produto_id, preco_praticado').in('produto_id', produtoIds)
-      : Promise.resolve({ data: [] }),
-    receitaIds.length > 0
-      ? supabase.from('vw_custo_receita').select('id, custo_unitario, rendimento_unidade').in('id', receitaIds)
-      : Promise.resolve({ data: [] }),
+  // Em LOTES: .in() com 1000+ ids estourava a URL e falhava em silêncio
+  // (mesma causa-raiz da tela de Insumos — confirmado 11/09).
+  const [custosArr, itensArr, precoProdutoArr, custosReceitaArr] = await Promise.all([
+    emLotes<CustoUsoRow>(insumoIds, (lote) =>
+      supabase.from('vw_insumo_custo_atual').select('insumo_id, custo_uso').in('insumo_id', lote)),
+    emLotes<ItemRow>(insumoIds, (lote) =>
+      supabase.from('receita_item').select('insumo_id, quantidade').not('insumo_id', 'is', null).in('insumo_id', lote)),
+    emLotes<PrecoProdRow>(produtoIds, (lote) =>
+      supabase.from('produto_preco').select('produto_id, preco_praticado').in('produto_id', lote)),
+    emLotes<CustoRRow>(receitaIds, (lote) =>
+      supabase.from('vw_custo_receita').select('id, custo_unitario, rendimento_unidade').in('id', lote)),
   ])
 
   const insumoCount  = insumoRes.count ?? 0
@@ -115,19 +114,19 @@ export default async function ResumePage() {
   type ItemRow      = { insumo_id: string | null; quantidade: number }
 
   const comCusto = new Set(
-    (custosRes.data as CustoUsoRow[] ?? [])
+    custosArr
       .filter((c) => c.custo_uso && c.custo_uso > 0)
       .map((c) => c.insumo_id)
   )
   const insumosSemPreco = insumoIds.filter((id) => !comCusto.has(id)).length
 
   const custoReceitaMap = new Map<string, { custo_unitario: number; rendimento_unidade: string }>(
-    (custosReceitaRes.data as CustoRRow[] ?? [])
+    custosReceitaArr
       .filter((r) => r.custo_unitario != null)
       .map((r) => [r.id, { custo_unitario: r.custo_unitario as number, rendimento_unidade: r.rendimento_unidade }])
   )
   const precoProdutoMap = new Map<string, number>()
-  for (const pp of (precoProdutoRes.data as PrecoProdRow[] ?? [])) {
+  for (const pp of precoProdutoArr) {
     if (pp.preco_praticado != null && !precoProdutoMap.has(pp.produto_id))
       precoProdutoMap.set(pp.produto_id, pp.preco_praticado)
   }
@@ -145,13 +144,13 @@ export default async function ResumePage() {
   const hasAtencao = insumosSemPreco > 0 || prejuizoItems.length > 0
 
   const custoUsoMap = new Map<string, number>(
-    (custosRes.data as CustoUsoRow[] ?? []).map((c) => [c.insumo_id, c.custo_uso ?? 0])
+    custosArr.map((c) => [c.insumo_id, c.custo_uso ?? 0])
   )
   const nomeMap = new Map<string, string>(
     (nomesRes.data as NomeRow[] ?? []).map((i) => [i.id, i.nome])
   )
   const custoAcum = new Map<string, number>()
-  for (const item of (itensRes.data as ItemRow[] ?? [])) {
+  for (const item of itensArr) {
     if (!item.insumo_id) continue
     const custo = custoUsoMap.get(item.insumo_id)
     if (!custo || custo <= 0) continue

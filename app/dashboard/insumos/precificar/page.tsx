@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { getUnidadePreferida } from '@/app/actions/unidade'
+import { emLotes } from '@/app/lib/in-lotes'
 import { PrecificarLoteGrid, type InsumoParaPrecificar } from './precificar-lote-grid'
 
 export default async function PrecificarLotePage() {
@@ -14,14 +15,17 @@ export default async function PrecificarLotePage() {
   const insumos = (insumosRes.data as { id: string; nome: string; categoria: string | null; unidade_uso: string }[] ?? [])
   const ids = insumos.map((i) => i.id)
 
-  // Quais já têm custo (preço) — para marcar/filtrar
-  const custosRes = ids.length > 0
-    ? await supabase.from('vw_insumo_custo_atual').select('insumo_id, custo_uso').in('insumo_id', ids)
-    : { data: [] }
+  // Quais já têm custo (preço) — para marcar/filtrar. Em LOTES: .in() com
+  // 1000+ ids estourava a URL e falhava em silêncio — insumo COM preço
+  // aparecia como "sem preço" e induzia reprecificação (preço duplicado).
+  const custos = ids.length > 0
+    ? await emLotes<{ insumo_id: string; custo_uso: number | null }>(ids, (lote) =>
+        supabase.from('vw_insumo_custo_atual').select('insumo_id, custo_uso').in('insumo_id', lote))
+    : []
   const comCusto = new Map<string, number>(
-    ((custosRes.data as { insumo_id: string; custo_uso: number | null }[] ?? [])
+    custos
       .filter((c) => c.custo_uso && c.custo_uso > 0)
-      .map((c) => [c.insumo_id, c.custo_uso as number]))
+      .map((c) => [c.insumo_id, c.custo_uso as number])
   )
 
   const dados: InsumoParaPrecificar[] = insumos.map((i) => ({

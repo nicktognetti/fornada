@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { emLotes } from '@/app/lib/in-lotes'
 import { temAcesso, podeVerValoresProdutos } from '@/app/lib/authz'
 import { revalidatePath } from 'next/cache'
 import { getReceitaComposicao, type ReceitaComposicao } from '@/app/dashboard/receitas/composicao'
@@ -144,11 +145,14 @@ export async function getPainelFinanceiro(
   const produtoIds = ((data as Row[]) ?? []).map((r) => r.produto_id)
   const unidadeRendMap = new Map<string, string | null>()
   if (produtoIds.length > 0) {
-    const { data: prods } = await supabase
-      .from('produto')
-      .select('id, receita_id, receita:receita_id ( rendimento_unidade )')
-      .in('id', produtoIds)
-    for (const p of (prods ?? []) as { id: string; receita_id: string | null; receita: { rendimento_unidade: string | null } | { rendimento_unidade: string | null }[] | null }[]) {
+    // Em LOTES: .in() com 1000+ ids estoura a URL e falha em silêncio.
+    const prods = await emLotes<{ id: string; receita_id: string | null; receita: { rendimento_unidade: string | null } | { rendimento_unidade: string | null }[] | null }>(
+      produtoIds, (lote) =>
+        supabase
+          .from('produto')
+          .select('id, receita_id, receita:receita_id ( rendimento_unidade )')
+          .in('id', lote))
+    for (const p of prods) {
       const rec = Array.isArray(p.receita) ? p.receita[0] : p.receita
       unidadeRendMap.set(p.id, rec?.rendimento_unidade ?? null)
     }
