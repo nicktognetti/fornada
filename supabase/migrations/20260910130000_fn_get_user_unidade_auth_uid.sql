@@ -16,7 +16,11 @@
 -- parada) é dropada para não sobrar outra SECURITY DEFINER esquecida.
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.fn_get_user_unidade(p_user_id uuid)
+-- ⚠️ Drift confirmado em produção (11/09): a função viva retorna outro tipo
+-- que o declarado na migration de junho — REPLACE falha (42P13). DROP+CREATE.
+DROP FUNCTION IF EXISTS public.fn_get_user_unidade(uuid);
+
+CREATE FUNCTION public.fn_get_user_unidade(p_user_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public AS $$
 DECLARE
@@ -37,5 +41,8 @@ END $$;
 COMMENT ON FUNCTION public.fn_get_user_unidade(uuid) IS
     'Retorna {id, nome} da unidade padrão do CHAMADOR (auth.uid()). '
     'O parâmetro p_user_id é ignorado — mantido só por compatibilidade de assinatura.';
+
+-- Recriada do zero: garante o EXECUTE de quem a usa (o app chama autenticado).
+GRANT EXECUTE ON FUNCTION public.fn_get_user_unidade(uuid) TO authenticated;
 
 DROP FUNCTION IF EXISTS fornada.fn_get_user_unidade(uuid);
