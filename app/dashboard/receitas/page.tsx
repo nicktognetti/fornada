@@ -8,7 +8,9 @@ import type { ReceitaComCusto, ReceitaTipo } from './types'
 export default async function ReceitasPage() {
   const [unidadeId, supabase] = await Promise.all([getUnidadePreferida(), createClient()])
 
-  let query = supabase.from('vw_custo_receita').select('*').order('nome').range(0, 4999)
+  // A view não filtra ativo por conta própria: sem este eq, ficha excluída
+  // (soft delete = ativo:false) continuava aparecendo na lista para sempre.
+  let query = supabase.from('vw_custo_receita').select('*').eq('ativo', true).order('nome').range(0, 4999)
   if (unidadeId) query = query.eq('unidade_id', unidadeId)
 
   // A view de custo não traz foto nem o status de revisão; buscamos à parte.
