@@ -119,32 +119,33 @@ export async function criarOrcamento(
   const itensCalc = validados.itens
   const total = totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
 
-  const { data: orc, error: e1 } = await supabase
-    .from('orcamento')
-    .insert({
-      empresa_id: empresaId, unidade_id: unidadeId,
-      cliente_nome: dados.cliente_nome.trim(),
-      cliente_contato: dados.cliente_contato?.trim() || null,
-      validade_dias: dados.validade_dias,
-      observacao: dados.observacao?.trim() || null,
-      total,
-    })
-    .select('id').single()
-  if (e1 || !orc) return { error: 'Erro ao salvar orçamento: ' + (e1?.message ?? '') }
-
-  const { error: e2 } = await supabase.from('orcamento_item').insert(
-    itensCalc.map((i) => ({
-      orcamento_id: orc.id, produto_id: i.produto_id,
-      descricao: i.descricao.trim(), quantidade: i.quantidade,
-      preco_unitario: i.preco_unitario, subtotal: i.subtotal,
-    }))
-  )
-  if (e2) return { error: 'Orçamento criado, mas erro nos itens: ' + e2.message }
+  // Uma transação só: cabeçalho + itens. Antes eram 2 inserts e a falha no
+  // segundo deixava um orçamento numerado, com total e SEM itens.
+  const { data: res, error: eRpc } = await supabase.rpc('criar_orcamento_com_itens', {
+    p_empresa_id: empresaId,
+    p_unidade_id: unidadeId,
+    p_cliente_nome: dados.cliente_nome.trim(),
+    p_cliente_contato: dados.cliente_contato?.trim() || null,
+    p_validade_dias: dados.validade_dias,
+    p_observacao: dados.observacao?.trim() || null,
+    p_total: total,
+    p_itens: itensCalc.map((i) => ({
+      produto_id: i.produto_id,
+      descricao: i.descricao.trim(),
+      quantidade: i.quantidade,
+      preco_unitario: i.preco_unitario,
+      subtotal: i.subtotal,
+    })),
+  })
+  if (eRpc) return { error: 'Erro ao salvar orçamento: ' + eRpc.message }
+  const rpc = res as { error?: string; id?: string } | null
+  if (rpc?.error) return { error: rpc.error }
+  if (!rpc?.id) return { error: 'Erro ao salvar orçamento: resposta sem id' }
 
   await upsertCliente(supabase, empresaId, unidadeId, dados.cliente_nome, dados.cliente_contato)
 
   revalidatePath('/dashboard/orcamentos')
-  return { data: { id: orc.id } }
+  return { data: { id: rpc.id } }
 }
 
 // ── Editar orçamento (atualiza campos + substitui itens) ────────────────────────
