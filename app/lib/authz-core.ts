@@ -26,6 +26,10 @@ export function isAdminGlobal(lista: PermissaoLike[]): boolean {
  * - Admin global sobrepõe tudo.
  * - Se `unidadeId` é informado, a permissão precisa ser global (unidade_id null)
  *   ou da mesma unidade. Se `unidadeId` é null/undefined, qualquer escopo serve.
+ *
+ * ⚠ Esta regra está DUPLICADA em SQL na função `criar_transferencia_com_itens`
+ *   (supabase/migrations/20260914100002). Mudou aqui → mudar lá, senão só a
+ *   transferência passa a dizer "Sem permissão".
  */
 export function avaliaAcesso(
   lista: PermissaoLike[],
