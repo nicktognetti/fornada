@@ -122,54 +122,43 @@ export async function criarEncomenda(
     ? totalPedido(itensCalc.map((i) => ({ quantidade: i.quantidade, precoUnitario: i.preco_unitario })))
     : 0
 
-  // A origem vem do cliente: confirma que o orçamento existe, é visível para
-  // este usuário (a RLS por loja filtra) e é da MESMA loja da encomenda —
-  // senão dava para amarrar a encomenda a um orçamento de outra loja.
-  if (dados.orcamento_id) {
-    const { data: orc } = await supabase
-      .from('orcamento').select('unidade_id').eq('id', dados.orcamento_id).maybeSingle()
-    if (!orc || orc.unidade_id !== unidadeId) return { error: 'Orçamento de origem inválido' }
-  }
-
-  const { data: enc, error: e1 } = await supabase
-    .from('encomenda')
-    .insert({
-      empresa_id: empresaId, unidade_id: unidadeId,
-      cliente_nome: dados.cliente_nome.trim(),
-      cliente_contato: dados.cliente_contato?.trim() || null,
-      data_entrega: dados.data_entrega,
-      hora_entrega: dados.hora_entrega?.trim() || null,
-      com_valor: dados.com_valor,
-      rastrear_status: dados.rastrear_status,
-      total,
-      observacao: dados.observacao?.trim() || null,
-      orcamento_id: dados.orcamento_id ?? null,
-      status: 'pendente',
-    })
-    .select('id').single()
-  if (e1 || !enc) return { error: 'Erro ao salvar encomenda: ' + (e1?.message ?? '') }
-
-  const { error: e2 } = await supabase.from('encomenda_item').insert(
-    itensCalc.map((i) => ({
-      encomenda_id: enc.id, produto_id: i.produto_id,
-      descricao: i.descricao.trim(), quantidade: i.quantidade,
-      preco_unitario: dados.com_valor ? i.preco_unitario : 0, subtotal: i.subtotal,
-      observacao: i.observacao?.trim() || null, local: i.local?.trim() || null,
-    }))
-  )
-  if (e2) return { error: 'Encomenda criada, mas erro nos itens: ' + e2.message }
-
-  // Registra o status inicial no histórico.
-  await supabase.from('encomenda_status_log').insert({
-    empresa_id: empresaId, unidade_id: unidadeId, encomenda_id: enc.id, status: 'pendente', changed_by: user.id,
+  // Uma transação só: cabeçalho + itens + status_log inicial (+ validação do
+  // orçamento de origem: existe, é visível pela RLS e é da MESMA loja). Antes
+  // eram 3 inserts separados e a falha no 2º deixava um cabeçalho órfão com
+  // total e SEM itens (comanda vazia).
+  const { data: res, error: eRpc } = await supabase.rpc('criar_encomenda_com_itens', {
+    p_empresa_id: empresaId,
+    p_unidade_id: unidadeId,
+    p_cliente_nome: dados.cliente_nome.trim(),
+    p_cliente_contato: dados.cliente_contato?.trim() || null,
+    p_data_entrega: dados.data_entrega,
+    p_hora_entrega: dados.hora_entrega?.trim() || null,
+    p_com_valor: dados.com_valor,
+    p_rastrear_status: dados.rastrear_status,
+    p_observacao: dados.observacao?.trim() || null,
+    p_total: total,
+    p_orcamento_id: dados.orcamento_id ?? null,
+    p_itens: itensCalc.map((i) => ({
+      produto_id: i.produto_id,
+      descricao: i.descricao.trim(),
+      quantidade: i.quantidade,
+      preco_unitario: i.preco_unitario,
+      subtotal: i.subtotal,
+      observacao: i.observacao?.trim() || null,
+      local: i.local?.trim() || null,
+    })),
   })
+  if (eRpc) return { error: 'Erro ao salvar encomenda: ' + eRpc.message }
+  const rpc = res as { error?: string; id?: string } | null
+  if (rpc?.error) return { error: rpc.error }
+  if (!rpc?.id) return { error: 'Erro ao salvar encomenda: resposta inesperada do banco' }
 
   await upsertCliente(supabase, empresaId, unidadeId, dados.cliente_nome, dados.cliente_contato)
 
   revalidatePath('/dashboard/encomendas')
   // A tela do orçamento mostra "já virou encomenda Nº X" — precisa recarregar.
   if (dados.orcamento_id) revalidatePath(`/dashboard/orcamentos/${dados.orcamento_id}`)
-  return { data: { id: enc.id } }
+  return { data: { id: rpc.id } }
 }
 
 // ── Listar encomendas (unidade atual; filtros) ──────────────────────────────────

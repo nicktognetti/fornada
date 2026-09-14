@@ -35,14 +35,6 @@ export async function createTransferenciaAction(data: {
     return { error: 'Informe o motivo da devolução' }
   }
 
-  const { data: codigoData, error: codigoErr } = await supabase
-    .rpc('fn_gerar_codigo_transferencia', { p_tipo: data.tipo })
-
-  if (codigoErr || !codigoData) {
-    return { error: 'Erro ao gerar código: ' + (codigoErr?.message ?? 'sem retorno') }
-  }
-  const codigo = codigoData as string
-
   // Busca preços da unidade de origem para registro financeiro (transparente ao operador)
   const prodIds = data.itens.map((i) => i.produto_id)
   const { data: precos } = await supabase
@@ -54,57 +46,32 @@ export async function createTransferenciaAction(data: {
   const precoMap = new Map<string, number>()
   for (const p of precos ?? []) precoMap.set(p.produto_id, p.preco_praticado)
 
-  const itensComPreco = data.itens.map((item) => ({
-    ...item,
-    preco_unitario: precoMap.get(item.produto_id) ?? 0,
-  }))
+  // Uma transação só: código + cabeçalho + itens. Antes eram 3 chamadas e a
+  // falha na última deixava um cabeçalho EM_TRANSITO sem itens; o re-clique
+  // criava uma segunda transferência. O código só é gerado dentro da função,
+  // depois das validações, e o valor_total é calculado lá a partir dos itens.
+  const { data: res, error: eRpc } = await supabase.rpc('criar_transferencia_com_itens', {
+    p_empresa_id: data.empresa_id,
+    p_unidade_origem_id: data.unidade_origem_id,
+    p_unidade_destino_id: data.unidade_destino_id,
+    p_tipo: data.tipo,
+    p_observacao: data.observacao?.trim() || null,
+    p_itens: data.itens.map((item) => ({
+      produto_id: item.produto_id,
+      quantidade_enviada: item.quantidade_enviada,
+      preco_unitario: precoMap.get(item.produto_id) ?? 0,
+    })),
+  })
+  if (eRpc) return { error: 'Erro ao criar transferência: ' + eRpc.message }
 
-  const valorTotal = itensComPreco.reduce(
-    (acc, item) => acc + item.quantidade_enviada * item.preco_unitario,
-    0
-  )
-
-  // Inserir transferência já com status EM_TRANSITO
-  const { data: transferencia, error: tErr } = await supabase
-    .from('transferencia')
-    .insert({
-      empresa_id: data.empresa_id,
-      unidade_origem_id: data.unidade_origem_id,
-      unidade_destino_id: data.unidade_destino_id,
-      tipo: data.tipo,
-      codigo,
-      status: 'EM_TRANSITO',
-      responsavel_origem_id: user.id,
-      observacao: data.observacao?.trim() || null,
-      valor_total: valorTotal,
-      status_financeiro: 'pendente',
-    })
-    .select('id')
-    .single()
-
-  if (tErr || !transferencia) {
-    return { error: 'Erro ao criar transferência: ' + (tErr?.message ?? '') }
-  }
-
-  // Inserir itens
-  const itens = itensComPreco.map((item) => ({
-    transferencia_id: transferencia.id,
-    produto_id: item.produto_id,
-    quantidade_enviada: item.quantidade_enviada,
-    preco_unitario: item.preco_unitario,
-    status_item: 'PENDENTE',
-  }))
-
-  const { error: iErr } = await supabase
-    .from('transferencia_item')
-    .insert(itens)
-
-  if (iErr) {
-    return { error: 'Transferência criada, mas erro nos itens: ' + iErr.message }
+  const rpc = res as { error?: string; success?: boolean; id?: string; codigo?: string } | null
+  if (rpc?.error) return { error: rpc.error }
+  if (!rpc?.success || !rpc.id || !rpc.codigo) {
+    return { error: 'Erro ao criar transferência: resposta inesperada do banco' }
   }
 
   revalidatePath('/dashboard/transferencias')
-  return { success: true, codigo, transferencia_id: transferencia.id }
+  return { success: true, codigo: rpc.codigo, transferencia_id: rpc.id }
 }
 
 type UnidadeInfo = { id: string; nome: string }
