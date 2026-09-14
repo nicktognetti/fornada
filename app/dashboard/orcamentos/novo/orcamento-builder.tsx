@@ -6,7 +6,7 @@ import { FileText, Trash2, Loader2 } from 'lucide-react'
 import { PageTitle } from '@/app/components/ui/page-title'
 import { ProdutoPicker } from '@/app/components/ui/produto-picker'
 import { parseDecimalBR, formatBRL } from '@/lib/format'
-import { precoComAjuste, subtotalItem, totalPedido } from '@/lib/pedido-calc'
+import { precoComAjuste, subtotalItem, totalPedido, itensSemPreco } from '@/lib/pedido-calc'
 import { criarOrcamento, atualizarOrcamento, type ProdutoOrcamento } from '@/app/actions/orcamento'
 import type { ClienteAutocomplete } from '@/app/actions/cliente'
 
@@ -58,6 +58,8 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
   )
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  // Aviso (não bloqueio) de item a R$ 0,00 — 1º clique avisa, 2º salva mesmo assim.
+  const [avisoSemPreco, setAvisoSemPreco] = useState<string | null>(null)
 
   function addProduto(p: ProdutoOrcamento) {
     setLinhas((prev) => {
@@ -79,7 +81,7 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
         unidade: p.unidade_venda,
       }]
     })
-    setErro(null)
+    setErro(null); setAvisoSemPreco(null)
   }
 
   function addAvulso() {
@@ -87,7 +89,7 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
       key: (keyRef.n += 1), produto_id: null, descricao: '', base: 0,
       quantidade: '1', ajustePct: '', preco: '', unidade: null,
     }])
-    setErro(null)
+    setErro(null); setAvisoSemPreco(null)
   }
 
   function upd(key: number, campo: keyof Linha, valor: string) {
@@ -101,11 +103,12 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
       }
       return next
     }))
-    setErro(null)
+    setErro(null); setAvisoSemPreco(null)
   }
 
   function remover(key: number) {
     setLinhas((prev) => prev.filter((l) => l.key !== key))
+    setAvisoSemPreco(null)
   }
 
   const total = useMemo(
@@ -116,6 +119,15 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
   async function salvar() {
     if (!cliente.trim()) { setErro('Informe o nome do cliente'); return }
     if (linhas.length === 0) { setErro('Adicione ao menos um item'); return }
+    const semPreco = itensSemPreco(linhas.map((l) => ({ descricao: l.descricao, precoUnitario: parseDecimalBR(l.preco) })))
+    if (semPreco.length > 0 && avisoSemPreco === null) {
+      setAvisoSemPreco(
+        `${semPreco.length === 1 ? 'Este item vai sair' : `Estes ${semPreco.length} itens vão sair`} a R$ 0,00 no orçamento: `
+        + semPreco.join(', ')
+        + '. Confira o preço ou clique em "Salvar mesmo assim".',
+      )
+      return
+    }
     setSaving(true); setErro(null)
     const itens = linhas.map((l) => ({
       produto_id: l.produto_id,
@@ -188,7 +200,7 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
                 {isAvulso ? (
                   <input value={l.preco} inputMode="decimal" onChange={(e) => upd(l.key, 'preco', e.target.value)} className="input-field text-sm py-1.5 px-2 text-right tabular-nums" placeholder="0,00" />
                 ) : (
-                  <span className="text-right text-sm text-primary tabular-nums px-2 py-1.5" title="Preço do catálogo — ajuste pela %">{l.preco ? `R$ ${formatBRL(parseDecimalBR(l.preco))}` : '—'}</span>
+                  <span className={`text-right text-sm tabular-nums px-2 py-1.5 ${parseDecimalBR(l.preco) > 0 ? 'text-primary' : 'text-amber-400 font-medium'}`} title={parseDecimalBR(l.preco) > 0 ? 'Preço do catálogo — ajuste pela %' : 'Produto sem preço no catálogo — vai sair a R$ 0,00'}>{parseDecimalBR(l.preco) > 0 ? `R$ ${formatBRL(parseDecimalBR(l.preco))}` : 'Sem preço'}</span>
                 )}
                 <span className="text-right text-sm font-medium text-primary tabular-nums">R$ {formatBRL(sub)}</span>
                 <button onClick={() => remover(l.key)} className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/40 hover:text-red-400 hover:bg-red-500/10 transition-all justify-self-end" aria-label="Remover item">
@@ -205,11 +217,12 @@ export function OrcamentoBuilder({ produtos, clientes, edicao }: { produtos: Pro
       )}
 
       {erro && <p className="text-sm text-danger bg-danger-tint rounded-lg px-3 py-2">{erro}</p>}
+      {avisoSemPreco && <p role="alert" className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">⚠ {avisoSemPreco}</p>}
 
       <div className="flex justify-end gap-3">
         <button onClick={() => router.push(edicao ? `/dashboard/orcamentos/${edicao.id}` : '/dashboard/orcamentos')} className="px-5 py-2.5 rounded-lg border border-subtle text-ink-soft hover:bg-input text-sm">Cancelar</button>
         <button onClick={salvar} disabled={saving || linhas.length === 0} className="btn-primary px-6 disabled:opacity-50">
-          {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando…</> : (edicao ? 'Salvar alterações' : 'Salvar orçamento')}
+          {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando…</> : avisoSemPreco ? 'Salvar mesmo assim' : (edicao ? 'Salvar alterações' : 'Salvar orçamento')}
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { round2, precoComAjuste, subtotalItem, totalPedido } from './pedido-calc'
+import { round2, precoComAjuste, subtotalItem, totalPedido, itensSemPreco } from './pedido-calc'
 
 describe('round2', () => {
   it('arredonda para 2 casas', () => {
@@ -54,5 +54,19 @@ describe('totalPedido', () => {
       { quantidade: 0, precoUnitario: 10 },
       { quantidade: 3, precoUnitario: 4 },
     ])).toBe(12)
+  })
+})
+
+describe('itensSemPreco', () => {
+  it('lista só os itens que sairiam a R$ 0,00', () => {
+    expect(itensSemPreco([
+      { descricao: 'Bolo', precoUnitario: 12.5 },
+      { descricao: 'Pão Brioche', precoUnitario: 0 },
+      { descricao: '  Torta ', precoUnitario: NaN },
+      { descricao: '', precoUnitario: 0 },
+    ])).toEqual(['Pão Brioche', 'Torta', 'item sem descrição'])
+  })
+  it('vazio quando todos têm preço', () => {
+    expect(itensSemPreco([{ descricao: 'Bolo', precoUnitario: 1 }])).toEqual([])
   })
 })

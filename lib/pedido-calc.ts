@@ -23,3 +23,14 @@ export function subtotalItem(quantidade: number, precoUnitario: number): number 
 export function totalPedido(itens: { quantidade: number; precoUnitario: number }[]): number {
   return round2(itens.reduce((s, i) => s + subtotalItem(i.quantidade, i.precoUnitario), 0))
 }
+
+/**
+ * Itens que vão sair do orçamento a R$ 0,00 (preço vazio, zero ou inválido).
+ * Decisão do Nicholas (14/09): NÃO bloqueia — só avisa e pede confirmação,
+ * porque há produto legítimo ainda sem preço no catálogo (auditoria v4 §1.11).
+ */
+export function itensSemPreco(itens: { descricao: string; precoUnitario: number }[]): string[] {
+  return itens
+    .filter((i) => !Number.isFinite(i.precoUnitario) || i.precoUnitario <= 0)
+    .map((i) => i.descricao?.trim() || 'item sem descrição')
+}
