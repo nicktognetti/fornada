@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/app/lib/authz'
+import { valorPorGrande } from '@/lib/format'
 
 const COOKIE_EMPRESA = 'empresa_preferida'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -112,15 +113,25 @@ export async function getMetaFaturamento(): Promise<MetaFaturamento | null> {
   const hoje = new Date()
   const mesAno = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`
 
-  // Valor do portfólio = soma dos preços praticados filtrados por empresa_id no SQL
+  // Valor do portfólio = soma dos preços praticados filtrados por empresa_id no SQL.
+  // preco_praticado é por unidade-BASE (grama/ml); converter para kg/L/un com a
+  // unidade de rendimento da receita, igual ao Painel — senão o card mostra
+  // "R$ 0,02" enquanto o KPI de cima mostra "R$ 24,50" (visto em produção 14/09).
   const { data: precos } = await supabase
     .from('produto_preco')
-    .select('preco_praticado, produto!inner(empresa_id)')
+    .select('preco_praticado, produto!inner(empresa_id, receita:receita_id(rendimento_unidade))')
     .eq('produto.empresa_id', empresaId)
     .gt('preco_praticado', 0)
 
-  const valorPortfolio = ((precos ?? []) as { preco_praticado: number }[])
-    .reduce((s, p) => s + p.preco_praticado, 0)
+  type PrecoRow = {
+    preco_praticado: number
+    produto: { receita: { rendimento_unidade: string | null } | { rendimento_unidade: string | null }[] | null } | null
+  }
+  const valorPortfolio = ((precos ?? []) as unknown as PrecoRow[])
+    .reduce((s, p) => {
+      const rec = Array.isArray(p.produto?.receita) ? p.produto?.receita[0] : p.produto?.receita
+      return s + valorPorGrande(Number(p.preco_praticado), rec?.rendimento_unidade ?? null)
+    }, 0)
 
   // Meta manual para o mês atual
   const { data: metaRow } = await supabase
